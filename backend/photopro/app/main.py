@@ -1,9 +1,13 @@
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+
+logger = logging.getLogger(__name__)
 
 from app.api.health import router as health_router
 from app.api.v1 import search, cart, checkout, payment, download, media
@@ -19,7 +23,17 @@ from app.services.face_client import face_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
+    # Startup: run DB migrations automatically
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        logger.error("Alembic migration failed:\n%s", result.stderr)
+    else:
+        logger.info("Alembic migration OK: %s", result.stdout.strip() or "(already up to date)")
     yield
     # Shutdown
     await face_client.aclose()
@@ -38,6 +52,16 @@ app = FastAPI(
 # ── Rate limiting ────────────────────────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Global exception handler (ensures CORS headers on all 500s) ──────────────
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+    )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 app.add_middleware(
