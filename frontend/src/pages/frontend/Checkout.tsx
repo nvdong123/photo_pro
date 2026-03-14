@@ -14,7 +14,7 @@ export default function Checkout() {
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  const { initAndFetch, addItem, cart } = useCart();
+  const { refetch, addItem, cart } = useCart();
   const { checkout } = useCheckout();
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function Checkout() {
 
   const syncToCart = async (photos: any[]) => {
     try {
-      await initAndFetch();
+      await refetch();
       for (const p of photos) {
         if (p.media_id) await addItem(p.media_id);
       }
@@ -65,7 +65,7 @@ export default function Checkout() {
     if (!validateForm()) return;
     setProcessingPayment(true);
     try {
-      const bundleId = cart?.suggested_pack?.bundle_id ?? undefined;
+      const bundleId = cart?.suggested_pack?.lines?.[0]?.bundle_id ?? undefined;
       await checkout({
         customer_phone: formData.phone,
         customer_email: formData.email || undefined,

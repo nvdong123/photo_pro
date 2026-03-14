@@ -21,6 +21,12 @@ interface StaffMember {
 const ROLE_REMAP: Record<string, StaffRole> = {
   SYSTEM: 'admin-system', SALES: 'admin-sales', MANAGER: 'manager', STAFF: 'staff',
 };
+const ROLE_MAP: Record<StaffRole, { color: string; label: string }> = {
+  'admin-system': { color: 'red', label: 'Admin System' },
+  'admin-sales': { color: 'blue', label: 'Admin Sales' },
+  'manager': { color: 'green', label: 'Manager' },
+  'staff': { color: 'default', label: 'Nhân viên' },
+};
 const ROLE_TO_BACKEND: Record<string, string> = {
   'admin-system': 'SYSTEM', 'admin-sales': 'SALES', 'manager': 'MANAGER', 'staff': 'STAFF',
 };

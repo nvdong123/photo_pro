@@ -17,7 +17,7 @@ const TEXT_MUTED = '#8b91a0';
 function fmt(v:number){return(v/1000000).toFixed(1)+'M';}
 
 export default function Revenue() {
-  const [period, setPeriod] = useState<'day'|'week'|'month'|'quarter'|'year'>('month');
+  const [period, setPeriod] = useState<'today'|'week'|'month'|'quarter'|'year'>('month');
   const { data: revenue } = useRevenue({ period });
 
   const summary = revenue?.summary;
@@ -29,10 +29,10 @@ export default function Revenue() {
   const lineData = { labels, datasets:[{label:'Doanh thu',data:byDate.map(d=>d.revenue),borderColor:PRIMARY,backgroundColor:'rgba(26,107,78,0.1)',tension:0.4,fill:true}] };
   const lineOptions = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, ticks:{ callback:(v:any)=>fmt(v) } } } };
 
-  const barData = { labels: byPhotographer.slice(0,5).map(p=>p.photographer_code), datasets:[{label:'Doanh thu',data:byPhotographer.slice(0,5).map(p=>p.total_revenue),backgroundColor:PRIMARY}] };
+  const barData = { labels: byPhotographer.slice(0,5).map(p=>p.photographer_code), datasets:[{label:'Doanh thu',data:byPhotographer.slice(0,5).map(p=>p.revenue),backgroundColor:PRIMARY}] };
   const barOptions = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, ticks:{callback:(v:any)=>fmt(v)} } } };
 
-  const doughnutData = { labels: byBundle.map(b=>b.bundle_name), datasets:[{data:byBundle.map(b=>b.total_revenue),backgroundColor:[PRIMARY,WARNING,INFO,'#7c3aed','#db2777']}] };
+  const doughnutData = { labels: byBundle.map(b=>b.bundle_name), datasets:[{data:byBundle.map(b=>b.revenue),backgroundColor:[PRIMARY,WARNING,INFO,'#7c3aed','#db2777']}] };
   const doughnutOptions = { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom' as const}} };
 
   const stats = [
@@ -44,14 +44,14 @@ export default function Revenue() {
 
   const topAlbums = byPhotographer.slice(0,4).map(p=>({
     name: p.photographer_code,
-    orders: p.total_orders,
-    revenue: fmt(p.total_revenue),
+    orders: p.orders,
+    revenue: fmt(p.revenue),
   }));
   const topStaff = byPhotographer.slice(0,3).map(p=>({
     name: p.photographer_code,
     role: 'Photographer',
-    uploads: p.total_orders,
-    revenue: fmt(p.total_revenue),
+    uploads: p.orders,
+    revenue: fmt(p.revenue),
   }));
 
   const cardStyle = { borderRadius:12, border:`1px solid ${BORDER}`, boxShadow:'0 1px 2px rgba(0,0,0,0.05)' };

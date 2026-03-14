@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Input, Select, Button, Tag, DatePicker, message, Modal, Table } from 'antd';
 import { SearchOutlined, EyeOutlined, RollbackOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 import { hasRole } from '../../hooks/useAuth';
-import { useOrders } from '../../hooks/useOrders';
+import { useOrders, resendEmail } from '../../hooks/useOrders';
 
 const BORDER = '#e2e5ea';
 const SURFACE_ALT = '#f6f7f9';
@@ -41,7 +41,7 @@ export default function Orders() {
   const [refundReason, setRefundReason] = useState('');
   const [refundNote, setRefundNote] = useState('');
 
-  const { data: ordersData, loading, resendEmail } = useOrders({ status: statusFilter || undefined, search: search || undefined, page });
+  const { data: ordersData, loading } = useOrders({ status: statusFilter || undefined, search: search || undefined, page });
 
   const STATUS_BACKEND_MAP: Record<string, OrderStatus> = {
     PAID: 'completed', PENDING: 'processing', REFUNDED: 'refunded', EXPIRED: 'expired',

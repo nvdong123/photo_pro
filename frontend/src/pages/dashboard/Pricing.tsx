@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Tabs, Button, Tag, message, Input, Select, Checkbox, Modal, Table } from 'antd';
+import { Tabs, Button, Tag, message, Input, Select, Checkbox, Modal, Table, DatePicker } from 'antd';
+import dayjs from 'dayjs';
 import { PlusOutlined, EditOutlined, DeleteOutlined, StarFilled, StarOutlined, SaveOutlined, PictureOutlined } from '@ant-design/icons';
 import { hasRole } from '../../hooks/useAuth';
 import { useBundles } from '../../hooks/useBundles';
@@ -85,7 +86,6 @@ export default function Pricing() {
           name: bundleForm.name,
           photo_count: parseInt(bundleForm.quantity),
           price: parseInt(bundleForm.price),
-          is_active: true,
         });
       }
       if (bundleForm.featured) message.success('✨ Gói đã được lưu và đánh dấu là PHỔ BIẾN NHẤT!');
