@@ -23,17 +23,21 @@ from app.services.face_client import face_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: run DB migrations automatically
-    import subprocess
-    import sys
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        logger.error("Alembic migration failed:\n%s", result.stderr)
-    else:
-        logger.info("Alembic migration OK: %s", result.stdout.strip() or "(already up to date)")
+    # Startup: run DB migrations automatically via Alembic Python API
+    try:
+        import asyncio
+        from alembic.config import Config
+        from alembic import command
+
+        def _run_upgrade():
+            alembic_cfg = Config("/app/alembic.ini")
+            alembic_cfg.set_main_option("script_location", "/app/alembic")
+            command.upgrade(alembic_cfg, "head")
+
+        await asyncio.get_event_loop().run_in_executor(None, _run_upgrade)
+        logger.info("Alembic migration OK")
+    except Exception as e:
+        logger.error("Alembic migration failed: %s", e, exc_info=True)
     yield
     # Shutdown
     await face_client.aclose()
