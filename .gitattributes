@@ -1,0 +1,2 @@
+# Force LF for shell scripts (must not have CRLF on Linux containers)
+*.sh text eol=lf
