@@ -47,9 +47,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    origin = request.headers.get("origin", "")
+    allowed = app_settings.cors_origin_list
+    headers = {}
+    if origin and (origin in allowed or "*" in allowed or app_settings.DEBUG):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
         status_code=500,
         content={"success": False, "error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+        headers=headers,
     )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
