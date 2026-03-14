@@ -1,9 +1,11 @@
 ﻿"""
-Startup migration script.
-Uses SQLAlchemy create_all (idempotent) to ensure all tables exist,
-then seeds the initial admin staff account if missing.
+Startup migration: create ENUM types + all tables + seed admin.
+Uses separate transactions for ENUM DDL and create_all to avoid asyncpg issues.
+Exits with non-zero on any error (blocks uvicorn from starting).
 """
 import asyncio
+import sys
+import traceback
 import uuid
 
 from sqlalchemy import text
@@ -20,88 +22,125 @@ from app.models import (  # noqa: F401
     StaffLocationAssignment, SystemSetting, Tag,
 )
 
-# PostgreSQL ENUM types used with create_type=False in models
-_ENUM_DDLS = [
-    "DO $$ BEGIN CREATE TYPE staffrole AS ENUM "
-    "('SYSTEM','SALES','MANAGER','STAFF'); "
-    "EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
-
-    "DO $$ BEGIN CREATE TYPE tagtype AS ENUM "
-    "('location','order'); "
-    "EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
-
-    "DO $$ BEGIN CREATE TYPE mediastatus AS ENUM "
-    "('NEW','DERIVATIVES_READY','INDEXED','FAILED'); "
-    "EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
-
-    "DO $$ BEGIN CREATE TYPE photostatus AS ENUM "
-    "('available','sold'); "
-    "EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
-
-    "DO $$ BEGIN CREATE TYPE orderstatus AS ENUM "
-    "('CREATED','PAID','FAILED','REFUNDED'); "
-    "EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+# ENUM types used with create_type=False in models.
+# Uses SELECT-based check + CREATE TYPE (no DO blocks — asyncpg compatibility).
+_ENUM_SPECS: list[tuple[str, list[str]]] = [
+    ("staffrole",    ["SYSTEM", "SALES", "MANAGER", "STAFF"]),
+    ("tagtype",      ["location", "order"]),
+    ("mediastatus",  ["NEW", "DERIVATIVES_READY", "INDEXED", "FAILED"]),
+    ("photostatus",  ["available", "sold"]),
+    ("orderstatus",  ["CREATED", "PAID", "FAILED", "REFUNDED"]),
 ]
 
 
+async def ensure_enums(engine) -> None:
+    """Transaction 1: create ENUM types that are missing."""
+    async with engine.begin() as conn:
+        for name, values in _ENUM_SPECS:
+            row = (await conn.execute(
+                text("SELECT 1 FROM pg_type WHERE typname = :n"),
+                {"n": name},
+            )).fetchone()
+            if row is None:
+                vals = ", ".join(f"'{v}'" for v in values)
+                await conn.execute(text(f"CREATE TYPE {name} AS ENUM ({vals})"))
+                print(f"  Created ENUM type: {name}", flush=True)
+            else:
+                print(f"  ENUM type already exists: {name}", flush=True)
+    print("ensure_enums done.", flush=True)
+
+
+async def ensure_tables(engine) -> None:
+    """Transaction 2: create all ORM tables if missing."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    print("ensure_tables done.", flush=True)
+
+
+async def stamp_alembic(engine) -> None:
+    """Transaction 3: stamp alembic_version."""
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS alembic_version "
+            "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
+        ))
+        row = (await conn.execute(
+            text("SELECT version_num FROM alembic_version")
+        )).fetchone()
+        if row is None:
+            await conn.execute(text(
+                "INSERT INTO alembic_version (version_num) "
+                "VALUES ('0002_staff_schema_v2')"
+            ))
+            print("Stamped alembic_version = 0002_staff_schema_v2", flush=True)
+        else:
+            print("alembic_version = " + str(row[0]), flush=True)
+
+
+async def seed_admin(engine) -> None:
+    """Transaction 4: insert initial admin if missing."""
+    email = settings.INITIAL_ADMIN_EMAIL
+    async with engine.begin() as conn:
+        row = (await conn.execute(
+            text("SELECT 1 FROM staff WHERE email = :e"),
+            {"e": email},
+        )).fetchone()
+        if row is None:
+            await conn.execute(
+                text(
+                    "INSERT INTO staff "
+                    "(id, email, hashed_password, full_name, role, is_active, "
+                    " created_at, updated_at) "
+                    "VALUES (:id, :email, :pw, :name, :role, true, now(), now())"
+                ),
+                {
+                    "id":    str(uuid.uuid4()),
+                    "email": email,
+                    "pw":    hash_password(settings.INITIAL_ADMIN_PASSWORD),
+                    "name":  "System Admin",
+                    "role":  StaffRole.SYSTEM.value,
+                },
+            )
+            print("Seeded admin: " + email, flush=True)
+        else:
+            print("Admin already exists: " + email, flush=True)
+
+
+async def verify_tables(engine) -> None:
+    """Verify key tables exist after create_all."""
+    async with engine.connect() as conn:
+        for tbl in ("staff", "bundle_pricing", "media", "orders", "tags"):
+            row = (await conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.tables "
+                    "WHERE table_schema = 'public' AND table_name = :t"
+                ),
+                {"t": tbl},
+            )).fetchone()
+            status = "OK" if row else "MISSING"
+            print(f"  Table {tbl}: {status}", flush=True)
+
+
 async def run() -> None:
+    print("=== migrate.py starting ===", flush=True)
+
     engine = create_async_engine(settings.DATABASE_URL)
     try:
-        async with engine.begin() as conn:
-            # 1. Create ENUM types (idempotent)
-            for ddl in _ENUM_DDLS:
-                await conn.execute(text(ddl))
-            print("Enum types ensured.", flush=True)
-
-            # 2. Create all tables
-            await conn.run_sync(Base.metadata.create_all)
-            print("create_all complete.", flush=True)
-
-            # 3. Stamp alembic_version
-            await conn.execute(text(
-                "CREATE TABLE IF NOT EXISTS alembic_version "
-                "(version_num VARCHAR(32) NOT NULL PRIMARY KEY)"
-            ))
-            result = await conn.execute(text("SELECT version_num FROM alembic_version"))
-            row = result.fetchone()
-            if not row:
-                await conn.execute(text(
-                    "INSERT INTO alembic_version (version_num) "
-                    "VALUES ('0002_staff_schema_v2')"
-                ))
-                print("Stamped alembic_version = 0002_staff_schema_v2", flush=True)
-            else:
-                print("alembic_version already at: " + str(row[0]), flush=True)
-
-            # 4. Seed initial admin account
-            admin_email = settings.INITIAL_ADMIN_EMAIL
-            exists = (await conn.execute(
-                text("SELECT 1 FROM staff WHERE email = :email"),
-                {"email": admin_email},
-            )).fetchone()
-            if not exists:
-                await conn.execute(
-                    text(
-                        "INSERT INTO staff (id, email, hashed_password, full_name, "
-                        "role, is_active, created_at, updated_at) "
-                        "VALUES (:id, :email, :hashed_password, :full_name, "
-                        ":role, true, now(), now())"
-                    ),
-                    {
-                        "id": str(uuid.uuid4()),
-                        "email": admin_email,
-                        "hashed_password": hash_password(settings.INITIAL_ADMIN_PASSWORD),
-                        "full_name": "System Admin",
-                        "role": StaffRole.SYSTEM.value,
-                    },
-                )
-                print("Seeded admin account: " + admin_email, flush=True)
-            else:
-                print("Admin account already exists: " + admin_email, flush=True)
+        await ensure_enums(engine)
+        await ensure_tables(engine)
+        await stamp_alembic(engine)
+        await seed_admin(engine)
+        print("=== Verifying tables ===", flush=True)
+        await verify_tables(engine)
+    except Exception:
+        print("=== migrate.py FAILED ===", flush=True)
+        traceback.print_exc()
+        sys.exit(1)
     finally:
         await engine.dispose()
+
+    print("=== migrate.py complete ===", flush=True)
 
 
 if __name__ == "__main__":
     asyncio.run(run())
-    print("Migration complete.", flush=True)
