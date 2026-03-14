@@ -26,7 +26,4 @@ COPY . .
 # Create assets directory for watermark
 RUN mkdir -p /app/assets
 
-# Make entrypoint executable
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
