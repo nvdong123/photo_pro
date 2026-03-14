@@ -29,12 +29,10 @@ async def reset_if_needed() -> None:
 if __name__ == "__main__":
     asyncio.run(reset_if_needed())
 
-    # Run alembic upgrade head
+    # Run alembic upgrade head via env.py (which uses create_async_engine directly)
     from alembic.config import Config
     from alembic import command
 
-    cfg = Config()
-    cfg.set_main_option("script_location", "alembic")
-    cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
+    cfg = Config("alembic.ini")
     command.upgrade(cfg, "head")
     print("Migration complete.", flush=True)
