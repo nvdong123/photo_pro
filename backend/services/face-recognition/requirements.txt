@@ -1,0 +1,30 @@
+# PhotoPro Face Recognition Service
+# AWS Rekognition-only stack – no tensorflow, no opencv, no local models
+
+# Core framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+pydantic==2.8.2
+pydantic-settings==2.5.2
+
+# AWS – Rekognition + S3 (for fetching images to index)
+boto3==1.35.0
+
+# Image processing (resize before sending to Rekognition)
+Pillow==10.4.0
+
+# Async HTTP (fetch photo_url when indexing)
+httpx==0.27.2
+
+# Redis (cache search results)
+redis==5.1.0
+
+# Multipart form (selfie upload endpoint)
+python-multipart==0.0.12
+
+# Auth token validation
+python-jose[cryptography]==3.3.0
+
+# Structured logging
+structlog==23.2.0
+

@@ -1,0 +1,43 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.4, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\DONG\Downloads\photo_pro\backend\photopro\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\DONG\Downloads\photo_pro\backend\photopro
+configfile: pytest.ini
+plugins: anyio-4.12.1, asyncio-1.3.0, cov-7.0.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 32 items
+
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[1-20000-1] PASSED [  3%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[2-50000-3] PASSED [  6%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[3-50000-3] PASSED [  9%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[4-100000-8] PASSED [ 12%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[8-100000-8] PASSED [ 15%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[9-120000-9] PASSED [ 18%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[11-150000-11] PASSED [ 21%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[16-200000-16] PASSED [ 25%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack[17-220000-17] PASSED [ 28%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack_no_active_bundles PASSED [ 31%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack_returns_pack_result PASSED [ 34%]
+backend\photopro\tests\unit\test_bundle_service.py::test_suggest_pack_lines_sum_matches_total PASSED [ 37%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDeliveryTTL::test_active_future_delivery_not_expired PASSED [ 40%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDeliveryTTL::test_active_past_delivery_is_expired PASSED [ 43%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDeliveryTTL::test_inactive_delivery_not_considered_for_cleanup PASSED [ 46%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDeliveryTTL::test_future_delivery_with_download_limit_not_expired PASSED [ 50%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDownloadLimit::test_count_below_max_not_exceeded PASSED [ 53%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDownloadLimit::test_count_equals_max_exceeded PASSED [ 56%]
+backend\photopro\tests\unit\test_cleanup_service.py::TestDownloadLimit::test_count_above_max_exceeded PASSED [ 59%]
+backend\photopro\tests\unit\test_media_parser.py::test_parse_upload_path[/photopro_upload/2026-03-06/PH001/ALB_SangSom/IMG_001.jpg-expected0] PASSED [ 62%]
+backend\photopro\tests\unit\test_media_parser.py::test_parse_upload_path[/photopro_upload/2026-03-06/PH002/IMG_042.jpg-expected1] PASSED [ 65%]
+backend\photopro\tests\unit\test_media_parser.py::test_parse_upload_path[/photopro_upload/2026-03-06/PH001/ALB_A/ALB_B/IMG_001.jpg-expected2] PASSED [ 68%]
+backend\photopro\tests\unit\test_media_parser.py::test_parse_upload_path[2026-03-06/PH003/IMG_010.jpg-expected3] PASSED [ 71%]
+backend\photopro\tests\unit\test_media_parser.py::test_parse_invalid_path_no_date PASSED [ 75%]
+backend\photopro\tests\unit\test_media_parser.py::test_parse_invalid_path_too_short PASSED [ 78%]
+backend\photopro\tests\unit\test_payment_service.py::test_create_payment_url_contains_required_fields PASSED [ 81%]
+backend\photopro\tests\unit\test_payment_service.py::test_create_payment_url_amount_multiplied_by_100 PASSED [ 84%]
+backend\photopro\tests\unit\test_payment_service.py::test_verify_webhook_valid_signature PASSED [ 87%]
+backend\photopro\tests\unit\test_payment_service.py::test_verify_webhook_wrong_signature PASSED [ 90%]
+backend\photopro\tests\unit\test_payment_service.py::test_verify_webhook_failed_payment PASSED [ 93%]
+backend\photopro\tests\unit\test_payment_service.py::test_verify_signature_does_not_mutate_input PASSED [ 96%]
+backend\photopro\tests\unit\test_payment_service.py::test_build_test_params_has_secure_hash PASSED [100%]
+
+============================= 32 passed in 1.41s ==============================

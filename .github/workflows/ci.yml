@@ -1,0 +1,176 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend Tests ───────────────────────────────────────────────────────────
+  backend-test:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/photopro
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: photopro_test
+          POSTGRES_USER: photopro
+          POSTGRES_PASSWORD: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-test.txt
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://photopro:test@localhost:5432/photopro_test
+        run: alembic upgrade head
+
+      - name: Run unit tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://photopro:test@localhost:5432/photopro_test
+          REDIS_URL: redis://localhost:6379/0
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: ap-southeast-1
+          JWT_SECRET: test-secret-key-for-ci
+          FACE_SERVICE_URL: http://mock-face-service
+          FACE_SERVICE_API_KEY: test-key
+          VNPAY_TMN_CODE: test
+          VNPAY_HASH_SECRET: test-secret
+          VNPAY_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+          VNPAY_RETURN_URL: http://localhost:5173/payment/return
+          S3_BUCKET: test-bucket
+          UPLOAD_SCAN_FOLDER: /tmp/photopro_upload
+        run: pytest tests/unit/ -v --cov=app --cov-report=xml
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://photopro:test@localhost:5432/photopro_test
+          REDIS_URL: redis://localhost:6379/0
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: ap-southeast-1
+          JWT_SECRET: test-secret-key-for-ci
+          FACE_SERVICE_URL: http://mock-face-service
+          FACE_SERVICE_API_KEY: test-key
+          VNPAY_TMN_CODE: test
+          VNPAY_HASH_SECRET: test-secret
+          VNPAY_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+          VNPAY_RETURN_URL: http://localhost:5173/payment/return
+          S3_BUCKET: test-bucket
+          UPLOAD_SCAN_FOLDER: /tmp/photopro_upload
+        run: pytest tests/integration/ -v
+
+      - name: Run E2E tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://photopro:test@localhost:5432/photopro_test
+          REDIS_URL: redis://localhost:6379/0
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: ap-southeast-1
+          JWT_SECRET: test-secret-key-for-ci
+          FACE_SERVICE_URL: http://mock-face-service
+          FACE_SERVICE_API_KEY: test-key
+          VNPAY_TMN_CODE: test
+          VNPAY_HASH_SECRET: test-secret
+          VNPAY_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+          VNPAY_RETURN_URL: http://localhost:5173/payment/return
+          S3_BUCKET: test-bucket
+          UPLOAD_SCAN_FOLDER: /tmp/photopro_upload
+        run: pytest tests/e2e/ -v
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: backend/photopro/coverage.xml
+
+  # ── Frontend Tests ──────────────────────────────────────────────────────────
+  frontend-test:
+    name: Frontend (Jest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        run: npm test -- --coverage --watchAll=false
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+
+  # ── Deploy (push to main only, after both test jobs pass) ───────────────────
+  deploy:
+    name: Deploy to Coolify
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger backend API deploy
+        run: |
+          curl -f -s -X POST "${{ secrets.COOLIFY_BACKEND_WEBHOOK }}" \
+            -H "Content-Type: application/json" || \
+          (echo "Backend webhook failed" && exit 1)
+
+      - name: Trigger worker deploy
+        run: |
+          curl -f -s -X POST "${{ secrets.COOLIFY_WORKER_WEBHOOK }}" \
+            -H "Content-Type: application/json" || \
+          (echo "Worker webhook failed" && exit 1)
+
+      - name: Trigger beat deploy
+        run: |
+          curl -f -s -X POST "${{ secrets.COOLIFY_BEAT_WEBHOOK }}" \
+            -H "Content-Type: application/json" || \
+          (echo "Beat webhook failed" && exit 1)
+
+      - name: Trigger frontend deploy
+        run: |
+          curl -f -s -X POST "${{ secrets.COOLIFY_FRONTEND_WEBHOOK }}" \
+            -H "Content-Type: application/json" || \
+          (echo "Frontend webhook failed" && exit 1)
+
+      - name: Deploy summary
+        run: |
+          echo "Deployment webhooks triggered successfully."
+          echo "  - Backend API  : ${{ secrets.COOLIFY_BACKEND_WEBHOOK != '' && 'OK' || 'SECRET MISSING' }}"
+          echo "  - Worker       : ${{ secrets.COOLIFY_WORKER_WEBHOOK  != '' && 'OK' || 'SECRET MISSING' }}"
+          echo "  - Beat         : ${{ secrets.COOLIFY_BEAT_WEBHOOK    != '' && 'OK' || 'SECRET MISSING' }}"
+          echo "  - Frontend     : ${{ secrets.COOLIFY_FRONTEND_WEBHOOK != '' && 'OK' || 'SECRET MISSING' }}"

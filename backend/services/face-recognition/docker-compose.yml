@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  face-recognition:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: photopro-face-recognition
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://photopro:password@postgres:5432/photopro
+      - REDIS_URL=redis://redis:6379/0
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - S3_BUCKET=${S3_BUCKET}
+      - CDN_URL=${CDN_URL}
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./temp:/app/temp
+    restart: unless-stopped
+    networks:
+      - photopro-network
+
+  postgres:
+    image: ankane/pgvector:v0.5.1
+    container_name: photopro-postgres
+    environment:
+      - POSTGRES_USER=photopro
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=photopro
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    restart: unless-stopped
+    networks:
+      - photopro-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: photopro-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - photopro-network
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  photopro-network:
+    driver: bridge

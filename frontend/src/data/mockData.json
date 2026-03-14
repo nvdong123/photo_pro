@@ -1,0 +1,204 @@
+{
+  "business": {
+    "name": "Wonderland Photo",
+    "subdomain": "wonderland",
+    "phone": "1900 xxxx",
+    "email": "support@wonderland.vn",
+    "address": "123 Đường ABC, Đà Nẵng",
+    "description": "Chúng tôi là đội ngũ nhiếp ảnh chuyên nghiệp chuyên chụp ảnh cho du khách tại các điểm du lịch nổi tiếng miền Trung Việt Nam",
+    "locations": ["Bà Nà Hills", "Hội An", "Đà Nẵng", "Sơn Trà"]
+  },
+  "albums": [
+    {
+      "id": 1,
+      "name": "Bà Nà Hills",
+      "date": "20/02/2026",
+      "description": "Lễ hội mùa xuân",
+      "icon": "🎡",
+      "category": "bana",
+      "photoCount": 150,
+      "status": "published",
+      "coverImage": null
+    },
+    {
+      "id": 2,
+      "name": "Hội An Ancient Town",
+      "date": "19/02/2026",
+      "description": "Phố cổ đêm",
+      "icon": "🏮",
+      "category": "hoian",
+      "photoCount": 200,
+      "status": "published",
+      "coverImage": null
+    },
+    {
+      "id": 3,
+      "name": "Cầu Rồng Đêm",
+      "date": "18/02/2026",
+      "description": "Cầu phun lửa",
+      "icon": "🐉",
+      "category": "danang",
+      "photoCount": 120,
+      "status": "published",
+      "coverImage": null
+    },
+    {
+      "id": 4,
+      "name": "Sơn Trà Linh Ứng",
+      "date": "17/02/2026",
+      "description": "Chùa Linh Ứng",
+      "icon": "🏯",
+      "category": "sontra",
+      "photoCount": 180,
+      "status": "published",
+      "coverImage": null
+    },
+    {
+      "id": 5,
+      "name": "Biển Mỹ Khê",
+      "date": "16/02/2026",
+      "description": "Hoàng hôn biển",
+      "icon": "🌊",
+      "category": "danang",
+      "photoCount": 90,
+      "status": "published",
+      "coverImage": null
+    },
+    {
+      "id": 6,
+      "name": "Bà Nà Hills Sunset",
+      "date": "15/02/2026",
+      "description": "Chiều hoàng hôn",
+      "icon": "🌅",
+      "category": "bana",
+      "photoCount": 130,
+      "status": "published",
+      "coverImage": null
+    }
+  ],
+  "photos": {
+    "bana": [
+      { "id": 1, "albumId": 1, "similarity": 98, "warning": null, "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=800&h=1000&fit=crop" },
+      { "id": 2, "albumId": 1, "similarity": 95, "warning": null, "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1513956589380-bad6acb9b9d4?w=800&h=1000&fit=crop" },
+      { "id": 3, "albumId": 1, "similarity": 92, "warning": null, "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&h=1000&fit=crop" },
+      { "id": 4, "albumId": 1, "similarity": 88, "warning": "3d", "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&h=1000&fit=crop" },
+      { "id": 5, "albumId": 1, "similarity": 85, "warning": null, "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=1000&fit=crop" },
+      { "id": 6, "albumId": 1, "similarity": 82, "warning": "5d", "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=1000&fit=crop" },
+      { "id": 7, "albumId": 1, "similarity": 78, "warning": null, "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1509099863731-ef4bff19e808?w=800&h=1000&fit=crop" },
+      { "id": 8, "albumId": 1, "similarity": 75, "warning": null, "uploadDate": "2026-02-20", "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=1000&fit=crop" }
+    ],
+    "hoian": [
+      { "id": 9, "albumId": 2, "similarity": 94, "warning": null, "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=800&h=1000&fit=crop" },
+      { "id": 10, "albumId": 2, "similarity": 91, "warning": null, "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1521119989659-a83eee488004?w=800&h=1000&fit=crop" },
+      { "id": 11, "albumId": 2, "similarity": 85, "warning": null, "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=800&h=1000&fit=crop" },
+      { "id": 12, "albumId": 2, "similarity": 80, "warning": "4d", "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=800&h=1000&fit=crop" },
+      { "id": 13, "albumId": 2, "similarity": 77, "warning": null, "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=1000&fit=crop" },
+      { "id": 14, "albumId": 2, "similarity": 73, "warning": null, "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1499952127939-9bbf5af6c51c?w=800&h=1000&fit=crop" },
+      { "id": 15, "albumId": 2, "similarity": 70, "warning": null, "uploadDate": "2026-02-19", "url": "https://images.unsplash.com/photo-1519764622345-23439dd774f7?w=800&h=1000&fit=crop" }
+    ],
+    "danang": [
+      { "id": 16, "albumId": 3, "similarity": 88, "warning": "2d", "uploadDate": "2026-02-18", "url": "https://images.unsplash.com/photo-1496345875659-11f7dd282d1d?w=800&h=1000&fit=crop" },
+      { "id": 17, "albumId": 3, "similarity": 84, "warning": null, "uploadDate": "2026-02-18", "url": "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800&h=1000&fit=crop" }
+    ],
+    "sontra": [
+      { "id": 18, "albumId": 4, "similarity": 91, "warning": null, "uploadDate": "2026-02-17", "url": "https://images.unsplash.com/photo-1511379938547-c1f69b13d835?w=800&h=1000&fit=crop" }
+    ]
+  },
+  "pricing": [
+    { "id": 1, "quantity": 1, "price": 20000, "label": "1 Ảnh" },
+    { "id": 2, "quantity": 3, "price": 50000, "label": "Gói 3 Ảnh", "discount": "17%" },
+    { "id": 3, "quantity": 8, "price": 100000, "label": "Gói 8 Ảnh", "discount": "38%" }
+  ],
+  "orders": [
+    { "id": "1", "code": "#WL2024ABC", "phone": "0901234567", "email": "customer@email.com", "album": "Bà Nà Hills 20/02", "photoCount": 3, "price": "50,000đ", "status": "completed", "date": "20/02/2026 14:30", "expiry": "27/02/2026 14:30", "lookupLink": "https://studio-abc.photopro.vn/d/abc123xyz" },
+    { "id": "2", "code": "#OR8765XYZ", "phone": "0912345678", "email": "-", "album": "Hội An 19/02", "photoCount": 8, "price": "100,000đ", "status": "completed", "date": "19/02/2026 10:15", "expiry": "26/02/2026 10:15", "lookupLink": "https://studio-abc.photopro.vn/d/xyz789abc" },
+    { "id": "3", "code": "#QW4321MNO", "phone": "0909876543", "email": "user@domain.com", "album": "Cầu Rồng 18/02", "photoCount": 1, "price": "20,000đ", "status": "processing", "date": "18/02/2026 16:45", "expiry": "25/02/2026 16:45", "lookupLink": "https://studio-abc.photopro.vn/d/mno456pqr" },
+    { "id": "4", "code": "#ER5678PQR", "phone": "0923456789", "email": "-", "album": "Mỹ Khê 17/02", "photoCount": 3, "price": "50,000đ", "status": "completed", "date": "17/02/2026 11:20", "expiry": "24/02/2026 11:20", "lookupLink": "https://studio-abc.photopro.vn/d/pqr123stu" },
+    { "id": "5", "code": "#TY9012DEF", "phone": "0934567890", "email": "test@test.com", "album": "Bà Nà Hills 16/02", "photoCount": 8, "price": "100,000đ", "status": "refunded", "date": "16/02/2026 09:00", "expiry": "-", "lookupLink": "" },
+    { "id": "6", "code": "#UI3456GHI", "phone": "0945678901", "email": "-", "album": "Hội An 15/02", "photoCount": 3, "price": "50,000đ", "status": "expired", "date": "08/02/2026 15:30", "expiry": "15/02/2026 15:30", "lookupLink": "" }
+  ],
+  "staff": [
+    { "id": 1, "name": "Nguyễn Văn A", "email": "admin@photopro.vn", "phone": "0901234567", "role": "admin-sales", "uploads": "3,200 ảnh", "joinDate": "01/01/2026", "status": "active" },
+    { "id": 2, "name": "Trần Thị B", "email": "manager@photopro.vn", "phone": "0912345678", "role": "manager", "uploads": "0 ảnh", "joinDate": "15/01/2026", "status": "active" },
+    { "id": 3, "name": "Lê Văn C", "email": "staff1@photopro.vn", "phone": "0923456789", "role": "staff", "uploads": "2,800 ảnh", "joinDate": "20/01/2026", "status": "active" },
+    { "id": 4, "name": "Phạm Thị D", "email": "staff2@photopro.vn", "phone": "0934567890", "role": "staff", "uploads": "2,450 ảnh", "joinDate": "25/01/2026", "status": "active" },
+    { "id": 5, "name": "Hoàng Văn E", "email": "staff3@photopro.vn", "phone": "0945678901", "role": "staff", "uploads": "0 ảnh", "joinDate": "10/02/2026", "status": "locked" }
+  ],
+  "statistics": {
+    "totalRevenue": 42500000,
+    "totalOrders": 850,
+    "totalPhotos": 12500,
+    "totalCustomers": 645,
+    "thisMonth": {
+      "revenue": 8500000,
+      "orders": 150,
+      "photos": 3200,
+      "revenueChange": "+18%",
+      "ordersChange": "+22%",
+      "photosChange": "+15%",
+      "customersChange": "+12%"
+    },
+    "dailyStats": [
+      { "date": "1/02", "revenue": 850000 }, { "date": "2/02", "revenue": 1200000 },
+      { "date": "3/02", "revenue": 980000 }, { "date": "4/02", "revenue": 1450000 },
+      { "date": "5/02", "revenue": 1100000 }, { "date": "6/02", "revenue": 1750000 },
+      { "date": "7/02", "revenue": 1300000 }, { "date": "8/02", "revenue": 1950000 },
+      { "date": "9/02", "revenue": 1600000 }, { "date": "10/02", "revenue": 2200000 },
+      { "date": "11/02", "revenue": 1800000 }, { "date": "12/02", "revenue": 2400000 },
+      { "date": "13/02", "revenue": 2100000 }, { "date": "14/02", "revenue": 2600000 },
+      { "date": "15/02", "revenue": 2300000 }, { "date": "16/02", "revenue": 2700000 },
+      { "date": "17/02", "revenue": 2400000 }, { "date": "18/02", "revenue": 2900000 },
+      { "date": "19/02", "revenue": 2600000 }, { "date": "20/02", "revenue": 3100000 },
+      { "date": "21/02", "revenue": 2800000 }, { "date": "22/02", "revenue": 3300000 },
+      { "date": "23/02", "revenue": 3000000 }, { "date": "24/02", "revenue": 3500000 },
+      { "date": "25/02", "revenue": 3200000 }, { "date": "26/02", "revenue": 3700000 },
+      { "date": "27/02", "revenue": 3400000 }, { "date": "28/02", "revenue": 3900000 }
+    ]
+  },
+  "settings": {
+    "businessName": "Wonderland Photo",
+    "businessPhone": "1900 xxxx",
+    "businessEmail": "support@wonderland.vn",
+    "businessAddress": "123 Đường ABC, Đà Nẵng",
+    "businessDescription": "Chúng tôi là đội ngũ nhiếp ảnh chuyên nghiệp",
+    "linkTTL": 168,
+    "photoRetention": 30,
+    "autoDeleteEnabled": true,
+    "autoDeleteMode": "unsold",
+    "maxDownloads": "5",
+    "subdomain": "studio-abc",
+    "customDomain": "",
+    "currency": "VND",
+    "paymentGateway": "momo",
+    "selectedColor": "green",
+    "customPrimary": "#1a6b4e",
+    "customAccent": "#d4870e"
+  },
+  "albumStats": [
+    { "albumId": 1, "name": "Bà Nà Hills 20/02", "address": "Bà Nà Hills, Đà Nẵng", "date": "20/02/2026", "description": "Bộ ảnh chụp tại Bà Nà Hills ngày 20/02/2026. Thời tiết đẹp, ánh sáng tốt.", "status": "published", "photos": 150, "orders": 120, "revenue": "6M", "gradient": "linear-gradient(135deg, #1a6b4e 0%, #134a36 100%)", "assignedStaff": ["staff-1", "staff-2"] },
+    { "albumId": 2, "name": "Hội An 19/02", "address": "Hội An, Quảng Nam", "date": "19/02/2026", "description": "Bộ ảnh chụp tại phố cổ Hội An ngày 19/02/2026.", "status": "published", "photos": 200, "orders": 98, "revenue": "4.9M", "gradient": "linear-gradient(135deg, #2563eb 0%, #1e40af 100%)", "assignedStaff": ["staff-1"] },
+    { "albumId": 3, "name": "Cầu Rồng 18/02", "address": "Cầu Rồng, Đà Nẵng", "date": "18/02/2026", "description": "Bộ ảnh đêm tại Cầu Rồng ngày 18/02/2026.", "status": "processing", "photos": 120, "orders": 75, "revenue": "3.75M", "gradient": "linear-gradient(135deg, #d4870e 0%, #92400e 100%)", "assignedStaff": ["staff-2"] },
+    { "albumId": 4, "name": "Mỹ Khê 17/02", "address": "Biển Mỹ Khê, Đà Nẵng", "date": "17/02/2026", "description": "Bộ ảnh hoàng hôn tại biển Mỹ Khê ngày 17/02/2026.", "status": "published", "photos": 180, "orders": 68, "revenue": "3.4M", "gradient": "linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)", "assignedStaff": ["staff-2"] },
+    { "albumId": 5, "name": "Sơn Trà 16/02", "address": "Bán đảo Sơn Trà, Đà Nẵng", "date": "16/02/2026", "description": "Bộ ảnh tại Chùa Linh Ứng và khu vực Sơn Trà.", "status": "ready", "photos": 90, "orders": 32, "revenue": "1.6M", "gradient": "linear-gradient(135deg, #0891b2 0%, #164e63 100%)", "assignedStaff": [] },
+    { "albumId": 6, "name": "Bắc Mỹ An 15/02", "address": "Biển Bắc Mỹ An, Đà Nẵng", "date": "15/02/2026", "description": "Bộ ảnh sớm mai tại bãi biển Bắc Mỹ An.", "status": "draft", "photos": 60, "orders": 0, "revenue": "0", "gradient": "linear-gradient(135deg, #be185d 0%, #831843 100%)", "assignedStaff": [] }
+  ],
+  "staffStats": [
+    { "id": "staff-1", "initials": "LC", "name": "Lê Văn C", "email": "staff1@photopro.vn", "code": "NV001", "bgColor": "#fef3e8", "textColor": "#d4870e", "photosUploaded": 2800, "photosSold": 1200, "conversionRate": 42.8, "revenueMonth": "12M", "revenueTotal": "60M", "locations": ["Bà Nà", "Hội An"], "status": "active", "lastUpload": "03/03/2026", "joinDate": "01/01/2025", "avgRevPerPhoto": "50,000đ", "pendingPhotos": 3 },
+    { "id": "staff-2", "initials": "PD", "name": "Phạm Thị D", "email": "staff2@photopro.vn", "code": "NV002", "bgColor": "#e8f5f0", "textColor": "#1a854a", "photosUploaded": 2450, "photosSold": 980, "conversionRate": 40.0, "revenueMonth": "9.8M", "revenueTotal": "49M", "locations": ["Bà Nà", "Cầu Rồng"], "status": "active", "lastUpload": "02/03/2026", "joinDate": "15/02/2025", "avgRevPerPhoto": "50,000đ", "pendingPhotos": 0 },
+    { "id": "staff-3", "initials": "NA", "name": "Nguyễn Văn A", "email": "admin@photopro.vn", "code": "NV003", "bgColor": "#eff6ff", "textColor": "#2563eb", "photosUploaded": 1800, "photosSold": 720, "conversionRate": 40.0, "revenueMonth": "7.2M", "revenueTotal": "36M", "locations": ["Hội An"], "status": "active", "lastUpload": "01/03/2026", "joinDate": "01/03/2025", "avgRevPerPhoto": "50,000đ", "pendingPhotos": 0 },
+    { "id": "staff-4", "initials": "HE", "name": "Hoàng Văn E", "email": "staff3@photopro.vn", "code": "NV004", "bgColor": "#f5f5f5", "textColor": "#888", "photosUploaded": 0, "photosSold": 0, "conversionRate": 0, "revenueMonth": "0", "revenueTotal": "0", "locations": [], "status": "inactive", "lastUpload": "—", "joinDate": "10/03/2025", "avgRevPerPhoto": "—", "pendingPhotos": 0 }
+  ],
+  "coupons": [
+    { "id": 1, "code": "WELCOME2026", "type": "percent", "value": 20, "quantity": "100", "used": 45, "expiry": "31/03/2026", "status": "active" },
+    { "id": 2, "code": "TETNGUYENDAN", "type": "fixed", "value": 10000, "quantity": "50", "used": 12, "expiry": "15/02/2026", "status": "expired" },
+    { "id": 3, "code": "FIRSTBUY", "type": "percent", "value": 15, "quantity": "Không giới hạn", "used": 238, "expiry": "-", "status": "active" }
+  ],
+  "tags": [
+    { "id": 1, "name": "couple", "type": "content" },
+    { "id": 2, "name": "family", "type": "content" },
+    { "id": 3, "name": "solo", "type": "content" },
+    { "id": 4, "name": "portrait", "type": "content" },
+    { "id": 5, "name": "landscape", "type": "content" },
+    { "id": 6, "name": "sunset", "type": "content" }
+  ]
+}

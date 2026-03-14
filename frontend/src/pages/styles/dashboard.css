@@ -1,0 +1,165 @@
+/* ==================== DASHBOARD LAYOUT ==================== */
+.dashboard-sider {
+  background: #001529 !important;
+}
+
+.dashboard-sider .logo {
+  padding: 20px !important;
+  background: rgba(255, 255, 255, 0.1);
+  margin-bottom: 16px;
+}
+
+.dashboard-header {
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0 24px !important;
+}
+
+/* ==================== DASHBOARD HOME ==================== */
+.dashboard-home .quick-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quick-stats .stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.quick-stats .stat-row:last-child {
+  border-bottom: none;
+}
+
+.quick-stats strong {
+  color: #1890ff;
+  font-size: 16px;
+}
+
+/* ==================== DASHBOARD ORDERS ==================== */
+.dashboard-orders {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== DASHBOARD SETTINGS ==================== */
+.dashboard-settings .quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-settings .quick-links button {
+  height: 40px;
+}
+
+/* ==================== DASHBOARD PROFILE ==================== */
+.dashboard-profile {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== DASHBOARD STAFF ==================== */
+.dashboard-staff {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== DASHBOARD PRICING ==================== */
+.dashboard-pricing {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== DASHBOARD REVENUE ==================== */
+.dashboard-revenue {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== ANTD CUSTOM STYLES ==================== */
+.ant-layout {
+  background-color: #f5f5f5;
+}
+
+.ant-layout-has-sider > .ant-layout-content {
+  background-color: #f5f5f5;
+}
+
+.ant-card {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+}
+
+.ant-card:hover {
+  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+}
+
+.ant-table {
+  background-color: transparent;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ant-btn-primary {
+  background-color: #1a6b4e;
+  border-color: #1a6b4e;
+}
+
+.ant-btn-primary:hover {
+  background-color: #0f4030;
+  border-color: #0f4030;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #1a6b4e !important;
+}
+
+.ant-menu-dark .ant-menu-submenu-selected {
+  color: #1a6b4e !important;
+}
+
+/* ==================== RESPONSIVE STYLES ==================== */
+@media (max-width: 991px) {
+  .dashboard-sider {
+    width: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .mobile-menu-btn {
+    display: inline-block !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: 0 16px !important;
+  }
+
+  .ant-layout-content {
+    margin: 16px 8px !important;
+  }
+
+  .quick-stats .stat-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 576px) {
+  .ant-card {
+    margin-bottom: 12px;
+  }
+
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .dashboard-header {
+    padding: 0 12px !important;
+  }
+}
