@@ -15,7 +15,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.media import Media, MediaStatus
-from app.models.tag import MediaTag, Tag
+from app.models.tag import MediaTag, Tag, TagType
 from app.services.face_client import face_client
 from app.services.storage_service import storage_service
 
@@ -217,7 +217,7 @@ async def _async_scan_upload_folder():
                 )
                 tag = tag_result.scalar_one_or_none()
                 if not tag:
-                    tag = Tag(name=album_code, tag_type="album")
+                    tag = Tag(name=album_code, tag_type=TagType.LOCATION)
                     db.add(tag)
                     await db.flush()
                 db.add(MediaTag(media_id=media.id, tag_id=tag.id))

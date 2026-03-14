@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.models.media import Media, MediaStatus, PhotoStatus
-from app.models.tag import MediaTag, Tag
+from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.schemas.media import AlbumOut, FaceSearchResponse, MediaSearchResult
 from app.services.cache_service import get_cached_presigned_url
@@ -158,7 +158,7 @@ async def face_search(
 @router.get("/albums", response_model=APIResponse[list[AlbumOut]])
 async def list_albums(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Tag).where(Tag.tag_type == "album").order_by(Tag.name)
+        select(Tag).where(Tag.tag_type == TagType.LOCATION).order_by(Tag.name)
     )
     tags = result.scalars().all()
     albums = []

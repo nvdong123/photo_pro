@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import require_sales
 from app.models.admin_user import AdminUser
-from app.models.tag import MediaTag, Tag
+from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.admin.albums import AlbumCreateRequest, AlbumPatchRequest, AssignMediaRequest
 from app.schemas.common import APIResponse
 from app.schemas.media import AlbumOut
@@ -21,7 +21,7 @@ async def list_albums(
     _: AdminUser = Depends(require_sales),
 ):
     result = await db.execute(
-        select(Tag).where(Tag.tag_type == "album").order_by(Tag.name)
+        select(Tag).where(Tag.tag_type == TagType.LOCATION).order_by(Tag.name)
     )
     tags = result.scalars().all()
     albums = []
@@ -42,7 +42,7 @@ async def create_album(
     existing = (await db.execute(select(Tag).where(Tag.name == body.name))).scalar_one_or_none()
     if existing:
         raise HTTPException(409, "Album already exists")
-    tag = Tag(name=body.name, description=body.description, tag_type="album")
+    tag = Tag(name=body.name, description=body.description, tag_type=TagType.LOCATION)
     db.add(tag)
     await db.commit()
     await db.refresh(tag)
