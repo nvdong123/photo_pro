@@ -35,17 +35,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 
-
-# Install CUDA dependencies (if needed)
-# RUN apt-get update && apt-get install -y \
-#     cuda-libraries-11-8 \
-#     && rm -rf /var/lib/apt/lists/*
-
-# Install GPU-enabled packages
-# RUN pip install --no-cache-dir \
-#     tensorflow-gpu==2.15.0 \
-#     cupy-cuda11x==12.3.0
-
-USER appuser
-
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]
