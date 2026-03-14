@@ -26,4 +26,4 @@ COPY . .
 # Create assets directory for watermark
 RUN mkdir -p /app/assets
 
-CMD ["celery", "-A", "app.workers", "worker", "-l", "info", "-c", "4"]
+CMD ["celery", "-A", "app.workers.media_worker:celery_app", "worker", "-l", "info", "-c", "4"]
