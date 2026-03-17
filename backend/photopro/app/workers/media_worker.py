@@ -299,6 +299,8 @@ def index_faces(self, media_id: str):
 
 async def _async_index_faces(task, media_id: str):
     import httpx as _httpx
+    from celery.exceptions import MaxRetriesExceededError
+
     async with AsyncSessionLocal() as db:
         media = await db.get(Media, uuid.UUID(media_id))
         if not media or media.deleted_at:
@@ -320,12 +322,37 @@ async def _async_index_faces(task, media_id: str):
             result = await face_client.index_photo(str(media.id), photo_url)
         except _httpx.HTTPStatusError as exc:
             if 400 <= exc.response.status_code < 500:
+                logger.warning("Face service rejected media %s (HTTP %s) – marking FAILED",
+                               media_id, exc.response.status_code)
                 media.process_status = MediaStatus.FAILED
                 await db.commit()
                 return
-            raise task.retry(exc=exc, countdown=120)
+            retry_exc = Exception(f"Face service HTTP {exc.response.status_code}: {exc}")
+            logger.warning("Face service HTTP error for media %s (attempt %s/%s): %s",
+                           media_id, task.request.retries + 1, task.max_retries + 1, exc)
+            try:
+                raise task.retry(exc=retry_exc, countdown=120)
+            except MaxRetriesExceededError:
+                logger.error("Face service unavailable after %s retries – marking media %s as FAILED",
+                             task.max_retries, media_id)
+                media.process_status = MediaStatus.FAILED
+                await db.commit()
+                return
         except Exception as exc:
-            raise task.retry(exc=exc, countdown=120)
+            # tenacity.RetryError (and other non-pickleable exceptions) must be
+            # converted to a plain Exception before passing to task.retry(),
+            # otherwise Celery raises UnpickleableExceptionWrapper and crashes.
+            retry_exc = Exception(f"{type(exc).__name__}: {exc}")
+            logger.warning("Unexpected error indexing media %s (attempt %s/%s): %s",
+                           media_id, task.request.retries + 1, task.max_retries + 1, exc)
+            try:
+                raise task.retry(exc=retry_exc, countdown=120)
+            except MaxRetriesExceededError:
+                logger.error("Max retries exceeded indexing media %s – marking FAILED. Last error: %s",
+                             media_id, exc)
+                media.process_status = MediaStatus.FAILED
+                await db.commit()
+                return
 
         faces_indexed = result.get("faces_indexed", 0)
         media.face_count = faces_indexed

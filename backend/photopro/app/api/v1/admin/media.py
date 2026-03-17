@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_sales, require_system
+from app.core.deps import require_sales, require_system, require_manager_up
 from app.models.admin_user import AdminUser
 from app.models.media import Media, MediaStatus
 from app.schemas.common import APIResponse
@@ -25,7 +25,7 @@ async def list_media(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = Depends(require_sales),
+    _: AdminUser = Depends(require_manager_up),
 ):
     q = select(Media).where(Media.deleted_at.is_(None))
     if photographer_code:
@@ -48,7 +48,7 @@ async def list_media(
 @router.get("/stats", response_model=APIResponse[dict])
 async def media_stats(
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = Depends(require_sales),
+    _: AdminUser = Depends(require_manager_up),
 ):
     from datetime import timedelta
     now = datetime.now(timezone.utc)

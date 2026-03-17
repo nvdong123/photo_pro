@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings as app_settings
 from app.core.database import get_db
-from app.core.deps import require_sales
+from app.core.deps import require_sales, require_manager_up
 from app.models.admin_user import AdminUser
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media
@@ -36,7 +36,7 @@ async def list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = Depends(require_sales),
+    _: AdminUser = Depends(require_manager_up),
 ):
     q = select(Order)
     if status:
@@ -71,7 +71,7 @@ async def list_orders(
 async def get_order(
     order_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _: AdminUser = Depends(require_sales),
+    _: AdminUser = Depends(require_manager_up),
 ):
     order = await db.get(Order, order_id)
     if not order:
