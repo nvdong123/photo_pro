@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.core.database import AsyncSessionLocal
+from app.core.database import WorkerAsyncSessionLocal as AsyncSessionLocal
 from app.models.media import Media, MediaStatus
 from app.models.tag import MediaTag, Tag, TagType
 from app.services.face_client import face_client
@@ -36,6 +36,7 @@ celery_app.conf.update(
     enable_utc=True,
     worker_prefetch_multiplier=1,
     task_acks_late=True,
+    broker_connection_retry_on_startup=True,
 )
 
 celery_app.conf.beat_schedule = {

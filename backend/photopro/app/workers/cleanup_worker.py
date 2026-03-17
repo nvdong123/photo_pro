@@ -28,7 +28,7 @@ def cleanup_expired():
 
 
 async def _async_cleanup_expired():
-    from app.core.database import AsyncSessionLocal
+    from app.core.database import WorkerAsyncSessionLocal as AsyncSessionLocal
 
     now = datetime.now(timezone.utc)
 

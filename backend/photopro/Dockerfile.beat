@@ -26,4 +26,9 @@ COPY . .
 # Create assets directory for watermark
 RUN mkdir -p /app/assets
 
+# Run as non-root user
+RUN useradd -r -u 1001 -g root celeryworker \
+    && chown -R celeryworker:root /app
+USER celeryworker
+
 CMD ["celery", "-A", "app.workers.media_worker:celery_app", "beat", "-l", "info"]
