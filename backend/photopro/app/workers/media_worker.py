@@ -21,7 +21,12 @@ from app.services.storage_service import storage_service
 
 logger = logging.getLogger(__name__)
 
-celery_app = Celery("photopro", broker=settings.REDIS_URL, backend=settings.REDIS_URL)
+celery_app = Celery(
+    "photopro",
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
+    include=["app.workers.cleanup_worker"],
+)
 
 celery_app.conf.update(
     task_serializer="json",
@@ -72,11 +77,11 @@ def parse_upload_path(path: str) -> dict:
     parts = PurePosixPath(path.replace("\\", "/")).parts
     date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-    date_idx = next((i for i, p in enumerate(parts) if date_re.match(p)), None)
+    date_idx = next((i for i, p in enumerate(parts) if date_re.match(p.strip().replace(" ", ""))), None)
     if date_idx is None or len(parts) < date_idx + 3:
         raise ValueError(f"Invalid upload path structure: {path!r}")
 
-    shoot_date = parts[date_idx]
+    shoot_date = parts[date_idx].strip().replace(" ", "")
     photographer_code = parts[date_idx + 1]
     after_photographer = parts[date_idx + 2:]
     # If more than just the filename remains, the first component is the album
@@ -167,7 +172,10 @@ async def _async_scan_upload_folder():
         # parts: (YYYY-MM-DD, photographer_code, [album_code,] filename)
         if len(parts) < 3:
             continue
-        shoot_date = parts[0]
+        shoot_date = parts[0].strip().replace(" ", "")
+        if len(shoot_date) != 10 or not shoot_date[4] == "-" or not shoot_date[7] == "-":
+            logger.warning("Skipping file with invalid shoot_date %r: %s", shoot_date, f)
+            continue
         photographer_code = parts[1]
         album_code = parts[2] if len(parts) > 3 else None
         # Deterministic S3 key based on file's path within the upload folder.
