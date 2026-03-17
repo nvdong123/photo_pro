@@ -1,5 +1,6 @@
 import { useAsync } from "./useAsync";
 import { apiClient } from "../lib/api-client";
+import { hasRole } from "./useAuth";
 
 export interface AdminOrder {
   id: string;
@@ -42,6 +43,7 @@ export function useOrders(filters: {
   search?: string;
   page?: number;
 }) {
+  const canAccess = hasRole(["admin-system", "admin-sales", "manager"]);
   const params = new URLSearchParams({
     page: String(filters.page ?? 1),
     limit: "20",
@@ -55,13 +57,16 @@ export function useOrders(filters: {
         `/api/v1/admin/orders?${params}`,
       ),
     [JSON.stringify(filters)],
+    canAccess,
   );
 }
 
 export function useOrderDetail(orderId: string) {
+  const canAccess = hasRole(["admin-system", "admin-sales", "manager"]);
   return useAsync(
     () => apiClient.get<OrderDetail>(`/api/v1/admin/orders/${orderId}`),
     [orderId],
+    canAccess,
   );
 }
 

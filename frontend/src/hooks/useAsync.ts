@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, DependencyList } from "react";
 
-export function useAsync<T>(asyncFn: () => Promise<T>, deps: DependencyList = []) {
+export function useAsync<T>(asyncFn: () => Promise<T>, deps: DependencyList = [], enabled = true) {
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const execute = useCallback(async () => {
@@ -19,8 +19,12 @@ export function useAsync<T>(asyncFn: () => Promise<T>, deps: DependencyList = []
   }, deps);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     execute();
-  }, [execute]);
+  }, [execute, enabled]);
 
   return { data, loading, error, refetch: execute };
 }

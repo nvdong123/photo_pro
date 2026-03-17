@@ -1,5 +1,6 @@
 import { useAsync } from "./useAsync";
 import { apiClient } from "../lib/api-client";
+import { hasRole } from "./useAuth";
 
 export interface MediaStats {
   total: number;
@@ -10,7 +11,8 @@ export interface MediaStats {
 }
 
 export function useMediaStats() {
-  return useAsync(() => apiClient.get<MediaStats>("/api/v1/admin/media/stats"));
+  const canAccess = hasRole(["admin-system", "admin-sales", "manager"]);
+  return useAsync(() => apiClient.get<MediaStats>("/api/v1/admin/media/stats"), [], canAccess);
 }
 
 export const reprocessMedia = (mediaId: string) =>
