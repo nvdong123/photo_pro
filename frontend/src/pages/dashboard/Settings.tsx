@@ -53,6 +53,7 @@ export default function Settings() {
   const [bankOwner, setBankOwner] = useState('');
 
   // --- Appearance state ---
+  const [selectedColor, setSelectedColor] = useState('green');
   const [customPrimary, setCustomPrimary] = useState('#1a6b4e');
   const [customAccent, setCustomAccent] = useState('#d4870e');
 
