@@ -422,9 +422,6 @@ export default function Landing() {
   );
 }
 
-import {
-  CameraOutlined,
-  SearchOutlined,
   MobileOutlined,
   ScanOutlined,
   CreditCardOutlined,
