@@ -202,6 +202,12 @@ export default function Landing() {
             icon={<BulbOutlined />}
             message={<strong>Auto-pack Thông Minh</strong>}
             description="Hệ thống tự động chọn gói tối ưu khi bạn chọn ảnh. Ví dụ: Chọn 2 ảnh → Đề xuất Gói 3 (tiết kiệm thêm 1 ảnh!)"
+            style={{ borderRadius: '12px' }}
+          />
+        </div>
+
+        {/* FAQ */}
+        <div className="card card-padded" style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '24px' }}><QuestionCircleOutlined /> Câu Hỏi Thường Gặp</h2>
           <Collapse
             bordered={false}
