@@ -10,7 +10,7 @@ from app.core.limiter import limiter
 from app.models.media import Media, MediaStatus, PhotoStatus
 from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
-from app.schemas.media import AlbumOut, FaceSearchResponse, MediaSearchResult
+from app.schemas.media import AlbumOut, FaceSearchResponse, LocationOut, MediaSearchResult
 from app.services.cache_service import get_cached_presigned_url
 from app.services.face_client import face_client
 from app.services.settings_service import get_setting_float, get_setting_int
@@ -153,6 +153,37 @@ async def face_search(
             filtered_by={"shoot_date": shoot_date, "date_from": date_from, "date_to": date_to, "album_id": album_id},
         )
     )
+
+
+@router.get("/locations", response_model=APIResponse[list[LocationOut]])
+async def list_locations(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Tag)
+        .where(Tag.tag_type == TagType.LOCATION)
+        .order_by(Tag.name)
+    )
+    tags = result.scalars().all()
+    locations = []
+    for tag in tags:
+        count_result = await db.execute(
+            select(MediaTag.media_id)
+            .join(Media, Media.id == MediaTag.media_id)
+            .where(
+                MediaTag.tag_id == tag.id,
+                Media.photo_status == PhotoStatus.AVAILABLE,
+                Media.deleted_at.is_(None),
+            )
+        )
+        available_count = len(count_result.all())
+        locations.append(LocationOut(
+            id=tag.id,
+            name=tag.name,
+            description=tag.description,
+            address=tag.address,
+            shoot_date=tag.shoot_date,
+            available_count=available_count,
+        ))
+    return APIResponse.ok(locations)
 
 
 @router.get("/albums", response_model=APIResponse[list[AlbumOut]])

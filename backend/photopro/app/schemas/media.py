@@ -43,3 +43,12 @@ class AlbumOut(BaseModel):
     name: str
     description: str | None
     media_count: int = 0
+
+
+class LocationOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    address: str | None
+    shoot_date: str | None
+    available_count: int = 0
