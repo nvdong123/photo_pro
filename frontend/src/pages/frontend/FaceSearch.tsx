@@ -374,7 +374,7 @@ export default function FaceSearch() {
   };
 
   return (
-    <div className="page-section active" style={{ paddingTop: '30px', paddingBottom: '40px' }}>
+    <div className="page-section active" style={{ paddingTop: '84px', paddingBottom: '40px' }}>
       <div className="container">
         {/* Page Header */}
         <div className="page-header">

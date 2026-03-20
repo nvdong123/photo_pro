@@ -12,6 +12,7 @@ import Success from './pages/frontend/Success';
 import FaceSearch from './pages/frontend/FaceSearch';
 import Lookup from './pages/frontend/Lookup';
 import Download from './pages/frontend/Download';
+import FrontendLayout from './pages/frontend/FrontendLayout';
 
 // Dashboard Pages
 import DashboardLayout from './pages/dashboard/DashboardLayout';
@@ -40,17 +41,19 @@ function App() {
     <ConfigProvider theme={{ token: { colorPrimary: '#1a6b4e', colorLink: '#1a6b4e' } }}>
     <Router>
       <Routes>
-        {/* Frontend Routes */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/albums" element={<Albums />} />
-        <Route path="/face-search" element={<FaceSearch />} />
-        <Route path="/lookup" element={<Lookup />} />
-        <Route path="/results" element={<Results />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/delivery" element={<Delivery />} />
-        <Route path="/success" element={<Success />} />
-        <Route path="/d/:token" element={<Download />} />
+        {/* Frontend Routes (with shared dark navbar) */}
+        <Route element={<FrontendLayout />}>
+          <Route path="/" element={<Landing />} />
+          <Route path="/albums" element={<Albums />} />
+          <Route path="/face-search" element={<FaceSearch />} />
+          <Route path="/lookup" element={<Lookup />} />
+          <Route path="/results" element={<Results />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/delivery" element={<Delivery />} />
+          <Route path="/success" element={<Success />} />
+          <Route path="/d/:token" element={<Download />} />
+        </Route>
 
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />

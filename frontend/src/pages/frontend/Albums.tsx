@@ -21,7 +21,7 @@ export default function Albums() {
   }));
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '84px 24px 24px' }}>
       {/* Page Header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '1.8rem', fontWeight: 700, marginBottom: '8px' }}><EnvironmentOutlined /> Bạn Đã Chụp Ảnh Tại Đâu?</h1>
