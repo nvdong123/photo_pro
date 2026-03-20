@@ -6,11 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 logger = logging.getLogger(__name__)
 
 from app.api.health import router as health_router
-from app.api.v1 import search, cart, checkout, payment, download, media
+from app.api.v1 import search, cart, checkout, payment, download, media, bundles as public_bundles
 from app.api.v1.admin import auth, bundles, revenue, orders, media as admin_media, albums, settings, locations, staff_stats
 from app.core.config import settings as app_settings
 from app.core.limiter import limiter
@@ -37,6 +38,9 @@ app = FastAPI(
     redoc_url=None if app_settings.is_production else "/redoc",
     openapi_url=None if app_settings.is_production else "/openapi.json",
 )
+
+# ── Trusted proxy (Docker internal network 10.0.2.0/24) ─────────────────────
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="10.0.2.0/24")
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
 app.state.limiter = limiter
@@ -72,8 +76,9 @@ app.add_middleware(
 app.include_router(health_router)
 
 # ── Storefront routes ────────────────────────────────────────────────────────
-app.include_router(search.router,   prefix="/api/v1/search",   tags=["Search"])
-app.include_router(media.router,    prefix="/api/v1/media",    tags=["Media"])
+app.include_router(search.router,          prefix="/api/v1/search",   tags=["Search"])
+app.include_router(public_bundles.router,  prefix="/api/v1/bundles",  tags=["Bundles"])
+app.include_router(media.router,           prefix="/api/v1/media",    tags=["Media"])
 app.include_router(cart.router,     prefix="/api/v1/cart",     tags=["Cart"])
 app.include_router(checkout.router, prefix="/api/v1/checkout", tags=["Checkout"])
 app.include_router(payment.router,  prefix="/api/v1/payment",  tags=["Payment"])

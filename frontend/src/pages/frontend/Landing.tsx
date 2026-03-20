@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAlbums } from '../../hooks/useAlbums';
-import { Button, Spin, Alert, Collapse, Badge, Card, Tag } from 'antd';
+import { usePublicBundles } from '../../hooks/usePublicBundles';
+import { Button, Spin, Alert, Collapse, Badge, Card, Tag, Skeleton } from 'antd';
 import {
   CameraOutlined,
   SearchOutlined,
@@ -24,6 +25,7 @@ interface Album {
 export default function Landing() {
   const navigate = useNavigate();
   const { data: apiAlbums, loading } = useAlbums();
+  const { bundles, loading: bundleLoading } = usePublicBundles();
   const albums: Album[] = (apiAlbums ?? []).slice(0, 4).map(a => ({
     id: a.id,
     name: a.name,
@@ -126,31 +128,72 @@ export default function Landing() {
             <DollarOutlined /> Bảng Giá Ảnh HD
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '24px', paddingTop: '16px' }}>
-            {/* Gói 1 */}
-            <Card style={{ border: '2px solid var(--border)', borderRadius: '16px', textAlign: 'center', transition: 'all 0.2s' }} bodyStyle={{ padding: '28px' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>Gói 1 ảnh</div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px' }}>20.000đ</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>20.000đ / ảnh</div>
-              <Button onClick={() => navigate('/face-search')} block>Chọn Gói</Button>
-            </Card>
-            {/* Gói 3 — Recommended */}
-            <Badge.Ribbon text="⭐ KHUYẾN NGHỊ" color="var(--accent)">
-              <Card style={{ border: '2px solid var(--accent)', borderRadius: '16px', textAlign: 'center', boxShadow: '0 0 0 4px var(--accent-light)', transition: 'all 0.2s' }} bodyStyle={{ padding: '28px' }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>Gói 3 ảnh</div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px' }}>50.000đ</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>16.667đ / ảnh</div>
-                <div style={{ marginBottom: '20px' }}><Tag color="success">Tiết kiệm 17%</Tag></div>
-                <Button type="primary" onClick={() => navigate('/face-search')} block style={{ display: 'block' }}>Chọn Gói</Button>
-              </Card>
-            </Badge.Ribbon>
-            {/* Gói 8 */}
-            <Card style={{ border: '2px solid var(--border)', borderRadius: '16px', textAlign: 'center', transition: 'all 0.2s' }} bodyStyle={{ padding: '28px' }}>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>Gói 8 ảnh</div>
-              <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px' }}>100.000đ</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>12.500đ / ảnh</div>
-              <div style={{ marginBottom: '20px' }}><Tag color="success">Tiết kiệm 37%</Tag></div>
-              <Button onClick={() => navigate('/face-search')} block>Chọn Gói</Button>
-            </Card>
+            {bundleLoading
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} style={{ borderRadius: '16px' }} bodyStyle={{ padding: '28px' }}>
+                    <Skeleton active paragraph={{ rows: 3 }} />
+                  </Card>
+                ))
+              : (() => {
+                  const baseUnitPrice =
+                    bundles.length > 0 ? bundles[0].price / bundles[0].photo_count : 0;
+
+                  return bundles.map((bundle, index) => {
+                    const fullPrice = bundle.photo_count * baseUnitPrice;
+                    const savingsPct =
+                      fullPrice > bundle.price
+                        ? Math.round((1 - bundle.price / fullPrice) * 100)
+                        : 0;
+                    const unitPrice = Math.round(bundle.price / bundle.photo_count);
+                    const isRecommended =
+                      bundles.length <= 1 ? true : index === 1;
+
+                    const card = (
+                      <Card
+                        style={{
+                          border: `2px solid ${isRecommended ? 'var(--accent)' : 'var(--border)'}`,
+                          borderRadius: '16px',
+                          textAlign: 'center',
+                          boxShadow: isRecommended ? '0 0 0 4px var(--accent-light)' : undefined,
+                          transition: 'all 0.2s',
+                        }}
+                        bodyStyle={{ padding: '28px' }}
+                      >
+                        <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>
+                          {bundle.name}
+                        </div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px' }}>
+                          {bundle.price.toLocaleString('vi-VN')}đ
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: savingsPct > 0 ? '8px' : '24px' }}>
+                          {unitPrice.toLocaleString('vi-VN')}đ / ảnh
+                        </div>
+                        {savingsPct > 0 && (
+                          <div style={{ marginBottom: '20px' }}>
+                            <Tag color="success">Tiết kiệm {savingsPct}%</Tag>
+                          </div>
+                        )}
+                        <Button
+                          type={isRecommended ? 'primary' : 'default'}
+                          onClick={() => navigate('/face-search')}
+                          block
+                          style={isRecommended ? { display: 'block' } : undefined}
+                        >
+                          Chọn Gói
+                        </Button>
+                      </Card>
+                    );
+
+                    return isRecommended ? (
+                      <Badge.Ribbon key={bundle.id} text="⭐ KHUYẾN NGHỊ" color="var(--accent)">
+                        {card}
+                      </Badge.Ribbon>
+                    ) : (
+                      <div key={bundle.id}>{card}</div>
+                    );
+                  });
+                })()
+            }
           </div>
           {/* Auto-pack info */}
           <Alert
@@ -159,12 +202,6 @@ export default function Landing() {
             icon={<BulbOutlined />}
             message={<strong>Auto-pack Thông Minh</strong>}
             description="Hệ thống tự động chọn gói tối ưu khi bạn chọn ảnh. Ví dụ: Chọn 2 ảnh → Đề xuất Gói 3 (tiết kiệm thêm 1 ảnh!)"
-            style={{ borderRadius: '12px' }}
-          />
-        </div>
-
-        {/* FAQ */}
-        <div className="card card-padded" style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 700, marginBottom: '24px' }}><QuestionCircleOutlined /> Câu Hỏi Thường Gặp</h2>
           <Collapse
             bordered={false}
