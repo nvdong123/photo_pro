@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Form, Input, Button, Checkbox, Divider,
+  Form, Input, Button, Checkbox,
   Typography, Alert, ConfigProvider,
 } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
@@ -9,35 +9,11 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 
 const { Title, Text, Link } = Typography;
 
-type Role = 'admin-system' | 'admin-sales' | 'manager' | 'staff';
-
-const VALID_ACCOUNTS: Record<string, { password: string; role: Role; name: string }> = {
-  'admin@photopro.vn':   { password: 'admin123',   role: 'admin-system', name: 'Admin System' },
-  'sales@photopro.vn':   { password: 'sales123',   role: 'admin-sales',  name: 'Admin Sales' },
-  'manager@photopro.vn': { password: 'manager123', role: 'manager',      name: 'Manager' },
-  'staff@photopro.vn':   { password: 'staff123',   role: 'staff',        name: 'Nguyễn Văn Staff' },
-};
-
-const DEMO_ACCOUNTS = [
-  { role: 'admin-system' as Role, label: 'Admin System', desc: 'Toàn quyền hệ thống', clr: 'green',  icon: '🛡️', username: 'admin@photopro.vn',   password: 'admin123'   },
-  { role: 'admin-sales'  as Role, label: 'Admin Sales',  desc: 'Quản lý bán hàng',    clr: 'blue',   icon: '💼', username: 'sales@photopro.vn',   password: 'sales123'   },
-  { role: 'manager'      as Role, label: 'Manager',      desc: 'Quản lý vận hành',    clr: 'orange', icon: '👥', username: 'manager@photopro.vn', password: 'manager123' },
-  { role: 'staff'        as Role, label: 'Nhân viên',    desc: 'Chụp & upload ảnh',   clr: 'purple', icon: '📷', username: 'staff@photopro.vn',   password: 'staff123'   },
-];
-
-const CLR_MAP: Record<string, { bg: string; color: string }> = {
-  green:  { bg: '#e8f5f0', color: '#1a6b4e' },
-  blue:   { bg: '#eff6ff', color: '#2563eb' },
-  orange: { bg: '#fef3e8', color: '#d4870e' },
-  purple: { bg: '#f5f3ff', color: '#7c3aed' },
-};
-
 export default function Login() {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState('');
-  const [activeDemo, setActiveDemo] = useState<string | null>(null);
   const { login } = useAdminAuth();
 
   useEffect(() => {
@@ -71,12 +47,6 @@ export default function Login() {
       setError(err instanceof Error ? err.message : 'Tên đăng nhập hoặc mật khẩu không đúng!');
     }
     setLoading(false);
-  };
-
-  const fillDemo = (a: typeof DEMO_ACCOUNTS[0]) => {
-    form.setFieldsValue({ username: a.username, password: a.password });
-    setActiveDemo(a.role);
-    setError('');
   };
 
   return (
@@ -238,44 +208,6 @@ export default function Login() {
               </Button>
             </Form.Item>
           </Form>
-
-          {/* Demo Accounts */}
-          <div style={{ marginTop: 32 }}>
-            <Divider plain style={{ fontSize: 11, color: '#8b91a0', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              Tài khoản demo
-            </Divider>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {DEMO_ACCOUNTS.map((a) => {
-                const c = CLR_MAP[a.clr];
-                const active = activeDemo === a.role;
-                return (
-                  <Button
-                    key={a.role}
-                    onClick={() => fillDemo(a)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      height: 'auto', padding: '10px 12px',
-                      background: active ? '#e8f5f0' : '#fff',
-                      borderColor: active ? '#1a6b4e' : '#e2e5ea',
-                      borderRadius: 10, textAlign: 'left',
-                    }}
-                  >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                      background: c.bg, color: c.color,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 17,
-                    }}>{a.icon}</div>
-                    <div>
-                      <strong style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: '#1a1d23', marginBottom: 1 }}>{a.label}</strong>
-                      <span style={{ display: 'block', fontSize: 11, color: '#8b91a0' }}>{a.desc}</span>
-                    </div>
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Footer */}
           <div style={{ marginTop: 32, textAlign: 'center', fontSize: 12, color: '#8b91a0' }}>

@@ -50,3 +50,13 @@ class PatchAdminUserRequest(BaseModel):
     full_name: str | None = None
     role: AdminRole | None = None
     is_active: bool | None = None
+
+
+class PatchProfileRequest(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str

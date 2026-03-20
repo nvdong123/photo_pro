@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, Button, Switch, Tag, message, Input } from 'antd';
-import { UserOutlined, LockOutlined, BellOutlined, HistoryOutlined, EditOutlined, SaveOutlined, CloseOutlined, CheckOutlined, InfoCircleOutlined, WarningOutlined, DeleteOutlined, UserAddOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, BellOutlined, HistoryOutlined, EditOutlined, SaveOutlined, CloseOutlined, CheckOutlined, WarningOutlined, DeleteOutlined, UserAddOutlined } from '@ant-design/icons';
 import { getUser, getAvatarInitials, ROLE_LABELS } from '../../hooks/useAuth';
+import { apiClient } from '../../lib/api-client';
 
 const BORDER = '#e2e5ea';
 const PRIMARY = '#1a6b4e';
@@ -51,35 +52,64 @@ const NOTIFS = [
 export default function Profile() {
   const user = getUser();
 
-  // Info form
+  // Info form — loaded from API
   const [editMode, setEditMode] = useState(false);
-  const [fullName, setFullName] = useState(user?.name || 'Admin System');
-  const [email, setEmail] = useState(user?.username || 'admin@photopro.vn');
-  const [phone, setPhone] = useState('0901234567');
-  const [address, setAddress] = useState('123 Đường ABC, Quận 1, TP.HCM');
-  // Temp values while editing
-  const [draft, setDraft] = useState({ fullName, email, phone, address });
+  const [fullName, setFullName] = useState(user?.name || '');
+  const [email, setEmail]       = useState(user?.username || '');
+  const [phone, setPhone]       = useState('');
+  const [draft, setDraft]       = useState({ fullName, phone });
+
+  // Load from GET /api/v1/admin/auth/me on mount
+  useEffect(() => {
+    apiClient.get<{ id: string; full_name: string | null; email: string; phone: string | null }>('/api/v1/admin/auth/me')
+      .then(data => {
+        setFullName(data.full_name || '');
+        setEmail(data.email);
+        setPhone(data.phone || '');
+      })
+      .catch(() => { /* silently fallback to localStorage values */ });
+  }, []);
 
   const startEdit = () => {
-    setDraft({ fullName, email, phone, address });
+    setDraft({ fullName, phone });
     setEditMode(true);
   };
   const cancelEdit = () => setEditMode(false);
-  const saveInfo = () => {
-    setFullName(draft.fullName); setEmail(draft.email); setPhone(draft.phone);
-    setAddress(draft.address);
-    setEditMode(false);
-    message.success('Thông tin đã được cập nhật!');
+  const saveInfo = async () => {
+    try {
+      await apiClient.patch('/api/v1/admin/auth/me', {
+        full_name: draft.fullName,
+        phone: draft.phone,
+      });
+      setFullName(draft.fullName);
+      setPhone(draft.phone);
+      setEditMode(false);
+      message.success('Thông tin đã được cập nhật!');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Cập nhật thất bại');
+    }
   };
 
   // Password form
-  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' });
-  const handlePwSubmit = (e: React.FormEvent) => {
+  const [pwForm, setPwForm]     = useState({ current: '', newPw: '', confirm: '' });
+  const [pwLoading, setPwLoading] = useState(false);
+  const handlePwSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pwForm.newPw !== pwForm.confirm) { message.error('Mật khẩu xác nhận không khớp!'); return; }
     if (pwForm.newPw.length < 8) { message.error('Mật khẩu phải có ít nhất 8 ký tự!'); return; }
-    message.success('Mật khẩu đã được đổi thành công!');
-    setPwForm({ current: '', newPw: '', confirm: '' });
+    setPwLoading(true);
+    try {
+      await apiClient.post('/api/v1/admin/auth/change-password', {
+        old_password: pwForm.current,
+        new_password: pwForm.newPw,
+      });
+      message.success('Mật khẩu đã được đổi thành công!');
+      setPwForm({ current: '', newPw: '', confirm: '' });
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Đổi mật khẩu thất bại');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   // Notifications
@@ -103,12 +133,14 @@ export default function Profile() {
         }
       </div>
       <div style={cardBodyStyle}>
-        <form onSubmit={e => { e.preventDefault(); saveInfo(); }}>
+        <form onSubmit={e => { e.preventDefault(); void saveInfo(); }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={labelStyle}>Họ và tên</label>
-              <Input style={editMode ? fieldStyle : fieldDisabledStyle} value={editMode ? draft.fullName : fullName}
-                onChange={e => setDraft(d => ({ ...d, fullName: e.target.value }))} disabled={!editMode} />
+              <Input style={editMode ? fieldStyle : fieldDisabledStyle}
+                value={editMode ? draft.fullName : fullName}
+                onChange={e => setDraft(d => ({ ...d, fullName: e.target.value }))}
+                disabled={!editMode} />
             </div>
             <div>
               <label style={labelStyle}>Vai trò</label>
@@ -118,19 +150,15 @@ export default function Profile() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={labelStyle}>Email</label>
-              <Input style={editMode ? fieldStyle : fieldDisabledStyle} type="email" value={editMode ? draft.email : email}
-                onChange={e => setDraft(d => ({ ...d, email: e.target.value }))} disabled={!editMode} />
+              <Input style={fieldDisabledStyle} type="email" value={email} disabled />
             </div>
             <div>
               <label style={labelStyle}>Số điện thoại</label>
-              <Input style={editMode ? fieldStyle : fieldDisabledStyle} type="tel" value={editMode ? draft.phone : phone}
-                onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))} disabled={!editMode} />
+              <Input style={editMode ? fieldStyle : fieldDisabledStyle} type="tel"
+                value={editMode ? draft.phone : phone}
+                onChange={e => setDraft(d => ({ ...d, phone: e.target.value }))}
+                disabled={!editMode} />
             </div>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Địa chỉ</label>
-            <Input style={editMode ? fieldStyle : fieldDisabledStyle} value={editMode ? draft.address : address}
-              onChange={e => setDraft(d => ({ ...d, address: e.target.value }))} disabled={!editMode} />
           </div>
           {editMode && (
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', paddingTop: 16, borderTop: `1px solid ${BORDER}` }}>
@@ -171,7 +199,7 @@ export default function Profile() {
                 value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} />
             </div>
             <div>
-              <Button type="primary" htmlType="submit" icon={<LockOutlined />}>Đổi mật khẩu</Button>
+              <Button type="primary" htmlType="submit" icon={<LockOutlined />} loading={pwLoading}>Đổi mật khẩu</Button>
             </div>
           </form>
         </div>

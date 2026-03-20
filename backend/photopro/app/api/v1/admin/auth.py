@@ -15,8 +15,10 @@ from app.schemas.admin.auth import (
     AdminLoginRequest,
     AdminLoginResponse,
     AdminUserOut,
+    ChangePasswordRequest,
     CreateAdminUserRequest,
     PatchAdminUserRequest,
+    PatchProfileRequest,
 )
 from app.schemas.common import APIResponse
 
@@ -48,6 +50,36 @@ async def admin_login(
 @router.get("/me", response_model=APIResponse[AdminUserOut])
 async def me(admin: Staff = Depends(get_current_admin)):
     return APIResponse.ok(AdminUserOut.model_validate(admin))
+
+
+@router.patch("/me", response_model=APIResponse[AdminUserOut])
+async def update_me(
+    body: PatchProfileRequest,
+    admin: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.full_name is not None:
+        admin.full_name = body.full_name
+    if body.phone is not None:
+        admin.phone = body.phone
+    await db.commit()
+    await db.refresh(admin)
+    return APIResponse.ok(AdminUserOut.model_validate(admin))
+
+
+@router.post("/change-password", response_model=APIResponse[dict])
+async def change_password(
+    body: ChangePasswordRequest,
+    admin: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(body.old_password, admin.hashed_password):
+        raise HTTPException(400, "Mật khẩu cũ không đúng")
+    if len(body.new_password) < 8:
+        raise HTTPException(422, "Mật khẩu mới phải có ít nhất 8 ký tự")
+    admin.hashed_password = hash_password(body.new_password)
+    await db.commit()
+    return APIResponse.ok({"message": "Mật khẩu đã được cập nhật"})
 
 
 @router.post("/users", response_model=APIResponse[AdminUserOut])

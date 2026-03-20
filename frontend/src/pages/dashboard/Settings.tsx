@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tabs, Button, message, Input, Select, Checkbox, Divider, Typography } from 'antd';
+// Note: Select/Checkbox/Divider/Typography used in payment/domain tabs below
 import { SaveOutlined } from '@ant-design/icons';
 import { hasRole } from '../../hooks/useAuth';
 import { useSettings } from '../../hooks/useSettings';
@@ -31,10 +32,9 @@ export default function Settings() {
 
   // --- Retention state ---
   const [photoRetention, setPhotoRetention] = useState(30);
-  const [autoDeleteEnabled, setAutoDeleteEnabled] = useState(true);
-  const [autoDeleteMode, setAutoDeleteMode] = useState('unsold');
-  const [linkTTL, setLinkTTL] = useState(168);
+  const [linkTTL, setLinkTTL] = useState(7);
   const [maxDownloads, setMaxDownloads] = useState('5');
+  const [watermarkOpacity, setWatermarkOpacity] = useState(0.5);
 
   // --- Domain state ---
   const [subdomain, setSubdomain] = useState('studio-abc');
@@ -53,50 +53,36 @@ export default function Settings() {
   const [bankOwner, setBankOwner] = useState('');
 
   // --- Appearance state ---
-  const [selectedColor, setSelectedColor] = useState('green');
   const [customPrimary, setCustomPrimary] = useState('#1a6b4e');
   const [customAccent, setCustomAccent] = useState('#d4870e');
 
   useEffect(() => {
     if (!apiSettings) return;
-    if (apiSettings.media_ttl_days) setPhotoRetention(parseInt(apiSettings.media_ttl_days));
-    if (apiSettings.auto_delete_enabled !== undefined) setAutoDeleteEnabled(apiSettings.auto_delete_enabled === 'true');
-    if (apiSettings.auto_delete_mode) setAutoDeleteMode(apiSettings.auto_delete_mode);
-    if (apiSettings.link_ttl_hours) setLinkTTL(parseInt(apiSettings.link_ttl_hours));
-    if (apiSettings.max_downloads) setMaxDownloads(apiSettings.max_downloads);
-    if (apiSettings.subdomain) setSubdomain(apiSettings.subdomain);
+    if (apiSettings.media_ttl_days)          setPhotoRetention(parseInt(apiSettings.media_ttl_days));
+    if (apiSettings.link_ttl_days)           setLinkTTL(parseInt(apiSettings.link_ttl_days));
+    if (apiSettings.max_downloads_per_link)  setMaxDownloads(apiSettings.max_downloads_per_link);
+    if (apiSettings.primary_color)           setCustomPrimary(apiSettings.primary_color);
+    if (apiSettings.accent_color)            setCustomAccent(apiSettings.accent_color);
+    if (apiSettings.watermark_opacity)       setWatermarkOpacity(parseFloat(apiSettings.watermark_opacity));
+    if (apiSettings.subdomain)               setSubdomain(apiSettings.subdomain);
     if (apiSettings.custom_domain !== undefined) setCustomDomain(apiSettings.custom_domain || '');
-    if (apiSettings.vnpay_tmn_code) setVnpayTmnCode(apiSettings.vnpay_tmn_code);
+    if (apiSettings.vnpay_tmn_code)    setVnpayTmnCode(apiSettings.vnpay_tmn_code);
     if (apiSettings.vnpay_hash_secret) setVnpayHashSecret(apiSettings.vnpay_hash_secret);
     if (apiSettings.momo_partner_code) setMomoPartnerCode(apiSettings.momo_partner_code);
-    if (apiSettings.momo_access_key) setMomoAccessKey(apiSettings.momo_access_key);
-    if (apiSettings.bank_name) setBankName(apiSettings.bank_name);
+    if (apiSettings.momo_access_key)   setMomoAccessKey(apiSettings.momo_access_key);
+    if (apiSettings.bank_name)    setBankName(apiSettings.bank_name);
     if (apiSettings.bank_account) setBankAccount(apiSettings.bank_account);
-    if (apiSettings.bank_owner) setBankOwner(apiSettings.bank_owner);
-    if (apiSettings.primary_color) setSelectedColor(apiSettings.primary_color);
-    if (apiSettings.custom_primary) setCustomPrimary(apiSettings.custom_primary);
-    if (apiSettings.custom_accent) setCustomAccent(apiSettings.custom_accent);
+    if (apiSettings.bank_owner)   setBankOwner(apiSettings.bank_owner);
   }, [apiSettings]);
 
   const saveAllSettings = async () => {
     try {
       await update('media_ttl_days', String(photoRetention));
-      await update('auto_delete_enabled', String(autoDeleteEnabled));
-      await update('auto_delete_mode', autoDeleteMode);
-      await update('link_ttl_hours', String(linkTTL));
-      await update('max_downloads', maxDownloads);
-      await update('subdomain', subdomain);
-      await update('custom_domain', customDomain);
-      if (vnpayTmnCode) await update('vnpay_tmn_code', vnpayTmnCode);
-      if (vnpayHashSecret) await update('vnpay_hash_secret', vnpayHashSecret);
-      if (momoPartnerCode) await update('momo_partner_code', momoPartnerCode);
-      if (momoAccessKey) await update('momo_access_key', momoAccessKey);
-      if (bankName) await update('bank_name', bankName);
-      if (bankAccount) await update('bank_account', bankAccount);
-      if (bankOwner) await update('bank_owner', bankOwner);
-      await update('primary_color', selectedColor);
-      await update('custom_primary', customPrimary);
-      await update('custom_accent', customAccent);
+      await update('link_ttl_days', String(linkTTL));
+      await update('max_downloads_per_link', maxDownloads);
+      await update('primary_color', customPrimary);
+      await update('accent_color', customAccent);
+      await update('watermark_opacity', String(watermarkOpacity));
       message.success('Đã lưu cài đặt thành công!');
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Lưu thất bại, vui lòng thử lại');
@@ -124,28 +110,6 @@ export default function Settings() {
               Ảnh sẽ tự động bị xóa sau <strong>{photoRetention}</strong> ngày kể từ ngày upload. (Từ 7-365 ngày)
             </div>
           </div>
-
-          <div style={formGroupStyle}>
-            <Checkbox
-              checked={autoDeleteEnabled}
-              onChange={e => setAutoDeleteEnabled(e.target.checked)}
-              disabled={!canEdit}
-              style={{ fontWeight: 600, fontSize: 14 }}
-            >Bật tự động xóa ảnh hết hạn</Checkbox>
-          </div>
-
-          {autoDeleteEnabled && (
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Chế độ xóa</label>
-              <Select style={{ width: '100%' }} value={autoDeleteMode} onChange={v => setAutoDeleteMode(v)} disabled={!canEdit}>
-                <Select.Option value="all">Xóa tất cả ảnh hết hạn</Select.Option>
-                <Select.Option value="unsold">Chỉ xóa ảnh chưa bán</Select.Option>
-              </Select>
-              <div style={hintStyle}>
-                ⚠️ Ảnh đã bán sẽ được giữ lại thêm cho đến khi link download hết hạn.
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -156,15 +120,15 @@ export default function Settings() {
         </div>
         <div style={cardBodyStyle}>
           <div style={formGroupStyle}>
-            <label style={labelStyle}>Thời gian hiệu lực link (giờ) *</label>
+            <label style={labelStyle}>Thời gian hiệu lực link (ngày) *</label>
             <Input
-              style={fieldStyle} type="number" min={24} max={720}
+              style={fieldStyle} type="number" min={1} max={365}
               value={linkTTL}
-              onChange={e => setLinkTTL(parseInt(e.target.value) || 168)}
+              onChange={e => setLinkTTL(parseInt(e.target.value) || 7)}
               disabled={!canEdit}
             />
             <div style={hintStyle}>
-              Link download sẽ hết hạn sau <strong>{linkTTL}</strong> giờ ({Math.floor(linkTTL / 24)} ngày). (Từ 24 giờ đến 720 giờ = 30 ngày)
+              Link download sẽ hết hạn sau <strong>{linkTTL}</strong> ngày. (Từ 1-365 ngày)
             </div>
           </div>
 

@@ -31,9 +31,14 @@ function applyColorToDOM(cssVar: string, hex: string) {
 }
 
 export function useSettings() {
-  const { data: settings, refetch, loading, error } = useAsync(() =>
-    apiClient.get<Record<string, string>>("/api/v1/admin/settings"),
+  const { data: rawSettings, refetch, loading, error } = useAsync(() =>
+    apiClient.get<Array<{ key: string; value: string }>>("/api/v1/admin/settings"),
   );
+
+  // Convert array to Record for easy lookup
+  const settings: Record<string, string> | null = rawSettings
+    ? Object.fromEntries(rawSettings.map((s) => [s.key, s.value]))
+    : null;
 
   const update = async (key: string, value: string) => {
     await apiClient.patch("/api/v1/admin/settings", { key, value });
