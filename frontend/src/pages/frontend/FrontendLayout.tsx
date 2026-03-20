@@ -36,13 +36,13 @@ export default function FrontendLayout() {
 
   const navLinks = [
     { label: 'Tìm Ảnh',  href: '/face-search' },
-    { label: 'Albums',    href: '/albums' },
+    { label: 'Albums',       href: '/albums' },
     { label: 'Bảng Giá', href: '#pricing' },
   ];
 
   return (
     <>
-      {/* ── Fixed Navbar ── */}
+      {/* Fixed Navbar */}
       <header
         style={{
           position: 'fixed',
@@ -145,6 +145,43 @@ export default function FrontendLayout() {
       <main>
         <Outlet />
       </main>
+
+      {/* Footer */}
+      <footer className="dark-footer">
+        <div className="container">
+          <div className="footer-top">
+            <div className="footer-brand">
+              <img
+                src="/images/Logo_PhotoPro_no_bg.png"
+                alt="PhotoPro"
+                style={{ height: 36, marginBottom: 12 }}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              <p className="footer-tagline">
+                Nền tảng bán ảnh sự kiện du lịch hàng đầu.<br />
+                Tìm lại khoảnh khắc của bạn chỉ với 1 selfie.
+              </p>
+            </div>
+            <div className="footer-links">
+              <div>
+                <p className="footer-col-title">Dịch Vụ</p>
+                {([['Tìm Ảnh', '/face-search'], ['Xem Albums', '/albums'], ['Tra Đơn Hàng', '/lookup']] as [string, string][]).map(([label, href]) => (
+                  <button key={href} onClick={() => navigate(href)} className="footer-link">{label}</button>
+                ))}
+              </div>
+              <div>
+                <p className="footer-col-title">Pháp Lý</p>
+                {(['Điều Khoản', 'Chính Sách', 'Liên Hệ'] as string[]).map(label => (
+                  <span key={label} className="footer-link" style={{ cursor: 'default' }}>{label}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="footer-bottom">
+            © 2026 PhotoPro · Hồ Chí Minh, Việt Nam
+          </div>
+        </div>
+      </footer>
     </>
   );
 }

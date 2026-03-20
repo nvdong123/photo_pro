@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useBundles } from '../../hooks/useBundles';
+import { usePublicBundles } from '../../hooks/usePublicBundles';
 import { Button, Input, Modal, message } from 'antd';
 import { ShoppingCartOutlined, DeleteOutlined, PictureOutlined, FileTextOutlined, DollarOutlined, AimOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import '../styles/frontend.css';
@@ -39,7 +39,7 @@ export default function Cart() {
   const [selectedPhotos, setSelectedPhotos] = useState<Photo[]>([]);
   const [notes, setNotes] = useState('');
 
-  const { bundles } = useBundles();
+  const { bundles } = usePublicBundles();
   const pricingTiers: PricingTier[] = (bundles ?? []).map(b => ({
     photos: b.photo_count,
     price: b.price,
@@ -55,7 +55,7 @@ export default function Cart() {
 
   // Greedy algorithm giống HTML demo
   const calculatePricing = (count: number): PricingResult => {
-    const SINGLE_PRICE = 20000;
+    const SINGLE_PRICE = pricingTiers.find(t => t.photos === 1)?.price ?? 20000;
     const originalPrice = count * SINGLE_PRICE;
 
     if (count === 0) {

@@ -4,6 +4,7 @@ import { Input, Button, Checkbox, Radio, message, Typography } from 'antd';
 import { CreditCardOutlined, UserOutlined, DollarOutlined, MobileOutlined, BankOutlined, WalletOutlined, ProfileOutlined, CheckCircleOutlined, ArrowLeftOutlined, LockOutlined } from '@ant-design/icons';
 import { useCart } from '../../hooks/useCart';
 import { useCheckout } from '../../hooks/useCheckout';
+import { usePublicBundles } from '../../hooks/usePublicBundles';
 import '../styles/frontend.css';
 
 export default function Checkout() {
@@ -16,6 +17,7 @@ export default function Checkout() {
 
   const { refetch, addItem, cart } = useCart();
   const { checkout } = useCheckout();
+  const { bundles: publicBundles } = usePublicBundles();
 
   useEffect(() => {
     const saved = localStorage.getItem('photopro_selected_photos');
@@ -79,16 +81,12 @@ export default function Checkout() {
     }
   };
 
-  const PRICING_TIERS = [
-    { quantity: 8, price: 100000 },
-    { quantity: 3, price: 50000 },
-    { quantity: 1, price: 20000 }
-  ];
+  const PRICING_TIERS = publicBundles.map(b => ({ quantity: b.photo_count, price: b.price }));
 
   const calculatePricing = (count: number) => {
     if (count === 0) return { originalPrice: 0, finalPrice: 0, savedPercent: 0, packages: [] as { label: string; count: number; unitPrice: number; subtotal: number }[] };
     const tiers = [...PRICING_TIERS].sort((a, b) => b.quantity - a.quantity);
-    const singlePrice = 20000;
+    const singlePrice = PRICING_TIERS.find(t => t.quantity === 1)?.price ?? 20000;
     const originalPrice = count * singlePrice;
     let remaining = count;
     const packages: { label: string; count: number; unitPrice: number; subtotal: number }[] = [];
