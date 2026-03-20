@@ -6,13 +6,14 @@ export interface PublicBundle {
   photo_count: number;
   price: number;
   is_active: boolean;
+  is_popular: boolean;
   sort_order: number;
 }
 
 const MOCK_BUNDLES: PublicBundle[] = [
-  { id: "mock-1", name: "Gói 1 ảnh",  photo_count: 1, price: 20000,  is_active: true, sort_order: 0 },
-  { id: "mock-3", name: "Gói 3 ảnh",  photo_count: 3, price: 50000,  is_active: true, sort_order: 1 },
-  { id: "mock-8", name: "Gói 8 ảnh",  photo_count: 8, price: 100000, is_active: true, sort_order: 2 },
+  { id: "mock-1", name: "Gói 1 ảnh",  photo_count: 1, price: 20000,  is_active: true, is_popular: false, sort_order: 0 },
+  { id: "mock-3", name: "Gói 3 ảnh",  photo_count: 3, price: 50000,  is_active: true, is_popular: true,  sort_order: 1 },
+  { id: "mock-8", name: "Gói 8 ảnh",  photo_count: 8, price: 100000, is_active: true, is_popular: false, sort_order: 2 },
 ];
 
 async function fetchPublicBundles(): Promise<PublicBundle[]> {

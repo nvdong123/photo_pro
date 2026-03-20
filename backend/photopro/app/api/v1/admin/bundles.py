@@ -51,6 +51,21 @@ async def patch_bundle(
     bundle = await db.get(BundlePricing, bundle_id)
     if not bundle or bundle.deleted_at:
         raise HTTPException(404)
+    # When marking as popular, unmark all others first
+    if body.is_popular is True:
+        await db.execute(
+            select(BundlePricing)
+            .where(BundlePricing.deleted_at.is_(None), BundlePricing.is_popular.is_(True))
+        )
+        others = await db.execute(
+            select(BundlePricing).where(
+                BundlePricing.deleted_at.is_(None),
+                BundlePricing.is_popular.is_(True),
+                BundlePricing.id != bundle_id,
+            )
+        )
+        for other in others.scalars().all():
+            other.is_popular = False
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(bundle, field, val)
     await db.commit()

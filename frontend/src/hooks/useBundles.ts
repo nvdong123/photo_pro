@@ -7,6 +7,7 @@ export interface Bundle {
   photo_count: number;
   price: number;
   is_active: boolean;
+  is_popular: boolean;
   sort_order: number;
   created_at: string;
 }

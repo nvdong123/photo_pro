@@ -245,18 +245,22 @@ export default function Landing() {
                   </Card>
                 ))
               : (() => {
-                  const baseUnitPrice =
-                    bundles.length > 0 ? bundles[0].price / bundles[0].photo_count : 0;
+                  // Use the bundle with photo_count=1 as the base price reference
+                  const singleBundle = bundles.find(b => b.photo_count === 1);
+                  const baseUnitPrice = singleBundle
+                    ? singleBundle.price
+                    : bundles.length > 0
+                      ? bundles[0].price / bundles[0].photo_count
+                      : 0;
 
-                  return bundles.map((bundle, index) => {
+                  return bundles.map((bundle) => {
                     const fullPrice = bundle.photo_count * baseUnitPrice;
                     const savingsPct =
                       fullPrice > bundle.price
                         ? Math.round((1 - bundle.price / fullPrice) * 100)
                         : 0;
                     const unitPrice = Math.round(bundle.price / bundle.photo_count);
-                    const isRecommended =
-                      bundles.length <= 1 ? true : index === 1;
+                    const isRecommended = bundle.is_popular;
 
                     const card = (
                       <Card

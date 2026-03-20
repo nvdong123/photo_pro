@@ -11,6 +11,7 @@ class BundleOut(BaseModel):
     price: int
     currency: str
     is_active: bool
+    is_popular: bool
     sort_order: int
     created_at: datetime
     updated_at: datetime
@@ -31,4 +32,5 @@ class PatchBundleRequest(BaseModel):
     name: str | None = None
     price: int | None = None
     is_active: bool | None = None
+    is_popular: bool | None = None
     sort_order: int | None = None

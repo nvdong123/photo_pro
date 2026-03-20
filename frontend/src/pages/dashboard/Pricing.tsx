@@ -29,15 +29,14 @@ const EMPTY_COUPON: CouponForm = { code: '', type: '', value: '', quantity: '', 
 export default function Pricing() {
   const { bundles: apiBundles, create: createBundle, update: updateBundle, remove: removeBundle } = useBundles();
   const [coupons, setCoupons] = useState<Coupon[]>(INITIAL_COUPONS);
-  const [featuredId, setFeaturedId] = useState<string | null>(null);
 
-  // Map API bundles to local format
+  // Map API bundles to local format — featured comes from is_popular
   const bundles: Bundle[] = (apiBundles ?? []).map((b): Bundle => ({
     id: b.id,
     name: b.name,
     photos: b.photo_count,
     price: b.price,
-    featured: b.id === featuredId,
+    featured: b.is_popular,
     sold: 0,
   }));
 
@@ -117,7 +116,14 @@ export default function Pricing() {
         content: 'Bỏ đánh dấu gói này là PHỔ BIẼN NHẤT?',
         okText: 'Xác nhận',
         cancelText: 'Hủy',
-        onOk: () => { setFeaturedId(null); message.success('Đã bỏ đánh dấu gói phổ biến'); },
+        onOk: async () => {
+          try {
+            await updateBundle(b.id, { is_popular: false });
+            message.success('Đã bỏ đánh dấu gói phổ biến');
+          } catch (err) {
+            message.error(err instanceof Error ? err.message : 'Cập nhật thất bại');
+          }
+        },
       });
     } else {
       Modal.confirm({
@@ -125,7 +131,14 @@ export default function Pricing() {
         content: 'Đánh dấu gói này là PHỔ BIẼN NHẤT?\n\n⚠️ Gói hiện tại đang được đánh dấu sẽ bỏ đánh dấu.',
         okText: 'Xác nhận',
         cancelText: 'Hủy',
-        onOk: () => { setFeaturedId(b.id); message.success('✨ Đã đánh dấu gói này là PHỔ BIẼN NHẤT!'); },
+        onOk: async () => {
+          try {
+            await updateBundle(b.id, { is_popular: true });
+            message.success('✨ Đã đánh dấu gói này là PHỔ BIẼN NHẤT!');
+          } catch (err) {
+            message.error(err instanceof Error ? err.message : 'Cập nhật thất bại');
+          }
+        },
       });
     }
   };

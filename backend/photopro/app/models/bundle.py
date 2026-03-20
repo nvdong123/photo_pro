@@ -18,6 +18,7 @@ class BundlePricing(Base):
     price: Mapped[int] = mapped_column(Integer)              # VND
     currency: Mapped[str] = mapped_column(String(3), default="VND")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_popular: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
