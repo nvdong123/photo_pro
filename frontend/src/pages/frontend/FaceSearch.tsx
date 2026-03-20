@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAlbums } from '../../hooks/useAlbums';
 import { apiClient } from '../../lib/api-client';
 import { Button, Radio, Checkbox, Alert, DatePicker, message } from 'antd';
@@ -28,6 +28,7 @@ interface Album {
 
 export default function FaceSearch() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,10 +36,12 @@ export default function FaceSearch() {
   const scannerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoSearchTriggeredRef = useRef(false);
 
+  const urlAlbumId = searchParams.get('album_id');
+
   const { data: albumsData } = useAlbums();
   const albums: Album[] = (albumsData ?? []).map((a) => ({ id: a.id, name: a.name, icon: '🖼️', media_count: a.media_count }));
-  const [searchScope, setSearchScope] = useState('all');
-  const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
+  const [searchScope, setSearchScope] = useState(() => urlAlbumId ? 'specific' : 'all');
+  const [selectedAlbums, setSelectedAlbums] = useState<string[]>(() => urlAlbumId ? [urlAlbumId] : []);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [activeDateQuick, setActiveDateQuick] = useState<string | null>(null);

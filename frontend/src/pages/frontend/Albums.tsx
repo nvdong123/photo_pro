@@ -73,7 +73,7 @@ export default function Albums() {
                   type="primary"
                   block
                   icon={<SearchOutlined />}
-                  onClick={() => navigate('/face-search')}
+                  onClick={() => navigate(`/face-search?album_id=${album.id}&album_name=${encodeURIComponent(album.name)}`)}
                   style={{ marginTop: 'auto' }}
                 >
                   Tìm Ảnh Tại Đây
