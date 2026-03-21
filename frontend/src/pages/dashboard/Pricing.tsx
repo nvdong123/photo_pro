@@ -52,8 +52,8 @@ export default function Pricing() {
       const perPhoto = Math.round(price / qty);
       const savings = Math.round((1 - perPhoto / 20000) * 100);
       setBundleCalc({
-        perPhoto: perPhoto.toLocaleString('vi-VN') + '\u0111',
-        savings: savings > 0 ? `Ti\u1ebft ki\u1ec7m ${savings}%` : 'Kh\u00f4ng ti\u1ebft ki\u1ec7m',
+        perPhoto: perPhoto.toLocaleString('vi-VN') + 'đ',
+        savings: savings > 0 ? `Tiết kiệm ${savings}%` : 'Không tiết kiệm',
       });
     } else { setBundleCalc(null); }
   }, [bundleForm.price, bundleForm.quantity]);
@@ -66,7 +66,7 @@ export default function Pricing() {
   const closeBundle = () => setBundleModal({ open: false, item: null });
 
   const saveBundle = async () => {
-    if (!bundleForm.name || !bundleForm.quantity || !bundleForm.price) { message.error('Vui l\u00f2ng \u0111i\u1ec1n \u0111\u1ea7y \u0111\u1ee7 th\u00f4ng tin'); return; }
+    if (!bundleForm.name || !bundleForm.quantity || !bundleForm.price) { message.error('Vui lòng điền đầy đủ thông tin'); return; }
     try {
       if (bundleModal.item) {
         await updateBundle(bundleModal.item.id, {
@@ -83,23 +83,23 @@ export default function Pricing() {
           price: parseInt(bundleForm.price),
         });
       }
-      message.success('\u0110\u00e3 l\u01b0u g\u00f3i bundle th\u00e0nh c\u00f4ng!');
+      message.success('Đã lưu gói bundle thành công!');
       closeBundle();
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'L\u01b0u g\u00f3i th\u1ea5t b\u1ea1i');
+      message.error(err instanceof Error ? err.message : 'Lưu gói thất bại');
     }
   };
 
   const deleteBundle = (id: string) => {
     Modal.confirm({
-      title: 'X\u00f3a g\u00f3i',
-      content: 'B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n x\u00f3a g\u00f3i n\u00e0y?',
-      okText: 'X\u00f3a',
+      title: 'Xóa gói',
+      content: 'Bạn có chắc muốn xóa gói này?',
+      okText: 'Xóa',
       okType: 'danger',
-      cancelText: 'H\u1ee7y',
+      cancelText: 'Hủy',
       onOk: async () => {
-        try { await removeBundle(id); message.success('\u0110\u00e3 x\u00f3a g\u00f3i'); }
-        catch (err) { message.error(err instanceof Error ? err.message : 'X\u00f3a g\u00f3i th\u1ea5t b\u1ea1i'); }
+        try { await removeBundle(id); message.success('Đã xóa gói'); }
+        catch (err) { message.error(err instanceof Error ? err.message : 'Xóa gói thất bại'); }
       },
     });
   };
@@ -107,31 +107,31 @@ export default function Pricing() {
   const toggleFeatured = (b: Bundle) => {
     if (b.featured) {
       Modal.confirm({
-        title: 'B\u1ecf \u0111\u00e1nh d\u1ea5u ph\u1ed5 bi\u1ebfn',
-        content: 'B\u1ecf \u0111\u00e1nh d\u1ea5u g\u00f3i n\u00e0y l\u00e0 PH\u1ed4 BI\u1ebeN NH\u1ea4T?',
-        okText: 'X\u00e1c nh\u1eadn',
-        cancelText: 'H\u1ee7y',
+        title: 'Bỏ đánh dấu phổ biến',
+        content: 'Bỏ đánh dấu gói này là PHỔ BIẾN NHẤT?',
+        okText: 'Xác nhận',
+        cancelText: 'Hủy',
         onOk: async () => {
           try {
             await updateBundle(b.id, { is_popular: false });
-            message.success('\u0110\u00e3 b\u1ecf \u0111\u00e1nh d\u1ea5u g\u00f3i ph\u1ed5 bi\u1ebfn');
+            message.success('Đã bỏ đánh dấu gói phổ biến');
           } catch (err) {
-            message.error(err instanceof Error ? err.message : 'C\u1eadp nh\u1eadt th\u1ea5t b\u1ea1i');
+            message.error(err instanceof Error ? err.message : 'Cập nhật thất bại');
           }
         },
       });
     } else {
       Modal.confirm({
-        title: '\u0110\u00e1nh d\u1ea5u ph\u1ed5 bi\u1ebfn',
-        content: '\u0110\u00e1nh d\u1ea5u g\u00f3i n\u00e0y l\u00e0 PH\u1ed4 BI\u1ebeN NH\u1ea4T? G\u00f3i hi\u1ec7n t\u1ea1i \u0111ang \u0111\u01b0\u1ee3c \u0111\u00e1nh d\u1ea5u s\u1ebd b\u1ecf \u0111\u00e1nh d\u1ea5u.',
-        okText: 'X\u00e1c nh\u1eadn',
-        cancelText: 'H\u1ee7y',
+        title: 'Đánh dấu phổ biến',
+        content: 'Đánh dấu gói này là PHỔ BIẾN NHẤT? Gói hiện tại đang được đánh dấu sẽ bỏ đánh dấu.',
+        okText: 'Xác nhận',
+        cancelText: 'Hủy',
         onOk: async () => {
           try {
             await updateBundle(b.id, { is_popular: true });
-            message.success('\u0110\u00e3 \u0111\u00e1nh d\u1ea5u g\u00f3i n\u00e0y l\u00e0 PH\u1ed4 BI\u1ebeN NH\u1ea4T!');
+            message.success('Đã đánh dấu gói này là PHỔ BIẾN NHẤT!');
           } catch (err) {
-            message.error(err instanceof Error ? err.message : 'C\u1eadp nh\u1eadt th\u1ea5t b\u1ea1i');
+            message.error(err instanceof Error ? err.message : 'Cập nhật thất bại');
           }
         },
       });
@@ -151,7 +151,7 @@ export default function Pricing() {
   const closeCoupon = () => setCouponModal({ open: false, item: null });
 
   const saveCoupon = async () => {
-    if (!couponForm.code || !couponForm.type || !couponForm.value) { message.error('Vui l\u00f2ng \u0111i\u1ec1n \u0111\u1ea7y \u0111\u1ee7 th\u00f4ng tin'); return; }
+    if (!couponForm.code || !couponForm.type || !couponForm.value) { message.error('Vui lòng điền đầy đủ thông tin'); return; }
     try {
       const payload = {
         code: couponForm.code.toUpperCase(),
@@ -165,28 +165,28 @@ export default function Pricing() {
       } else {
         await createCoupon(payload);
       }
-      message.success('\u0110\u00e3 l\u01b0u m\u00e3 gi\u1ea3m gi\u00e1 th\u00e0nh c\u00f4ng!');
+      message.success('Đã lưu mã giảm giá thành công!');
       closeCoupon();
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'L\u01b0u m\u00e3 gi\u1ea3m gi\u00e1 th\u1ea5t b\u1ea1i');
+      message.error(err instanceof Error ? err.message : 'Lưu mã giảm giá thất bại');
     }
   };
 
   const deleteCoupon = (id: string) => {
     Modal.confirm({
-      title: 'X\u00f3a m\u00e3 gi\u1ea3m gi\u00e1',
-      content: 'B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n x\u00f3a m\u00e3 gi\u1ea3m gi\u00e1 n\u00e0y?',
-      okText: 'X\u00f3a',
+      title: 'Xóa mã giảm giá',
+      content: 'Bạn có chắc muốn xóa mã giảm giá này?',
+      okText: 'Xóa',
       okType: 'danger',
-      cancelText: 'H\u1ee7y',
+      cancelText: 'Hủy',
       onOk: async () => {
-        try { await removeCoupon(id); message.success('\u0110\u00e3 x\u00f3a m\u00e3 gi\u1ea3m gi\u00e1'); }
-        catch (err) { message.error(err instanceof Error ? err.message : 'X\u00f3a m\u00e3 gi\u1ea3m gi\u00e1 th\u1ea5t b\u1ea1i'); }
+        try { await removeCoupon(id); message.success('Đã xóa mã giảm giá'); }
+        catch (err) { message.error(err instanceof Error ? err.message : 'Xóa mã giảm giá thất bại'); }
       },
     });
   };
 
-  const fmt = (v: number) => v.toLocaleString('vi-VN') + '\u0111';
+  const fmt = (v: number) => v.toLocaleString('vi-VN') + 'đ';
   const fieldStyle = { width: '100%', padding: '8px 12px', border: `1px solid ${BORDER}`, borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box' as const };
   const labelStyle = { display: 'block' as const, fontWeight: 600, marginBottom: 6, fontSize: 14 };
 
@@ -194,21 +194,21 @@ export default function Pricing() {
     <Modal
       open={bundleModal.open}
       onCancel={closeBundle}
-      title={bundleModal.item ? 'Ch\u1ec9nh s\u1eeda g\u00f3i bundle' : 'T\u1ea1o g\u00f3i bundle m\u1edbi'}
-      footer={[<Button key="cancel" onClick={closeBundle}>H\u1ee7y</Button>, <Button key="save" type="primary" icon={<SaveOutlined />} onClick={saveBundle}>L\u01b0u</Button>]}
+      title={bundleModal.item ? 'Chỉnh sửa gói bundle' : 'Tạo gói bundle mới'}
+      footer={[<Button key="cancel" onClick={closeBundle}>Hủy</Button>, <Button key="save" type="primary" icon={<SaveOutlined />} onClick={saveBundle}>Lưu</Button>]}
       width={480}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
         <div>
-          <label style={labelStyle}>T\u00ean g\u00f3i <span style={{ color: DANGER }}>*</span></label>
-          <Input style={fieldStyle} value={bundleForm.name} onChange={e => setBundleForm(f => ({ ...f, name: e.target.value }))} placeholder="VD: G\u00f3i 5 \u1ea3nh" />
+          <label style={labelStyle}>Tên gói <span style={{ color: DANGER }}>*</span></label>
+          <Input style={fieldStyle} value={bundleForm.name} onChange={e => setBundleForm(f => ({ ...f, name: e.target.value }))} placeholder="VD: Gói 5 ảnh" />
         </div>
         <div>
-          <label style={labelStyle}>S\u1ed1 l\u01b0\u1ee3ng \u1ea3nh <span style={{ color: DANGER }}>*</span></label>
+          <label style={labelStyle}>Số lượng ảnh <span style={{ color: DANGER }}>*</span></label>
           <Input style={fieldStyle} type="number" min={1} value={bundleForm.quantity} onChange={e => setBundleForm(f => ({ ...f, quantity: e.target.value }))} placeholder="VD: 5" />
         </div>
         <div>
-          <label style={labelStyle}>Gi\u00e1 g\u00f3i (VN\u0110) <span style={{ color: DANGER }}>*</span></label>
+          <label style={labelStyle}>Giá gói (VNĐ) <span style={{ color: DANGER }}>*</span></label>
           <Input style={fieldStyle} type="number" min={1000} step={1000} value={bundleForm.price} onChange={e => setBundleForm(f => ({ ...f, price: e.target.value }))} placeholder="VD: 80000" />
         </div>
         <div>
@@ -216,22 +216,22 @@ export default function Pricing() {
             checked={bundleForm.featured}
             onChange={e => setBundleForm(f => ({ ...f, featured: e.target.checked }))}
             style={{ fontWeight: 600, fontSize: 14 }}
-          >\u0110\u00e1nh d\u1ea5u l\u00e0 g\u00f3i ph\u1ed5 bi\u1ebfn</Checkbox>
-          <small style={{ color: '#5a6170', display: 'block', marginTop: 4, fontSize: 12 }}>G\u00f3i ph\u1ed5 bi\u1ebfn s\u1ebd \u0111\u01b0\u1ee3c highlight v\u1edbi badge "PH\u1ed4 BI\u1ebeN NH\u1ea4T"</small>
+          >Đánh dấu là gói phổ biến</Checkbox>
+          <small style={{ color: '#5a6170', display: 'block', marginTop: 4, fontSize: 12 }}>Gói phổ biến sẽ được highlight với badge "PHỔ BIẾN NHẤT"</small>
         </div>
         {bundleCalc && (
           <div style={{ padding: '12px 16px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, fontSize: 13, color: '#1d4ed8' }}>
-            <strong>T\u00ednh to\u00e1n:</strong>
+            <strong>Tính toán:</strong>
             <div style={{ marginTop: 8 }}>
-              Gi\u00e1 / \u1ea3nh: <strong>{bundleCalc.perPhoto}</strong><br />
-              So v\u1edbi g\u00f3i 1 \u1ea3nh (20,000\u0111): <strong>{bundleCalc.savings}</strong>
+              Giá / ảnh: <strong>{bundleCalc.perPhoto}</strong><br />
+              So với gói 1 ảnh (20,000đ): <strong>{bundleCalc.savings}</strong>
             </div>
           </div>
         )}
         {bundleForm.featured && (
           <div style={{ padding: '12px 16px', background: '#fef3e8', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
-            <StarFilled style={{ color: '#f59e0b' }} /> <strong>G\u00f3i n\u00e0y s\u1ebd \u0111\u01b0\u1ee3c \u0111\u00e1nh d\u1ea5u l\u00e0 PH\u1ed4 BI\u1ebeN NH\u1ea4T</strong>
-            <p style={{ margin: '4px 0 0', fontSize: 13 }}>Ch\u1ec9 n\u00ean ch\u1ecdn 1 g\u00f3i ph\u1ed5 bi\u1ebfn duy nh\u1ea5t \u0111\u1ec3 t\u0103ng hi\u1ec7u qu\u1ea3 chuy\u1ec3n \u0111\u1ed5i.</p>
+            <StarFilled style={{ color: '#f59e0b' }} /> <strong>Gói này sẽ được đánh dấu là PHỔ BIẾN NHẤT</strong>
+            <p style={{ margin: '4px 0 0', fontSize: 13 }}>Chỉ nên chọn 1 gói phổ biến duy nhất để tăng hiệu quả chuyển đổi.</p>
           </div>
         )}
       </div>
@@ -242,42 +242,42 @@ export default function Pricing() {
     <Modal
       open={couponModal.open}
       onCancel={closeCoupon}
-      title={couponModal.item ? 'Ch\u1ec9nh s\u1eeda m\u00e3 gi\u1ea3m gi\u00e1' : 'T\u1ea1o m\u00e3 gi\u1ea3m gi\u00e1 m\u1edbi'}
-      footer={[<Button key="cancel" onClick={closeCoupon}>H\u1ee7y</Button>, <Button key="save" type="primary" icon={<SaveOutlined />} onClick={saveCoupon}>L\u01b0u</Button>]}
+      title={couponModal.item ? 'Chỉnh sửa mã giảm giá' : 'Tạo mã giảm giá mới'}
+      footer={[<Button key="cancel" onClick={closeCoupon}>Hủy</Button>, <Button key="save" type="primary" icon={<SaveOutlined />} onClick={saveCoupon}>Lưu</Button>]}
       width={480}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
         <div>
-          <label style={labelStyle}>M\u00e3 coupon <span style={{ color: DANGER }}>*</span> <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(Ch\u1eef in hoa, kh\u00f4ng d\u1ea5u, kh\u00f4ng kho\u1ea3ng tr\u1eafng)</small></label>
+          <label style={labelStyle}>Mã coupon <span style={{ color: DANGER }}>*</span> <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(Chữ in hoa, không dấu, không khoảng trắng)</small></label>
           <Input style={{ ...fieldStyle, textTransform: 'uppercase', fontFamily: 'monospace' }} value={couponForm.code} onChange={e => setCouponForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="VD: TETNGUYENDAN" />
         </div>
         <div>
-          <label style={labelStyle}>Lo\u1ea1i gi\u1ea3m gi\u00e1 <span style={{ color: DANGER }}>*</span></label>
-          <Select style={{ width: '100%' }} value={couponForm.type || undefined} placeholder="Ch\u1ecdn lo\u1ea1i..." onChange={v => setCouponForm(f => ({ ...f, type: v, value: '' }))}>
-            <Select.Option value="percent">Gi\u1ea3m theo %</Select.Option>
-            <Select.Option value="fixed">Gi\u1ea3m s\u1ed1 ti\u1ec1n c\u1ed1 \u0111\u1ecbnh</Select.Option>
+          <label style={labelStyle}>Loại giảm giá <span style={{ color: DANGER }}>*</span></label>
+          <Select style={{ width: '100%' }} value={couponForm.type || undefined} placeholder="Chọn loại..." onChange={v => setCouponForm(f => ({ ...f, type: v, value: '' }))}>
+            <Select.Option value="percent">Giảm theo %</Select.Option>
+            <Select.Option value="fixed">Giảm số tiền cố định</Select.Option>
           </Select>
         </div>
         {couponForm.type && (
           <div>
-            <label style={labelStyle}>{couponForm.type === 'percent' ? 'Gi\u00e1 tr\u1ecb (%)' : 'Gi\u00e1 tr\u1ecb (VN\u0110)'} <span style={{ color: DANGER }}>*</span></label>
+            <label style={labelStyle}>{couponForm.type === 'percent' ? 'Giá trị (%)' : 'Giá trị (VNĐ)'} <span style={{ color: DANGER }}>*</span></label>
             <Input style={fieldStyle} type="number" min={1} max={couponForm.type === 'percent' ? 100 : undefined}
               value={couponForm.value} onChange={e => setCouponForm(f => ({ ...f, value: e.target.value }))}
-              placeholder={couponForm.type === 'percent' ? 'VD: 20 (gi\u1ea3m 20%)' : 'VD: 10000 (gi\u1ea3m 10,000\u0111)'} />
+              placeholder={couponForm.type === 'percent' ? 'VD: 20 (giảm 20%)' : 'VD: 10000 (giảm 10,000đ)'} />
           </div>
         )}
         <div>
-          <label style={labelStyle}>S\u1ed1 l\u01b0\u1ee3ng <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(\u0110\u1ec3 tr\u1ed1ng = kh\u00f4ng gi\u1edbi h\u1ea1n)</small></label>
+          <label style={labelStyle}>Số lượng <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(Để trống = không giới hạn)</small></label>
           <Input style={fieldStyle} type="number" min={1} value={couponForm.quantity} onChange={e => setCouponForm(f => ({ ...f, quantity: e.target.value }))} placeholder="VD: 100" />
         </div>
         <div>
-          <label style={labelStyle}>Ng\u00e0y h\u1ebft h\u1ea1n <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(\u0110\u1ec3 tr\u1ed1ng = v\u0129nh vi\u1ec5n)</small></label>
+          <label style={labelStyle}>Ngày hết hạn <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(Để trống = vĩnh viễn)</small></label>
           <DatePicker
             value={couponForm.expiry ? dayjs(couponForm.expiry, 'YYYY-MM-DD') : null}
             onChange={(val) => setCouponForm(f => ({ ...f, expiry: val ? val.format('YYYY-MM-DD') : '' }))}
             style={{ width: '100%' }}
             format="DD/MM/YYYY"
-            placeholder="Ch\u1ecdn ng\u00e0y h\u1ebft h\u1ea1n"
+            placeholder="Chọn ngày hết hạn"
           />
         </div>
       </div>
@@ -287,8 +287,8 @@ export default function Pricing() {
   const bundleTab = (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>G\u00f3i Bundle Pricing</h2>
-        {canEdit && <Button type="primary" icon={<PlusOutlined />} onClick={() => openBundle(null)}>T\u1ea1o g\u00f3i m\u1edbi</Button>}
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Gói Bundle Pricing</h2>
+        {canEdit && <Button type="primary" icon={<PlusOutlined />} onClick={() => openBundle(null)}>Tạo gói mới</Button>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 280px)', justifyContent: 'center', gap: 24 }}>
         {bundles.map(b => {
@@ -298,27 +298,27 @@ export default function Pricing() {
           const iconBg = b.photos === 8 ? '#fef3e8' : PRIMARY_LIGHT;
           return (
             <div key={b.id} style={{ background: '#fff', border: b.featured ? `2px solid ${PRIMARY}` : `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
-              {b.featured && <div style={{ background: PRIMARY, color: '#fff', textAlign: 'center', padding: '6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.5px' }}>PH\u1ed4 BI\u1ebeN NH\u1ea4T</div>}
+              {b.featured && <div style={{ background: PRIMARY, color: '#fff', textAlign: 'center', padding: '6px', fontSize: 11, fontWeight: 700, letterSpacing: '0.5px' }}>PHỔ BIẾN NHẤT</div>}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 24px 16px', width: '100%', boxSizing: 'border-box' }}>
                 <div style={{ width: 64, height: 64, margin: '0 auto 16px', background: iconBg, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <PictureOutlined style={{ fontSize: 32, color: cardColor }} />
                 </div>
                 <h3 style={{ fontSize: 24, margin: '0 0 8px', fontWeight: 700, textAlign: 'center' }}>{b.name}</h3>
                 <div style={{ fontSize: 32, fontWeight: 800, color: cardColor, marginBottom: 4 }}>{fmt(b.price)}</div>
-                <div style={{ fontSize: 13, color: TEXT_MUTED }}>{perPhoto.toLocaleString('vi-VN')}\u0111 / \u1ea3nh</div>
+                <div style={{ fontSize: 13, color: TEXT_MUTED }}>{perPhoto.toLocaleString('vi-VN')}đ / ảnh</div>
                 {savings > 0 && (
                   <div style={{ display: 'inline-block', marginTop: 8, padding: '4px 12px', background: b.photos === 8 ? WARNING : '#1a854a', color: 'white', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
-                    Ti\u1ebft ki\u1ec7m {savings}%
+                    Tiết kiệm {savings}%
                   </div>
                 )}
                 <div style={{ margin: '24px 0', padding: 16, background: b.featured ? PRIMARY_LIGHT : SURFACE_ALT, borderRadius: 8, width: '100%', boxSizing: 'border-box' }}>
-                  <div style={{ fontSize: 13, color: b.featured ? '#134a36' : '#5a6170', marginBottom: 4 }}>\u0110\u00e3 b\u00e1n</div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: b.featured ? PRIMARY : '#1a1d23' }}>{b.sold} g\u00f3i</div>
+                  <div style={{ fontSize: 13, color: b.featured ? '#134a36' : '#5a6170', marginBottom: 4 }}>Đã bán</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: b.featured ? PRIMARY : '#1a1d23' }}>{b.sold} gói</div>
                 </div>
                 {canEdit && (
                   <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-                    <Button size="small" icon={<EditOutlined />} style={{ flex: 1 }} onClick={() => openBundle(b)}>S\u1eeda</Button>
-                    <Button size="small" type={b.featured ? 'primary' : 'default'} icon={b.featured ? <StarFilled /> : <StarOutlined />} onClick={() => toggleFeatured(b)} title={b.featured ? 'B\u1ecf \u0111\u00e1nh d\u1ea5u ph\u1ed5 bi\u1ebfn' : '\u0110\u00e1nh d\u1ea5u ph\u1ed5 bi\u1ebfn'} />
+                    <Button size="small" icon={<EditOutlined />} style={{ flex: 1 }} onClick={() => openBundle(b)}>Sửa</Button>
+                    <Button size="small" type={b.featured ? 'primary' : 'default'} icon={b.featured ? <StarFilled /> : <StarOutlined />} onClick={() => toggleFeatured(b)} title={b.featured ? 'Bỏ đánh dấu phổ biến' : 'Đánh dấu phổ biến'} />
                     <Button size="small" danger icon={<DeleteOutlined />} onClick={() => deleteBundle(b.id)} />
                   </div>
                 )}
@@ -334,8 +334,8 @@ export default function Pricing() {
   const couponTab = (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>M\u00e3 gi\u1ea3m gi\u00e1 (Coupon)</h2>
-        {canEdit && <Button type="primary" icon={<PlusOutlined />} onClick={() => openCoupon(null)}>T\u1ea1o m\u00e3 gi\u1ea3m gi\u00e1</Button>}
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Mã giảm giá (Coupon)</h2>
+        {canEdit && <Button type="primary" icon={<PlusOutlined />} onClick={() => openCoupon(null)}>Tạo mã giảm giá</Button>}
       </div>
       <Table
         dataSource={coupons}
@@ -344,14 +344,14 @@ export default function Pricing() {
         pagination={false}
         style={{ border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}
         columns={[
-          { title: 'M\u00e3 coupon', dataIndex: 'code', key: 'code', render: (code: string) => <strong style={{ fontFamily: 'monospace', background: PRIMARY_LIGHT, padding: '4px 8px', borderRadius: 4, color: PRIMARY }}>{code}</strong> },
-          { title: 'Lo\u1ea1i gi\u1ea3m gi\u00e1', dataIndex: 'discount_type', key: 'discount_type', render: (type: string) => type === 'percent' ? 'Gi\u1ea3m %' : 'Gi\u1ea3m ti\u1ec1n' },
-          { title: 'Gi\u00e1 tr\u1ecb', key: 'value', render: (_: unknown, c: Coupon) => <strong>{c.discount_type === 'percent' ? `${c.discount_value}%` : fmt(c.discount_value)}</strong> },
-          { title: 'S\u1ed1 l\u01b0\u1ee3ng', key: 'max_uses', render: (_: unknown, c: Coupon) => c.max_uses != null ? String(c.max_uses) : 'Kh\u00f4ng gi\u1edbi h\u1ea1n' },
-          { title: '\u0110\u00e3 d\u00f9ng', dataIndex: 'used_count', key: 'used_count' },
-          { title: 'H\u1ebft h\u1ea1n', key: 'expires_at', render: (_: unknown, c: Coupon) => c.expires_at ? <span style={{ color: '#5a6170' }}>{dayjs(c.expires_at).format('DD/MM/YYYY')}</span> : <span style={{ color: '#5a6170' }}>-</span> },
-          { title: 'Tr\u1ea1ng th\u00e1i', key: 'status', render: (_: unknown, c: Coupon) => { const expired = c.expires_at && new Date(c.expires_at) < new Date(); return <Tag color={!expired && c.is_active ? 'green' : 'default'}>{!expired && c.is_active ? '\u0110ang ho\u1ea1t \u0111\u1ed9ng' : 'H\u1ebft h\u1ea1n'}</Tag>; } },
-          { title: 'Thao t\u00e1c', key: 'actions', render: (_: unknown, c: Coupon) => canEdit ? <div style={{ display: 'flex', gap: 4 }}><Button size="small" icon={<EditOutlined />} onClick={() => openCoupon(c)} /><Button size="small" danger icon={<DeleteOutlined />} onClick={() => deleteCoupon(c.id)} /></div> : null },
+          { title: 'Mã coupon', dataIndex: 'code', key: 'code', render: (code: string) => <strong style={{ fontFamily: 'monospace', background: PRIMARY_LIGHT, padding: '4px 8px', borderRadius: 4, color: PRIMARY }}>{code}</strong> },
+          { title: 'Loại giảm giá', dataIndex: 'discount_type', key: 'discount_type', render: (type: string) => type === 'percent' ? 'Giảm %' : 'Giảm tiền' },
+          { title: 'Giá trị', key: 'value', render: (_: unknown, c: Coupon) => <strong>{c.discount_type === 'percent' ? `${c.discount_value}%` : fmt(c.discount_value)}</strong> },
+          { title: 'Số lượng', key: 'max_uses', render: (_: unknown, c: Coupon) => c.max_uses != null ? String(c.max_uses) : 'Không giới hạn' },
+          { title: 'Đã dùng', dataIndex: 'used_count', key: 'used_count' },
+          { title: 'Hết hạn', key: 'expires_at', render: (_: unknown, c: Coupon) => c.expires_at ? <span style={{ color: '#5a6170' }}>{dayjs(c.expires_at).format('DD/MM/YYYY')}</span> : <span style={{ color: '#5a6170' }}>-</span> },
+          { title: 'Trạng thái', key: 'status', render: (_: unknown, c: Coupon) => { const expired = c.expires_at && new Date(c.expires_at) < new Date(); return <Tag color={!expired && c.is_active ? 'green' : 'default'}>{!expired && c.is_active ? 'Đang hoạt động' : 'Hết hạn'}</Tag>; } },
+          { title: 'Thao tác', key: 'actions', render: (_: unknown, c: Coupon) => canEdit ? <div style={{ display: 'flex', gap: 4 }}><Button size="small" icon={<EditOutlined />} onClick={() => openCoupon(c)} /><Button size="small" danger icon={<DeleteOutlined />} onClick={() => deleteCoupon(c.id)} /></div> : null },
         ]}
       />
     </div>
@@ -359,8 +359,8 @@ export default function Pricing() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>Qu\u1ea3n l\u00fd B\u1ea3ng gi\u00e1</h1>
-      <Tabs items={[{ key: 'bundles', label: <span><GiftOutlined /> G\u00f3i Bundle</span>, children: bundleTab }, { key: 'coupons', label: <span><TagOutlined /> M\u00e3 gi\u1ea3m gi\u00e1</span>, children: couponTab }]} />
+      <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>Quản lý Bảng giá</h1>
+      <Tabs items={[{ key: 'bundles', label: <span><GiftOutlined /> Gói Bundle</span>, children: bundleTab }, { key: 'coupons', label: <span><TagOutlined /> Mã giảm giá</span>, children: couponTab }]} />
       {renderBundleModal()}
       {renderCouponModal()}
     </div>

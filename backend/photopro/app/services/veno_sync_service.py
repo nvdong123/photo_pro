@@ -103,6 +103,13 @@ async def delete_veno_user(username: str) -> None:
     await _call_sync("delete_user", {"name": username})
 
 
+async def ensure_directories(dirs: list[str]) -> None:
+    """Create directories on the Veno file server (no user needed)."""
+    if not dirs:
+        return
+    await _call_sync("mkdir", {"folders": dirs})
+
+
 def build_staff_dirs(employee_code: str, shoot_dates: list[str]) -> list[str]:
     """Build the list of Veno directory paths for a staff member.
 

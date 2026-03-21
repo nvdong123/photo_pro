@@ -8,6 +8,7 @@ export interface AdminLocation {
   shoot_date: string | null;
   description: string | null;
   media_count: number;
+  thumbnail_url: string | null;
 }
 
 export interface LocationStaffAssignment {
@@ -35,9 +36,10 @@ export function useAdminLocations() {
     apiClient.get<AdminLocation[]>("/api/v1/admin/locations"),
   );
 
-  const create = async (payload: CreateLocationPayload) => {
-    await apiClient.post("/api/v1/admin/locations", payload);
+  const create = async (payload: CreateLocationPayload): Promise<AdminLocation> => {
+    const result = await apiClient.post<AdminLocation>("/api/v1/admin/locations", payload);
     await refetch();
+    return result;
   };
 
   const update = async (id: string, payload: Partial<CreateLocationPayload>) => {

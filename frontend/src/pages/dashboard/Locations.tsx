@@ -9,7 +9,7 @@ import {
   EnvironmentOutlined,
 } from '@ant-design/icons';
 import { hasRole } from '../../hooks/useAuth';
-import { useAdminLocations } from '../../hooks/useAdminLocations';
+import { useAdminLocations, type LocationStaffAssignment } from '../../hooks/useAdminLocations';
 import { useAdminStaff } from '../../hooks/useAdminStaff';
 
 interface Staff {
@@ -33,6 +33,7 @@ interface Location {
   orders: number;
   revenue: string;
   gradient: string;
+  thumbnailUrl: string | null;
   assignedStaff: string[];
 }
 
@@ -57,7 +58,7 @@ const STATUS_BADGE: Record<string, { color: string; label: string }> = {
 type ModalMode = 'create' | 'edit' | 'view' | 'delete' | null;
 
 export default function Locations() {
-  const { locations: apiLocations, create: createLocation, remove: deleteLocation, update: patchLocation } = useAdminLocations();
+  const { locations: apiLocations, create: createLocation, remove: deleteLocation, update: patchLocation, getLocationStaff, assignStaff, removeStaff } = useAdminLocations();
   const { staff: apiUsers } = useAdminStaff();
 
   const locations: Location[] = apiLocations.map(a => ({
@@ -71,6 +72,7 @@ export default function Locations() {
     orders: 0,
     revenue: '-',
     gradient: 'linear-gradient(135deg, #1a6b4e 0%, #0f5840 100%)',
+    thumbnailUrl: a.thumbnail_url ?? null,
     assignedStaff: [],
   }));
 
@@ -98,6 +100,7 @@ export default function Locations() {
   const [formDate, setFormDate] = useState('2026-03-04');
   const [formDescription, setFormDescription] = useState('');
   const [formStaff, setFormStaff] = useState<string[]>([]);
+  const [originalStaff, setOriginalStaff] = useState<string[]>([]);
 
   const canCreateEdit = hasRole(['admin-system', 'admin-sales']);
   const canDelete = hasRole(['admin-system']);
@@ -122,13 +125,20 @@ export default function Locations() {
     setModalMode('create');
   }
 
-  function openEdit(loc: Location) {
+  async function openEdit(loc: Location) {
     setSelectedLoc(loc);
     setFormName(loc.name); setFormAddress(loc.address);
     setFormDate(loc.date.split('/').reverse().join('-'));
     setFormDescription(loc.description);
-    setFormStaff([...loc.assignedStaff]);
+    setFormStaff([]);
+    setOriginalStaff([]);
     setModalMode('edit');
+    try {
+      const assignments = await getLocationStaff(loc.id);
+      const staffIds = assignments.map((a: LocationStaffAssignment) => a.staff_id);
+      setFormStaff(staffIds);
+      setOriginalStaff(staffIds);
+    } catch { /* ignore */ }
   }
 
   function openView(loc: Location) { setSelectedLoc(loc); setModalMode('view'); }
@@ -144,7 +154,11 @@ export default function Locations() {
   async function handleCreate() {
     if (!formName) { message.error('Vui lòng nhập tên địa điểm'); return; }
     try {
-      await createLocation({ name: formName, description: formDescription || undefined, address: formAddress || undefined, shoot_date: formDate || undefined });
+      const newLoc = await createLocation({ name: formName, description: formDescription || undefined, address: formAddress || undefined, shoot_date: formDate || undefined });
+      // Assign selected staff
+      for (const staffId of formStaff) {
+        await assignStaff(newLoc.id, staffId, true);
+      }
       message.success('Địa điểm đã được tạo thành công!');
       closeModal();
     } catch (err) { message.error(err instanceof Error ? err.message : 'Tạo thất bại'); }
@@ -153,7 +167,18 @@ export default function Locations() {
   async function handleSaveEdit() {
     if (!formName) { message.error('Vui lòng nhập tên địa điểm'); return; }
     try {
-      if (selectedLoc) await patchLocation(selectedLoc.id, { name: formName, description: formDescription || undefined, address: formAddress || undefined });
+      if (selectedLoc) {
+        await patchLocation(selectedLoc.id, { name: formName, description: formDescription || undefined, address: formAddress || undefined });
+        // Update staff assignments: add new, remove old
+        const toAdd = formStaff.filter(id => !originalStaff.includes(id));
+        const toRemove = originalStaff.filter(id => !formStaff.includes(id));
+        for (const staffId of toAdd) {
+          await assignStaff(selectedLoc.id, staffId, true);
+        }
+        for (const staffId of toRemove) {
+          await removeStaff(selectedLoc.id, staffId);
+        }
+      }
       message.success('Đã lưu thay đổi!');
       closeModal();
     } catch (err) { message.error(err instanceof Error ? err.message : 'Lưu thất bại'); }
@@ -295,7 +320,15 @@ export default function Locations() {
               onClick={() => openView(loc)}
             >
               {/* Card header image */}
-              <div style={{ height: 200, background: loc.gradient, position: 'relative' }}>
+              <div style={{ height: 200, background: loc.gradient, position: 'relative', overflow: 'hidden' }}>
+                {loc.thumbnailUrl && (
+                  <img
+                    src={loc.thumbnailUrl}
+                    alt={loc.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
                 <div style={{ position: 'absolute', top: 12, right: 12 }}>
                   <Tag color={badge.color}>{badge.label}</Tag>
                 </div>

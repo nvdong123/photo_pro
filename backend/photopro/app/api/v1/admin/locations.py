@@ -44,6 +44,7 @@ class LocationOut(BaseModel):
     shoot_date: str | None = None
     description: str | None = None
     media_count: int = 0
+    thumbnail_url: str | None = None
 
 
 class LocationDetailOut(LocationOut):
@@ -118,10 +119,24 @@ async def list_locations(
     locations = []
     for tag in result.scalars().all():
         cnt = await _available_media_count(db, tag.id)
+        # Get first available preview as thumbnail
+        thumb_row = await db.execute(
+            select(Media.preview_s3_key)
+            .join(MediaTag, Media.id == MediaTag.media_id)
+            .where(
+                MediaTag.tag_id == tag.id,
+                Media.preview_s3_key.isnot(None),
+                Media.photo_status == PhotoStatus.AVAILABLE,
+                Media.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        preview_key = thumb_row.scalar_one_or_none()
+        thumbnail_url = get_cached_presigned_url(preview_key, ttl_seconds=3600) if preview_key else None
         locations.append(LocationOut(
             id=tag.id, name=tag.name, address=tag.address,
             shoot_date=tag.shoot_date, description=tag.description,
-            media_count=cnt,
+            media_count=cnt, thumbnail_url=thumbnail_url,
         ))
     return APIResponse.ok(locations)
 
@@ -147,6 +162,12 @@ async def create_location(
     db.add(tag)
     await db.commit()
     await db.refresh(tag)
+    # Create Veno folder for this shoot_date
+    if tag.shoot_date:
+        try:
+            await veno.ensure_directories([tag.shoot_date])
+        except Exception:
+            logger.exception("Failed to create Veno folder for %s", tag.shoot_date)
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
