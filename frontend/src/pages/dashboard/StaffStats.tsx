@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button, Tag, Select, Modal, Table, Progress, Spin } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import {
@@ -62,8 +62,43 @@ const COLORS = [
   { bg: '#f5f5f5', color: '#888' },
 ];
 
+// ───── CSV EXPORT ─────
+function exportToCSV(rows: StaffStat[]) {
+  const headers = [
+    'Mã NV', 'Tên nhân viên', 'Ảnh upload', 'Ảnh bán',
+    'Tỉ lệ (%)', 'DT hôm nay', 'DT tháng', 'Tổng DT', 'Trạng thái',
+  ];
+  const escape = (v: string | number) => {
+    const s = String(v);
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [
+    headers.join(','),
+    ...rows.map(r => [
+      escape(r.employee_code ?? ''),
+      escape(r.staff_name ?? ''),
+      r.total_photos_uploaded,
+      r.total_photos_sold,
+      Number(r.conversion_rate).toFixed(1),
+      r.revenue_today,
+      r.revenue_this_month,
+      r.total_revenue,
+      escape(r.is_active ? 'Hoạt động' : 'Tạm khóa'),
+    ].join(',')),
+  ];
+  // UTF-8 BOM so Excel opens Vietnamese correctly
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `thong-ke-nhan-vien-${date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ───── ADMIN VIEW ─────
-function AdminView() {
+function AdminView({ onExportReady }: { onExportReady: (fn: () => void) => void }) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'revenue' | 'photos' | 'rate'>('revenue');
   const [selectedStat, setSelectedStat] = useState<StaffStat | null>(null);
@@ -77,6 +112,10 @@ function AdminView() {
     if (sortBy === 'photos') return b.total_photos_uploaded - a.total_photos_uploaded;
     return b.conversion_rate - a.conversion_rate;
   });
+
+  // Register export fn with parent so the header button can trigger it
+  // useEffect is intentionally omitted — stable ref via useCallback pattern
+  onExportReady(() => exportToCSV(sorted));
 
   const barLabels = revenueData?.by_date
     ? chartLabels(revenueData.by_date, chartPeriod)
@@ -473,6 +512,7 @@ function StaffView() {
 // ───── MAIN COMPONENT ─────
 export default function StaffStats() {
   const isStaff = hasRole(['staff']);
+  const exportFnRef = useRef<(() => void) | null>(null);
 
   return (
     <div>
@@ -481,11 +521,11 @@ export default function StaffStats() {
           {isStaff ? 'Thống kê của tôi' : 'Thống kê Nhân viên'}
         </h1>
         {!isStaff && (
-          <Button icon={<DownloadOutlined />}>Xuất Excel</Button>
+          <Button icon={<DownloadOutlined />} onClick={() => exportFnRef.current?.()}>Xuất Excel</Button>
         )}
       </div>
 
-      {isStaff ? <StaffView /> : <AdminView />}
+      {isStaff ? <StaffView /> : <AdminView onExportReady={fn => { exportFnRef.current = fn; }} />}
     </div>
   );
 }
