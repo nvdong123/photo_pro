@@ -1074,6 +1074,15 @@ h3 {
   background: rgba(255, 255, 255, 0.09);
 }
 
+/* Sub-page navbar: white bg + dark text */
+.fnav-light .fnav-link {
+  color: #1a1a2e;
+}
+.fnav-light .fnav-link:hover {
+  color: #0d3622;
+  background: rgba(26, 107, 78, 0.08);
+}
+
 .fnav-cta {
   font-weight: 600;
   white-space: nowrap;

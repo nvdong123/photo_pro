@@ -44,6 +44,7 @@ export default function FrontendLayout() {
     <>
       {/* Fixed Navbar */}
       <header
+        className={!isHome ? 'fnav-light' : ''}
         style={{
           position: 'fixed',
           top: 0, left: 0, right: 0,
@@ -54,9 +55,13 @@ export default function FrontendLayout() {
           justifyContent: 'space-between',
           padding: '0 32px',
           transition: 'background 0.3s ease, backdrop-filter 0.3s ease, box-shadow 0.3s ease',
-          background: scrolled ? 'rgba(8,8,8,0.90)' : 'transparent',
-          backdropFilter: scrolled ? 'blur(18px) saturate(1.2)' : 'none',
-          boxShadow: scrolled ? '0 1px 0 rgba(255,255,255,0.06)' : 'none',
+          background: isHome
+            ? (scrolled ? 'rgba(8,8,8,0.90)' : 'transparent')
+            : '#ffffff',
+          backdropFilter: isHome && scrolled ? 'blur(18px) saturate(1.2)' : 'none',
+          boxShadow: isHome
+            ? (scrolled ? '0 1px 0 rgba(255,255,255,0.06)' : 'none')
+            : '0 1px 4px rgba(0,0,0,0.08)',
         }}
       >
         {/* Logo */}
@@ -65,7 +70,7 @@ export default function FrontendLayout() {
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
         >
           <img
-            src="/images/Logo_PhotoPro_no_bg.png"
+            src={isHome ? '/images/Logo_PhotoPro_no_bg.png' : '/images/Logo_photopro_official.png'}
             alt="PhotoPro"
             style={{ height: 48, objectFit: 'contain' }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -96,7 +101,7 @@ export default function FrontendLayout() {
             onClick={() => setMenuOpen(v => !v)}
             className="fnav-hamburger"
             aria-label="Menu"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: '#fff', lineHeight: 0 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: isHome ? '#fff' : '#1a1a2e', lineHeight: 0 }}
           >
             {menuOpen ? <CloseOutlined style={{ fontSize: 20 }} /> : <MenuOutlined style={{ fontSize: 20 }} />}
           </button>

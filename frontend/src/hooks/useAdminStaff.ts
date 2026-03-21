@@ -43,6 +43,7 @@ export function useAdminStaff() {
   const resetVenoPassword = async (id: string): Promise<string> => {
     const res = await apiClient.post<{ veno_password: string }>(
       `/api/v1/admin/auth/users/${id}/reset-veno-password`,
+      {},
     );
     await refetch();
     return res.veno_password;

@@ -252,16 +252,16 @@ export default function Landing() {
       )}
 
       {/* PRICING */}
-      <section id="pricing" style={{ background: '#111', padding: '80px 0' }}>
+      <section id="pricing" style={{ background: '#f8f9fa', padding: '80px 0' }}>
         <div className="container">
-          <div className="section-header-dark">
-            <div className="section-eyebrow">Minh Bạch &amp; Đơn Giản</div>
-            <h2 className="section-title-dark"><DollarOutlined /> Bảng Giá Ảnh HD</h2>
+          <div className="section-header-dark" style={{ color: '#1a1a2e' }}>
+            <div className="section-eyebrow" style={{ color: '#1a6b4e' }}>Minh Bạch &amp; Đơn Giản</div>
+            <h2 className="section-title-dark" style={{ color: '#1a1a2e' }}><DollarOutlined /> Bảng Giá Ảnh HD</h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, marginBottom: 32, paddingTop: 16 }}>
             {bundleLoading
               ? Array.from({ length: 3 }).map((_, i) => (
-                  <Card key={i} style={{ borderRadius: 16, background: '#1a1a1a', border: '1px solid #2a2a2a' }} bodyStyle={{ padding: 28 }}>
+                  <Card key={i} style={{ borderRadius: 16, background: '#fff', border: '1px solid #e0e0e0' }} bodyStyle={{ padding: 28 }}>
                     <Skeleton active paragraph={{ rows: 3 }} />
                   </Card>
                 ))
@@ -281,22 +281,22 @@ export default function Landing() {
                         style={{
                           background: isRecommended
                             ? 'linear-gradient(135deg, #0d3622 0%, #1a6b4e 100%)'
-                            : '#1a1a1a',
-                          border: `1px solid ${isRecommended ? 'rgba(26,107,78,0.7)' : '#2a2a2a'}`,
+                            : '#ffffff',
+                          border: `1px solid ${isRecommended ? 'rgba(26,107,78,0.7)' : '#e0e0e0'}`,
                           borderRadius: 16,
                           padding: 28,
                           textAlign: 'center',
-                          boxShadow: isRecommended ? '0 8px 40px rgba(26,107,78,0.22)' : 'none',
+                          boxShadow: isRecommended ? '0 8px 40px rgba(26,107,78,0.22)' : '0 2px 12px rgba(0,0,0,0.06)',
                           height: '100%',
                         }}
                       >
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: 12 }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: isRecommended ? '#fff' : '#1a1a2e', marginBottom: 12 }}>
                           {bundle.name}
                         </div>
-                        <div style={{ fontSize: '2.6rem', fontWeight: 800, color: isRecommended ? '#5dffb0' : '#fff', marginBottom: 8 }}>
+                        <div style={{ fontSize: '2.6rem', fontWeight: 800, color: isRecommended ? '#5dffb0' : '#1a6b4e', marginBottom: 8 }}>
                           {bundle.price.toLocaleString('vi-VN')}đ
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.45)', marginBottom: savingsPct > 0 ? 8 : 24 }}>
+                        <div style={{ fontSize: '0.85rem', color: isRecommended ? 'rgba(255,255,255,0.55)' : '#888', marginBottom: savingsPct > 0 ? 8 : 24 }}>
                           {unitPrice.toLocaleString('vi-VN')}đ / ảnh
                         </div>
                         {savingsPct > 0 && (
@@ -308,7 +308,7 @@ export default function Landing() {
                           type={isRecommended ? 'primary' : 'default'}
                           onClick={() => navigate('/face-search')}
                           block
-                          style={isRecommended ? {} : { background: 'transparent', borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.8)' }}
+                          style={isRecommended ? {} : { borderColor: '#d0d0d0', color: '#1a1a2e' }}
                         >
                           Chọn Gói
                         </Button>
@@ -331,7 +331,7 @@ export default function Landing() {
             icon={<BulbOutlined />}
             message={<strong>Auto-pack Thông Minh</strong>}
             description="Hệ thống tự động chọn gói tối ưu khi bạn chọn ảnh. Ví dụ: Chọn 2 ảnh → Đề xuất Gói 3 (tiết kiệm thêm 1 ảnh!)"
-            style={{ borderRadius: 12, background: 'rgba(26,107,78,0.12)', border: '1px solid rgba(26,107,78,0.3)' }}
+            style={{ borderRadius: 12, background: 'rgba(26,107,78,0.08)', border: '1px solid rgba(26,107,78,0.2)' }}
           />
         </div>
       </section>
