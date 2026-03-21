@@ -5,6 +5,7 @@ export interface AlbumItem {
   id: string;
   name: string;
   media_count: number;
+  thumbnail_url: string | null;
 }
 
 export function useAlbums() {

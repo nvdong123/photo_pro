@@ -197,10 +197,25 @@ async def list_albums(db: AsyncSession = Depends(get_db)):
         count_result = await db.execute(
             select(MediaTag).where(MediaTag.tag_id == tag.id)
         )
+        # Get first available preview as thumbnail
+        thumb_row = await db.execute(
+            select(Media.preview_s3_key)
+            .join(MediaTag, Media.id == MediaTag.media_id)
+            .where(
+                MediaTag.tag_id == tag.id,
+                Media.preview_s3_key.isnot(None),
+                Media.photo_status == PhotoStatus.AVAILABLE,
+                Media.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        preview_key = thumb_row.scalar_one_or_none()
+        thumbnail_url = get_cached_presigned_url(preview_key, ttl_seconds=3600) if preview_key else None
         albums.append(AlbumOut(
             id=tag.id,
             name=tag.name,
             description=tag.description,
             media_count=len(count_result.all()),
+            thumbnail_url=thumbnail_url,
         ))
     return APIResponse.ok(albums)
