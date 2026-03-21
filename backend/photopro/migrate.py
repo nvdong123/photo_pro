@@ -148,6 +148,41 @@ async def verify_tables(engine) -> None:
             print(f"  Table {tbl}: {status}", flush=True)
 
 
+async def ensure_views(engine) -> None:
+    """Create or replace DB views that create_all cannot handle."""
+    async with engine.begin() as conn:
+        await conn.execute(text("""
+            CREATE OR REPLACE VIEW v_staff_statistics AS
+            SELECT
+                s.id AS staff_id,
+                s.employee_code,
+                s.full_name AS staff_name,
+                s.avatar_url,
+                s.is_active,
+                COUNT(DISTINCT m.id)                                        AS total_photos_uploaded,
+                COUNT(DISTINCT CASE WHEN m.photo_status = 'sold' THEN m.id END) AS total_photos_sold,
+                COALESCE(SUM(CASE WHEN DATE(o.created_at) = CURRENT_DATE
+                                  AND o.status = 'PAID' THEN oi.price_at_purchase END), 0) AS revenue_today,
+                COALESCE(SUM(CASE WHEN DATE_TRUNC('month', o.created_at) = DATE_TRUNC('month', NOW())
+                                  AND o.status = 'PAID' THEN oi.price_at_purchase END), 0) AS revenue_this_month,
+                COALESCE(SUM(CASE WHEN DATE_TRUNC('year', o.created_at) = DATE_TRUNC('year', NOW())
+                                  AND o.status = 'PAID' THEN oi.price_at_purchase END), 0) AS revenue_this_year,
+                COALESCE(SUM(CASE WHEN o.status = 'PAID' THEN oi.price_at_purchase END), 0) AS total_revenue,
+                MAX(m.created_at)                                           AS last_upload_date,
+                CASE WHEN COUNT(DISTINCT m.id) > 0
+                     THEN ROUND(COUNT(DISTINCT CASE WHEN m.photo_status='sold' THEN m.id END)::numeric
+                          / COUNT(DISTINCT m.id) * 100, 1)
+                     ELSE 0 END                                             AS conversion_rate
+            FROM staff s
+            LEFT JOIN media m ON m.uploader_id = s.id AND m.deleted_at IS NULL
+            LEFT JOIN order_items oi ON oi.media_id = m.id
+            LEFT JOIN orders o ON o.id = oi.order_id
+            WHERE s.role = 'STAFF'
+            GROUP BY s.id, s.employee_code, s.full_name, s.avatar_url, s.is_active
+        """))
+        print("ensure_views done.", flush=True)
+
+
 async def run() -> None:
     print("=== migrate.py starting ===", flush=True)
 
@@ -156,6 +191,7 @@ async def run() -> None:
         await ensure_enums(engine)
         await ensure_tables(engine)
         await apply_pending_columns(engine)
+        await ensure_views(engine)
         await stamp_alembic(engine)
         await seed_admin(engine)
         print("=== Verifying tables ===", flush=True)
