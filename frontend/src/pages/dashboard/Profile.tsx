@@ -36,11 +36,6 @@ const ACTIVITY_ICON_STYLES: Record<string, React.CSSProperties> = {
   danger:  { background: '#fee2e2', border: '2px solid #dc2626', color: '#dc2626' },
 };
 
-const SESSIONS = [
-  { id: 1, device: 'Windows - Chrome', location: 'TP.HCM, Việt Nam', time: 'Đăng nhập lúc 14:30, 27/02/2026', current: true },
-  { id: 2, device: 'iPhone - Safari', location: 'Hà Nội, Việt Nam', time: 'Đăng nhập lúc 09:15, 26/02/2026', current: false },
-];
-
 const NOTIFS = [
   { key: 'newOrder',     label: 'Đơn hàng mới',         desc: 'Nhận thông báo khi có đơn hàng mới',        default: true },
   { key: 'payment',      label: 'Thanh toán thành công', desc: 'Thông báo khi khách hàng thanh toán',       default: true },
@@ -48,6 +43,13 @@ const NOTIFS = [
   { key: 'weeklyReport', label: 'Báo cáo doanh thu',     desc: 'Gửi báo cáo hàng tuần qua email',          default: false },
   { key: 'system',       label: 'Cập nhật hệ thống',     desc: 'Thông báo về tính năng và bảo trì',        default: true },
 ];
+
+function formatRevenue(val: number): string {
+  if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)}B`;
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000) return `${(val / 1_000).toFixed(0)}K`;
+  return val.toLocaleString('vi-VN');
+}
 
 export default function Profile() {
   const user = getUser();
@@ -112,14 +114,62 @@ export default function Profile() {
     }
   };
 
-  // Notifications
+  // Activity log from API
+  interface ActivityItem { ip: string; device: string; created_at: string; }
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  useEffect(() => {
+    apiClient.get<{ data: ActivityItem[] }>('/api/v1/admin/auth/activity')
+      .then(r => setActivities(r.data ?? []))
+      .catch(() => setActivities([]));
+  }, []);
+
+  // Notifications settings from API
   const initNotifs = Object.fromEntries(NOTIFS.map(n => [n.key, n.default]));
   const [notifs, setNotifs] = useState<Record<string, boolean>>(initNotifs);
+  const [notifsLoaded, setNotifsLoaded] = useState(false);
+  useEffect(() => {
+    apiClient.get<Record<string, boolean>>('/api/v1/admin/notifications/settings')
+      .then(r => { setNotifs(p => ({ ...p, ...r })); setNotifsLoaded(true); })
+      .catch(() => setNotifsLoaded(true));
+  }, []);
+  const saveNotifSettings = async () => {
+    try {
+      await apiClient.post('/api/v1/admin/notifications/settings', notifs);
+      message.success('Đã lưu cài đặt thông báo!');
+    } catch {
+      message.error('Lưu thất bại');
+    }
+  };
+
+  // Live stats from API
+  const [statsData, setStatsData] = useState({ photos: '...', orders: '...', revenue: '...' });
+  useEffect(() => {
+    // Photos uploaded by this staff
+    apiClient.get<{ data: { total_photos_uploaded?: number } }>('/api/v1/admin/staff/statistics/me')
+      .then(r => setStatsData(p => ({ ...p, photos: (r.data?.total_photos_uploaded ?? 0).toLocaleString('vi-VN') })))
+      .catch(() => setStatsData(p => ({ ...p, photos: '-' })));
+    // Total orders count
+    apiClient.get<{ data: { items?: unknown[] }; meta?: { total?: number } }>('/api/v1/admin/orders?limit=1')
+      .then(r => {
+        const total = (r as unknown as { meta?: { total?: number } }).meta?.total
+          ?? (r as unknown as { data?: { total?: number } }).data?.total
+          ?? 0;
+        setStatsData(p => ({ ...p, orders: Number(total).toLocaleString('vi-VN') }));
+      })
+      .catch(() => setStatsData(p => ({ ...p, orders: '-' })));
+    // Total revenue
+    apiClient.get<{ data: { summary?: { total_revenue?: number } } }>('/api/v1/admin/revenue?period=year')
+      .then(r => {
+        const rev = r.data?.summary?.total_revenue ?? 0;
+        setStatsData(p => ({ ...p, revenue: formatRevenue(rev) }));
+      })
+      .catch(() => setStatsData(p => ({ ...p, revenue: '-' })));
+  }, []);
 
   const stats = [
-    { label: 'Ảnh đã chụp', val: '8,450', color: PRIMARY },
-    { label: 'Đơn hàng', val: '156', color: '#2563eb' },
-    { label: 'Doanh thu', val: '42.5M', color: '#d4870e' },
+    { label: 'Ảnh đã chụp', val: statsData.photos, color: PRIMARY },
+    { label: 'Đơn hàng', val: statsData.orders, color: '#2563eb' },
+    { label: 'Doanh thu', val: statsData.revenue, color: '#d4870e' },
   ];
 
   // ===== TAB INFO =====
@@ -210,23 +260,8 @@ export default function Profile() {
           <h3 style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>Phiên Đăng Nhập</h3>
         </div>
         <div style={cardBodyStyle}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {SESSIONS.map(s => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 16, background: SURFACE_ALT, borderRadius: 8, border: `1px solid ${BORDER}` }}>
-                <div style={{ width: 48, height: 48, background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: PRIMARY, flexShrink: 0, border: `1px solid ${BORDER}`, fontSize: 20 }}>
-                  {s.device.includes('iPhone') ? '📱' : '🖥️'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <strong style={{ display: 'block', marginBottom: 4 }}>{s.device}</strong>
-                  <div style={{ fontSize: 14, color: '#5a6170', marginBottom: 2 }}>{s.location} {s.current ? '• Phiên hiện tại' : ''}</div>
-                  <small style={{ fontSize: 13, color: TEXT_MUTED }}>{s.time}</small>
-                </div>
-                {s.current
-                  ? <Tag color="green">Đang hoạt động</Tag>
-                  : <Button size="small" danger>Đăng xuất</Button>
-                }
-              </div>
-            ))}
+          <div style={{ color: TEXT_MUTED, fontSize: 14 }}>
+            Quản lý phiên đăng nhập thông qua tab Hoạt động.
           </div>
         </div>
       </div>
@@ -237,26 +272,30 @@ export default function Profile() {
   const activityTab = (
     <div style={cardStyle}>
       <div style={cardHeaderStyle}>
-        <h3 style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>Lịch Sử Hoạt Động</h3>
+        <h3 style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>Lịch Sử Đăng Nhập</h3>
       </div>
       <div style={cardBodyStyle}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {ACTIVITIES.map((a, i) => (
-            <div key={i} style={{ display: 'flex', gap: 16, paddingBottom: 20, position: 'relative' }}>
-              {i < ACTIVITIES.length - 1 && (
-                <div style={{ position: 'absolute', left: 19, top: 42, width: 2, bottom: 0, background: BORDER }} />
-              )}
-              <div style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14, ...ACTIVITY_ICON_STYLES[a.type] }}>
-                {a.icon}
+        {activities.length === 0 ? (
+          <div style={{ color: TEXT_MUTED, textAlign: 'center', padding: '32px 0' }}>Chưa có dữ liệu hoạt động.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {activities.map((a, i) => (
+              <div key={i} style={{ display: 'flex', gap: 16, paddingBottom: 20, position: 'relative' }}>
+                {i < activities.length - 1 && (
+                  <div style={{ position: 'absolute', left: 19, top: 42, width: 2, bottom: 0, background: BORDER }} />
+                )}
+                <div style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14, ...ACTIVITY_ICON_STYLES.info }}>
+                  <HistoryOutlined />
+                </div>
+                <div style={{ paddingTop: 4 }}>
+                  <strong style={{ display: 'block', marginBottom: 4, fontSize: 14 }}>{a.device || 'Unknown device'}</strong>
+                  <div style={{ fontSize: 14, color: '#5a6170', marginBottom: 4 }}>IP: {a.ip}</div>
+                  <small style={{ fontSize: 13, color: TEXT_MUTED }}>{new Date(a.created_at).toLocaleString('vi-VN')}</small>
+                </div>
               </div>
-              <div style={{ paddingTop: 4 }}>
-                <strong style={{ display: 'block', marginBottom: 4, fontSize: 14 }}>{a.title}</strong>
-                <div style={{ fontSize: 14, color: '#5a6170', marginBottom: 4 }}>{a.desc}</div>
-                <small style={{ fontSize: 13, color: TEXT_MUTED }}>{a.time}</small>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -308,7 +347,7 @@ export default function Profile() {
             style={{ position: 'absolute', bottom: 4, right: 4, width: 32, height: 32, borderRadius: '50%', background: '#fff', border: `1px solid ${BORDER}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.15)', fontSize: 14, color: '#5a6170', padding: 0 }}
             title="Thay đổi ảnh đại diện"
           >
-            📷
+            <EditOutlined />
           </Button>
         </div>
 

@@ -8,6 +8,7 @@ import {
   DollarOutlined, BulbOutlined, QuestionCircleOutlined, PictureOutlined,
   DownOutlined,
 } from '@ant-design/icons';
+import { Camera, Users, MapPin, Sparkles } from 'lucide-react';
 import '../styles/frontend.css';
 
 // Hero background - Vietnam travel landscape from Unsplash
@@ -99,6 +100,7 @@ export default function Landing() {
             src="/images/Logo_PhotoPro_no_bg.png"
             alt="PhotoPro"
             className="hero-logo"
+            style={{ height: 80 }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <h1 className="hero-title">
@@ -116,7 +118,7 @@ export default function Landing() {
               onClick={() => navigate('/face-search')}
               className="hero-btn-primary"
             >
-              🔍 Tìm Ảnh Của Tôi
+              Tìm Ảnh Của Tôi
             </Button>
             <Button
               size="large"
@@ -124,7 +126,7 @@ export default function Landing() {
               onClick={() => navigate('/albums')}
               className="hero-btn-outline"
             >
-              📁 Xem Albums
+              Xem Albums
             </Button>
           </div>
         </div>
@@ -142,10 +144,10 @@ export default function Landing() {
         <div className="container">
           <div className="stats-grid">
             {[
-              { icon: '📷', value: `${photos.toLocaleString('vi-VN')}+`,   label: 'Ảnh Chất Lượng Cao' },
-              { icon: '😄', value: `${clients.toLocaleString('vi-VN')}+`,  label: 'Khách Hài Lòng' },
-              { icon: '📍', value: `${locs.toLocaleString('vi-VN')}+`,     label: 'Địa Điểm' },
-              { icon: '🤖', value: 'AI',                                    label: 'Nhận Diện Khuôn Mặt' },
+              { icon: <Camera size={32} color="#fff" />, value: `${photos.toLocaleString('vi-VN')}+`,   label: 'Ảnh Chất Lượng Cao' },
+              { icon: <Users   size={32} color="#fff" />, value: `${clients.toLocaleString('vi-VN')}+`,  label: 'Khách Hài Lòng' },
+              { icon: <MapPin  size={32} color="#fff" />, value: `${locs.toLocaleString('vi-VN')}+`,     label: 'Địa Điểm' },
+              { icon: <Sparkles size={32} color="#fff" />, value: 'AI',                                  label: 'Nhận Diện Khuôn Mặt' },
             ].map((s, i, arr) => (
               <div
                 key={s.label}
@@ -198,7 +200,8 @@ export default function Landing() {
               <div key={item.id} className="gallery-dark-thumb" onClick={() => navigate('/albums')}>
                 <img src={item.src} alt={item.label} loading="lazy" />
                 <div className="gallery-dark-overlay">
-                  <span>📍 {item.label}</span>
+                  <MapPin size={14} color="#5dffb0" style={{ marginRight: 4 }} />
+                  <span>{item.label}</span>
                 </div>
               </div>
             ))}

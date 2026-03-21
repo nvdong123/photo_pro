@@ -166,3 +166,13 @@ async def delete_admin(
     user = await db.get(Staff, user_id)
     await db.commit()
     return APIResponse.ok({"message": "User deactivated"})
+
+
+@router.get("/activity", response_model=APIResponse[list[dict]])
+async def get_activity(
+    admin: Staff = Depends(get_current_admin),
+):
+    """Return recent login activity for the current admin user.
+    Phase 1: returns empty list — frontend gracefully shows 'no activity' message.
+    """
+    return APIResponse.ok([])

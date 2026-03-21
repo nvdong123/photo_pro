@@ -43,6 +43,7 @@ class AlbumOut(BaseModel):
     name: str
     description: str | None
     media_count: int = 0
+    thumbnail_url: str | None = None
 
 
 class LocationOut(BaseModel):
@@ -52,3 +53,4 @@ class LocationOut(BaseModel):
     address: str | None
     shoot_date: str | None
     available_count: int = 0
+    thumbnail_url: str | None = None

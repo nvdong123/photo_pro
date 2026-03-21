@@ -67,7 +67,7 @@ export default function FrontendLayout() {
           <img
             src="/images/Logo_PhotoPro_no_bg.png"
             alt="PhotoPro"
-            style={{ height: 40, objectFit: 'contain' }}
+            style={{ height: 48, objectFit: 'contain' }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         </div>

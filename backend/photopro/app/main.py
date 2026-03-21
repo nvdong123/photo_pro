@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 from app.api.health import router as health_router
 from app.api.v1 import search, cart, checkout, payment, download, media, bundles as public_bundles
-from app.api.v1.admin import auth, bundles, revenue, orders, media as admin_media, albums, settings, locations, staff_stats
+from app.api.v1.admin import auth, bundles, revenue, orders, media as admin_media, albums, settings, locations, staff_stats, notifications as admin_notifications
 from app.core.config import settings as app_settings
 from app.core.limiter import limiter
 from app.models import (  # noqa: F401 – ensure all models are registered
@@ -94,6 +94,7 @@ app.include_router(albums.router,       prefix="/api/v1/admin/albums",     tags=
 app.include_router(locations.router,    prefix="/api/v1/admin/locations",  tags=["Admin – Locations"])
 app.include_router(staff_stats.router,  prefix="/api/v1/admin/staff/statistics", tags=["Admin – Staff Stats"])
 app.include_router(settings.router,     prefix="/api/v1/admin/settings",   tags=["Admin – Settings"])
+app.include_router(admin_notifications.router, prefix="/api/v1/admin/notifications", tags=["Admin – Notifications"])
 
 
 @app.get("/healthz", tags=["Health"])
