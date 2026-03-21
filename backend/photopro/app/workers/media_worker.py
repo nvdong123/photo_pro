@@ -18,6 +18,7 @@ from app.models.media import Media, MediaStatus
 from app.models.tag import MediaTag, Tag, TagType
 from app.services.face_client import face_client
 from app.services.storage_service import storage_service
+from app.services.veno_sync_service import _normalize_location_name as _norm
 
 logger = logging.getLogger(__name__)
 
@@ -221,15 +222,35 @@ async def _async_scan_upload_folder():
             await db.flush()
 
             if album_code:
-                tag_result = await db.execute(
-                    select(Tag).where(Tag.name == album_code)
+                # album_code from path is the normalized location name
+                # (e.g. "le_tot_nghiep" from folder "Lễ Tốt Nghiệp").
+                # Look up LOCATION tags with matching shoot_date, then
+                # compare normalized name — avoids orphan tag creation.
+                loc_rows = await db.execute(
+                    select(Tag).where(
+                        Tag.tag_type == TagType.LOCATION,
+                        Tag.shoot_date == shoot_date,
+                    )
                 )
-                tag = tag_result.scalar_one_or_none()
-                if not tag:
-                    tag = Tag(name=album_code, tag_type=TagType.LOCATION)
-                    db.add(tag)
-                    await db.flush()
-                db.add(MediaTag(media_id=media.id, tag_id=tag.id))
+                tag = next(
+                    (t for t in loc_rows.scalars().all() if _norm(t.name) == album_code),
+                    None,
+                )
+                # Fallback: exact name match (English/already-normalized names)
+                if tag is None:
+                    tag = (await db.execute(
+                        select(Tag).where(
+                            Tag.tag_type == TagType.LOCATION,
+                            Tag.name == album_code,
+                        )
+                    )).scalar_one_or_none()
+                if tag:
+                    db.add(MediaTag(media_id=media.id, tag_id=tag.id))
+                else:
+                    logger.warning(
+                        "No LOCATION tag found for shoot_date=%s album_code=%s — media %s saved without tag",
+                        shoot_date, album_code, media.id,
+                    )
 
             await db.commit()
             create_derivatives.delay(str(media.id))
