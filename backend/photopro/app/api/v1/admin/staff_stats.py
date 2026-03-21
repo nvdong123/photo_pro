@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_manager_up, require_roles
+from app.core.deps import get_current_admin, require_manager_up, require_roles
 from app.models.staff import Staff, StaffRole
 from app.schemas.common import APIResponse
 
@@ -81,15 +81,23 @@ async def get_staff_stats(
 async def get_staff_revenue(
     staff_id: uuid.UUID,
     period: str = Query("month", pattern="^(day|month|year)$"),
-    _: Staff = Depends(require_manager_up),
+    current: Staff = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Revenue breakdown by date for a specific staff member.
 
+    MANAGER+ can view any staff. STAFF can only view their own revenue.
     period=day   → group by day, last 30 days
     period=month → group by month, last 12 months
     period=year  → group by year, last 5 years
     """
+    is_manager = current.role in (StaffRole.SYSTEM, StaffRole.SALES, StaffRole.MANAGER)
+    is_own = current.id == staff_id
+    if not is_manager and not is_own:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "PERMISSION_DENIED", "message": "Insufficient permissions"},
+        )
     # All three values come from a validated whitelist — safe to interpolate
     trunc_map = {"day": ("day", "30 days"), "month": ("month", "12 months"), "year": ("year", "5 years")}
     trunc, interval = trunc_map[period]
