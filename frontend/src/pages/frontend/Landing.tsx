@@ -316,7 +316,7 @@ export default function Landing() {
                           type={isRecommended ? 'primary' : 'default'}
                           onClick={() => navigate('/face-search')}
                           block
-                          style={isRecommended ? {} : { borderColor: '#444', color: '#fff' }}
+                          style={isRecommended ? {} : { borderColor: '#5dffb0', color: '#5dffb0', background: 'transparent' }}
                         >
                           Chọn Gói
                         </Button>
