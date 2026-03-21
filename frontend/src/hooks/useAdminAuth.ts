@@ -1,4 +1,4 @@
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache } from "../lib/api-client";
 
 export type AdminRole = "SYSTEM" | "SALES" | "MANAGER" | "STAFF";
 
@@ -42,6 +42,7 @@ export function useAdminAuth() {
   };
 
   const logout = () => {
+    invalidateApiCache();
     ["admin_token", "admin_role", "admin_name", "admin_employee_code", "photopro_user"].forEach(
       (k) => localStorage.removeItem(k),
     );
