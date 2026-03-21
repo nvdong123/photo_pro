@@ -58,7 +58,7 @@ export default function Staff() {
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modal, setModal] = useState<ModalState>({ open: false, item: null });
-  const [form, setForm] = useState<StaffFormData>({ name: '', email: '', phone: '', role: '', password: '' });
+  const [form, setForm] = useState<StaffFormData>({ name: '', email: '', phone: '', role: '', password: '', employeeCode: '' });
   const [formErr, setFormErr] = useState<Partial<StaffFormData>>({});
 
   const canManage = hasRole(['admin-system']);
