@@ -108,11 +108,14 @@ async def _sync_veno_folders(db: AsyncSession, staff: Staff) -> None:
             .where(Tag.shoot_date.isnot(None))
         )
         locations = [(r[0], r[1]) for r in rows.all()]
+        dirs = veno.build_staff_dirs(staff.employee_code, locations)
+        # ALWAYS physically create the directories first (mkdir action needs no user)
+        if dirs:
+            await veno.ensure_directories(dirs)
         # Remove legacy root-level /{employee_code}/ folder if it exists
         await veno.remove_legacy_root_dir(staff.employee_code)
-        # Ensure role is editor
+        # Update Veno user: role + allowed folders (fails gracefully if user not in Veno yet)
         await veno.update_veno_user_role(staff.employee_code, "editor")
-        dirs = veno.build_staff_dirs(staff.employee_code, locations)
         await veno.update_veno_user_folders(staff.employee_code, dirs)
     except Exception:
         logger.exception("Failed to sync Veno folders for %s", staff.employee_code)
