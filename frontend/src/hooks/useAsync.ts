@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, DependencyList } from "react";
 
 export function useAsync<T>(asyncFn: () => Promise<T>, deps: DependencyList = [], enabled = true) {
-  const [data, setData] = useState<T | null>(null);
+  // NOTE: `undefined` (not null) so that destructuring defaults work correctly:
+  //   const { data: items = [] } = useAsync(...)  →  items is [] before load
+  //   Null would bypass the default and cause "x is not iterable" errors.
+  const [data, setData] = useState<T | undefined>(undefined);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
@@ -11,6 +14,7 @@ export function useAsync<T>(asyncFn: () => Promise<T>, deps: DependencyList = []
     try {
       setData(await asyncFn());
     } catch (e) {
+      setData(undefined);
       setError(e instanceof Error ? e.message : "Lỗi không xác định");
     } finally {
       setLoading(false);
