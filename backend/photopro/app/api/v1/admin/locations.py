@@ -45,10 +45,11 @@ class LocationOut(BaseModel):
     description: str | None = None
     media_count: int = 0
     thumbnail_url: str | None = None
+    assigned_staff: list[dict] = []
 
 
 class LocationDetailOut(LocationOut):
-    assigned_staff: list[dict] = []
+    pass  # assigned_staff already in LocationOut
 
 
 class AssignStaffRequest(BaseModel):
@@ -87,37 +88,69 @@ def _sla_to_dict(sla: StaffLocationAssignment, staff: Staff) -> dict:
     }
 
 
+async def _get_location(db: AsyncSession, location_id: uuid.UUID) -> Tag:
+    tag = await db.get(Tag, location_id)
+    if not tag or tag.tag_type != TagType.LOCATION:
+        raise HTTPException(404, detail={"code": "ALBUM_NOT_FOUND"})
+    return tag
+
+
 async def _sync_veno_folders(db: AsyncSession, staff: Staff) -> None:
     """Sync a staff member's Veno folder permissions based on their current assignments."""
     if not staff.employee_code:
         return
     try:
-        # Fetch shoot_dates from assigned locations
+        # Fetch (shoot_date, location_name) pairs for all assigned locations
         rows = await db.execute(
-            select(Tag.shoot_date)
+            select(Tag.shoot_date, Tag.name)
             .join(StaffLocationAssignment, StaffLocationAssignment.tag_id == Tag.id)
             .where(StaffLocationAssignment.staff_id == staff.id)
             .where(Tag.shoot_date.isnot(None))
         )
-        shoot_dates = [r[0] for r in rows.all()]
-        dirs = veno.build_staff_dirs(staff.employee_code, shoot_dates)
+        locations = [(r[0], r[1]) for r in rows.all()]
+        # Remove legacy root-level /{employee_code}/ folder if it exists
+        await veno.remove_legacy_root_dir(staff.employee_code)
+        # Ensure role is editor
+        await veno.update_veno_user_role(staff.employee_code, "editor")
+        dirs = veno.build_staff_dirs(staff.employee_code, locations)
         await veno.update_veno_user_folders(staff.employee_code, dirs)
     except Exception:
         logger.exception("Failed to sync Veno folders for %s", staff.employee_code)
 
 
-# ── CRUD ──────────────────────────────────────────────────────────────────────
+# ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=APIResponse[list[LocationOut]])
 async def list_locations(
     db: AsyncSession = Depends(get_db),
     _: Staff = Depends(require_any),
 ):
+    from collections import defaultdict
     result = await db.execute(
         select(Tag).where(Tag.tag_type == TagType.LOCATION).order_by(Tag.name)
     )
+    tags = result.scalars().all()
+
+    # Fetch all staff assignments for all locations in one query
+    tag_ids = [tag.id for tag in tags]
+    staff_rows = await db.execute(
+        select(StaffLocationAssignment, Staff)
+        .join(Staff, Staff.id == StaffLocationAssignment.staff_id)
+        .where(StaffLocationAssignment.tag_id.in_(tag_ids))
+    ) if tag_ids else None
+
+    staff_by_location: dict = defaultdict(list)
+    if staff_rows:
+        for sla, staff_member in staff_rows.all():
+            staff_by_location[sla.tag_id].append({
+                "id": str(staff_member.id),
+                "full_name": staff_member.full_name,
+                "employee_code": staff_member.employee_code,
+                "can_upload": sla.can_upload,
+            })
+
     locations = []
-    for tag in result.scalars().all():
+    for tag in tags:
         cnt = await _available_media_count(db, tag.id)
         # Get first available preview as thumbnail
         thumb_row = await db.execute(
@@ -137,6 +170,7 @@ async def list_locations(
             id=tag.id, name=tag.name, address=tag.address,
             shoot_date=tag.shoot_date, description=tag.description,
             media_count=cnt, thumbnail_url=thumbnail_url,
+            assigned_staff=staff_by_location.get(tag.id, []),
         ))
     return APIResponse.ok(locations)
 
@@ -171,7 +205,7 @@ async def create_location(
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
-        media_count=0,
+        media_count=0, assigned_staff=[],
     ))
 
 
@@ -215,10 +249,19 @@ async def update_location(
         tag.description = body.description
     await db.commit()
     cnt = await _available_media_count(db, tag.id)
+    staff_rows = await db.execute(
+        select(StaffLocationAssignment, Staff)
+        .join(Staff, Staff.id == StaffLocationAssignment.staff_id)
+        .where(StaffLocationAssignment.tag_id == location_id)
+    )
+    assigned_staff = [
+        {"id": str(s.id), "full_name": s.full_name, "employee_code": s.employee_code, "can_upload": sla.can_upload}
+        for sla, s in staff_rows.all()
+    ]
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
-        media_count=cnt,
+        media_count=cnt, assigned_staff=assigned_staff,
     ))
 
 

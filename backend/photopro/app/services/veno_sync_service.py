@@ -8,13 +8,18 @@ Endpoints called:
     POST /vfm-admin/api/sync.php?action=create_user
     POST /vfm-admin/api/sync.php?action=update_user_folders
     POST /vfm-admin/api/sync.php?action=update_user_password
+    POST /vfm-admin/api/sync.php?action=update_user_role
     POST /vfm-admin/api/sync.php?action=disable_user
     POST /vfm-admin/api/sync.php?action=delete_user
+    POST /vfm-admin/api/sync.php?action=mkdir
+    POST /vfm-admin/api/sync.php?action=rm_dir
 """
 from __future__ import annotations
 
 import logging
+import re
 import secrets
+import unicodedata
 
 import httpx
 
@@ -67,7 +72,7 @@ def _generate_password(length: int = 12) -> str:
 async def create_veno_user(
     username: str,
     password: str,
-    role: str = "user",
+    role: str = "editor",
     email: str = "",
     dirs: list[str] | None = None,
 ) -> None:
@@ -103,6 +108,11 @@ async def delete_veno_user(username: str) -> None:
     await _call_sync("delete_user", {"name": username})
 
 
+async def update_veno_user_role(username: str, role: str) -> None:
+    """Update the role for an existing Veno user (e.g. 'editor')."""
+    await _call_sync("update_user_role", {"name": username, "role": role})
+
+
 async def ensure_directories(dirs: list[str]) -> None:
     """Create directories on the Veno file server (no user needed)."""
     if not dirs:
@@ -110,23 +120,41 @@ async def ensure_directories(dirs: list[str]) -> None:
     await _call_sync("mkdir", {"folders": dirs})
 
 
-def build_staff_dirs(employee_code: str, shoot_dates: list[str]) -> list[str]:
-    """Build the list of Veno directory paths for a staff member.
+async def remove_legacy_root_dir(employee_code: str) -> None:
+    """Remove legacy root-level /{employee_code}/ folder if it exists."""
+    await _call_sync("rm_dir", {"folder": employee_code})
 
-    Veno dir paths are relative to starting_dir (e.g. ./uploads/ → /photopro_upload/).
-    Folder structure: {shoot_date}/{employee_code}/
+
+def _normalize_location_name(name: str) -> str:
+    """Remove diacritics, lowercase, replace non-alphanumeric with underscore."""
+    nfkd = unicodedata.normalize("NFKD", name)
+    ascii_str = "".join(c for c in nfkd if not unicodedata.combining(c))
+    normalized = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_str).strip("_").lower()
+    return normalized or "album"
+
+
+def build_staff_dirs(
+    employee_code: str,
+    locations: list[tuple[str, str]],
+) -> list[str]:
+    """Build Veno directory paths for a staff member.
+
+    Folder structure: {shoot_date}/{employee_code}/{location_name}/
 
     Args:
         employee_code: Staff identifier like "NV001".
-        shoot_dates: List of YYYY-MM-DD dates from assigned locations.
+        locations: List of (shoot_date, location_name) tuples from assigned Tags.
 
     Returns:
-        List of directory paths, e.g. ["2026-03-17/NV001", "2026-03-18/NV001"].
-        Falls back to ["{employee_code}"] if no dates provided.
+        Paths like ["2026-03-21/NV002/le_tot_nghiep"].
+        Empty list when no assignments.
     """
-    if not shoot_dates:
-        return [employee_code]
-    return [f"{d}/{employee_code}" for d in shoot_dates]
+    result = []
+    for shoot_date, location_name in locations:
+        if shoot_date:
+            normalized_name = _normalize_location_name(location_name)
+            result.append(f"{shoot_date}/{employee_code}/{normalized_name}")
+    return result
 
 
 def generate_veno_password() -> str:

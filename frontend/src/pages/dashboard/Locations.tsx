@@ -73,7 +73,7 @@ export default function Locations() {
     revenue: '-',
     gradient: 'linear-gradient(135deg, #1a6b4e 0%, #0f5840 100%)',
     thumbnailUrl: a.thumbnail_url ?? null,
-    assignedStaff: [],
+    assignedStaff: (a.assigned_staff ?? []).map(s => s.id),
   }));
 
   const allStaff: Staff[] = apiUsers.map((u, i) => ({

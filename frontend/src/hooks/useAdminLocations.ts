@@ -9,6 +9,7 @@ export interface AdminLocation {
   description: string | null;
   media_count: number;
   thumbnail_url: string | null;
+  assigned_staff: { id: string; full_name: string | null; employee_code: string | null; can_upload: boolean }[];
 }
 
 export interface LocationStaffAssignment {

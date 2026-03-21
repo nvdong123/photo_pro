@@ -147,7 +147,7 @@ async def create_admin(
             await veno.create_veno_user(
                 username=employee_code,
                 password=veno_password,
-                role="user",
+                role="editor",
                 email=body.email,
                 dirs=dirs,
             )
@@ -189,7 +189,7 @@ async def patch_admin(
                         await veno.create_veno_user(
                             username=user.employee_code,
                             password=user.veno_password,
-                            role="user",
+                            role="editor",
                             email=user.email,
                             dirs=veno.build_staff_dirs(user.employee_code, []),
                         )
