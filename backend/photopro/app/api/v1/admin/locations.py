@@ -1,12 +1,12 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import AsyncSessionLocal, get_db
 from app.core.deps import require_any, require_sales_up, require_system
 from app.models.media import Media, PhotoStatus
 from app.models.staff import Staff, StaffRole
@@ -131,6 +131,17 @@ async def _sync_veno_folders(db: AsyncSession, staff: Staff) -> None:
         logger.exception("Failed to sync Veno folders for %s", staff.employee_code)
 
 
+async def _veno_sync_task_for_staff(staff_id: uuid.UUID) -> None:
+    """Background task: open own DB session and sync Veno folders for one staff."""
+    try:
+        async with AsyncSessionLocal() as db:
+            staff = await db.get(Staff, staff_id)
+            if staff:
+                await _sync_veno_folders(db, staff)
+    except Exception:
+        logger.exception("Background Veno sync failed for staff %s", staff_id)
+
+
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=APIResponse[list[LocationOut]])
@@ -191,6 +202,7 @@ async def list_locations(
 @router.post("", response_model=APIResponse[LocationOut])
 async def create_location(
     body: LocationCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: Staff = Depends(require_sales_up),
 ):
@@ -209,12 +221,9 @@ async def create_location(
     db.add(tag)
     await db.commit()
     await db.refresh(tag)
-    # Create Veno folder for this shoot_date
+    # Create Veno folder for this shoot_date (non-blocking background task)
     if tag.shoot_date:
-        try:
-            await veno.ensure_directories([tag.shoot_date])
-        except Exception:
-            logger.exception("Failed to create Veno folder for %s", tag.shoot_date)
+        background_tasks.add_task(veno.ensure_directories, [tag.shoot_date])
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
@@ -314,6 +323,7 @@ async def list_location_staff(
 async def assign_staff_to_location(
     location_id: uuid.UUID,
     body: AssignStaffRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current: Staff = Depends(require_sales_up),
 ):
@@ -337,8 +347,8 @@ async def assign_staff_to_location(
             assigned_by=current.id,
         ))
     await db.commit()
-    # Sync Veno folders for this staff member
-    await _sync_veno_folders(db, staff)
+    # Sync Veno folders in background so the HTTP response returns immediately
+    background_tasks.add_task(_veno_sync_task_for_staff, staff.id)
     return APIResponse.ok({"message": "Staff assigned"})
 
 
@@ -346,6 +356,7 @@ async def assign_staff_to_location(
 async def unassign_staff_from_location(
     location_id: uuid.UUID,
     staff_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: Staff = Depends(require_sales_up),
 ):
@@ -360,10 +371,8 @@ async def unassign_staff_from_location(
         raise HTTPException(404, "Assignment not found")
     await db.delete(sla)
     await db.commit()
-    # Sync Veno folders after unassignment
-    staff_member = await db.get(Staff, staff_id)
-    if staff_member:
-        await _sync_veno_folders(db, staff_member)
+    # Sync Veno folders in background so the HTTP response returns immediately
+    background_tasks.add_task(_veno_sync_task_for_staff, staff_id)
     return APIResponse.ok({"message": "Staff unassigned"})
 
 

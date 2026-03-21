@@ -155,12 +155,12 @@ export default function Locations() {
     if (!formName) { message.error('Vui lòng nhập tên địa điểm'); return; }
     try {
       const newLoc = await createLocation({ name: formName, description: formDescription || undefined, address: formAddress || undefined, shoot_date: formDate || undefined });
-      // Assign selected staff
-      for (const staffId of formStaff) {
-        await assignStaff(newLoc.id, staffId, true);
-      }
+      // Show success and close immediately — staff sync runs in background
       message.success('Địa điểm đã được tạo thành công!');
       closeModal();
+      if (formStaff.length > 0) {
+        Promise.all(formStaff.map(staffId => assignStaff(newLoc.id, staffId, true))).catch(() => {});
+      }
     } catch (err) { message.error(err instanceof Error ? err.message : 'Tạo thất bại'); }
   }
 
@@ -169,15 +169,18 @@ export default function Locations() {
     try {
       if (selectedLoc) {
         await patchLocation(selectedLoc.id, { name: formName, description: formDescription || undefined, address: formAddress || undefined });
-        // Update staff assignments: add new, remove old
         const toAdd = formStaff.filter(id => !originalStaff.includes(id));
         const toRemove = originalStaff.filter(id => !formStaff.includes(id));
-        for (const staffId of toAdd) {
-          await assignStaff(selectedLoc.id, staffId, true);
+        // Show success and close immediately — staff sync runs in background
+        message.success('Đã lưu thay đổi!');
+        closeModal();
+        if (toAdd.length > 0 || toRemove.length > 0) {
+          Promise.all([
+            ...toAdd.map(id => assignStaff(selectedLoc.id, id, true)),
+            ...toRemove.map(id => removeStaff(selectedLoc.id, id)),
+          ]).catch(() => {});
         }
-        for (const staffId of toRemove) {
-          await removeStaff(selectedLoc.id, staffId);
-        }
+        return;
       }
       message.success('Đã lưu thay đổi!');
       closeModal();
