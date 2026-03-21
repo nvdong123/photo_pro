@@ -114,19 +114,18 @@ async def _sync_veno_folders(db: AsyncSession, staff: Staff) -> None:
             await veno.ensure_directories(dirs)
         # Remove legacy root-level /{employee_code}/ folder if it exists
         await veno.remove_legacy_root_dir(staff.employee_code)
-        # Create or update the Veno user (upsert: creates if missing, updates if exists)
-        if staff.veno_password:
-            await veno.create_veno_user(
-                username=staff.employee_code,
-                password=staff.veno_password,
-                role="editor",
-                email=staff.email or "",
-                dirs=dirs,
-            )
-        else:
-            # No veno_password yet — just sync role and folders for existing user
-            await veno.update_veno_user_role(staff.employee_code, "editor")
-            await veno.update_veno_user_folders(staff.employee_code, dirs)
+        # Ensure staff always has a Veno password — auto-generate if missing
+        if not staff.veno_password:
+            staff.veno_password = veno.generate_veno_password()
+            await db.commit()
+        # Upsert Veno user (create or update)
+        await veno.create_veno_user(
+            username=staff.employee_code,
+            password=staff.veno_password,
+            role="editor",
+            email=staff.email or "",
+            dirs=dirs,
+        )
     except Exception:
         logger.exception("Failed to sync Veno folders for %s", staff.employee_code)
 

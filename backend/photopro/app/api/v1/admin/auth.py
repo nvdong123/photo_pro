@@ -2,7 +2,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -97,17 +97,21 @@ async def create_admin(
     if existing.scalar_one_or_none():
         raise HTTPException(409, "Email already registered")
 
-    # Auto-generate employee_code for STAFF role if not supplied
+    # Auto-generate employee_code from email prefix (e.g. "abcxyz@gmail.com" → "abcxyz")
     employee_code = body.employee_code
     if body.role == StaffRole.STAFF and not employee_code:
-        max_result = await db.execute(
-            select(func.max(Staff.employee_code)).where(Staff.employee_code.like("NV%"))
-        )
-        max_code = max_result.scalar_one_or_none()
-        if max_code and len(max_code) > 2 and max_code[2:].isdigit():
-            employee_code = f"NV{int(max_code[2:]) + 1:03d}"
-        else:
-            employee_code = "NV001"
+        base_code = body.email.split("@")[0].lower()
+        candidate = base_code
+        suffix = 2
+        while True:
+            taken = (await db.execute(
+                select(Staff.id).where(Staff.employee_code == candidate)
+            )).scalar_one_or_none()
+            if not taken:
+                break
+            candidate = f"{base_code}{suffix}"
+            suffix += 1
+        employee_code = candidate
 
     # Generate Veno password for staff with an employee_code
     veno_password = None
