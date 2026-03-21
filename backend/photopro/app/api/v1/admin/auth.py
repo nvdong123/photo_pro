@@ -180,15 +180,40 @@ async def patch_admin(
     user = await db.get(Staff, user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    if body.full_name is not None:
+        user.full_name = body.full_name
     if body.role is not None:
         user.role = body.role
+    if body.employee_code is not None:
+        new_code = body.employee_code.strip()
+        # Check uniqueness (excluding self)
+        if new_code != user.employee_code:
+            conflict = (await db.execute(
+                select(Staff.id).where(Staff.employee_code == new_code, Staff.id != user.id)
+            )).scalar_one_or_none()
+            if conflict:
+                raise HTTPException(409, "employee_code already taken")
+            old_code = user.employee_code
+            user.employee_code = new_code
+            # Rename Veno user: delete old, create new
+            if old_code and user.veno_password:
+                try:
+                    await veno.delete_veno_user(old_code)
+                    await veno.create_veno_user(
+                        username=new_code,
+                        password=user.veno_password,
+                        role="editor",
+                        email=user.email or "",
+                        dirs=veno.build_staff_dirs(new_code, []),
+                    )
+                except Exception:
+                    logger.exception("Failed to rename Veno user %s → %s", old_code, new_code)
     if body.is_active is not None:
         user.is_active = body.is_active
         # Sync active/disabled state to Veno
         if user.employee_code:
             try:
                 if body.is_active:
-                    # Re-enable: create user if missing, or just update
                     if user.veno_password:
                         await veno.create_veno_user(
                             username=user.employee_code,

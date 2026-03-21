@@ -77,6 +77,7 @@ class PatchAdminUserRequest(BaseModel):
     full_name: str | None = None
     role: AdminRole | None = None
     is_active: bool | None = None
+    employee_code: str | None = None
 
 
 class PatchProfileRequest(BaseModel):

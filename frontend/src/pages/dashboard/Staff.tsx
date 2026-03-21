@@ -38,7 +38,7 @@ const AVATAR_COLORS = [
 ];
 
 interface ModalState { open: boolean; item: StaffMember | null; }
-interface StaffFormData { name: string; email: string; phone: string; role: string; password: string; }
+interface StaffFormData { name: string; email: string; phone: string; role: string; password: string; employeeCode: string; }
 
 export default function Staff() {
   const { staff: apiStaff, loading, createStaff, updateStaff, deleteStaff, resetVenoPassword } = useAdminStaff();
@@ -78,8 +78,8 @@ export default function Staff() {
   const openModal = (item: StaffMember | null) => {
     setModal({ open: true, item });
     setFormErr({});
-    if (item) setForm({ name: item.name, email: item.email, phone: item.phone, role: item.role, password: '' });
-    else setForm({ name: '', email: '', phone: '', role: '', password: '' });
+    if (item) setForm({ name: item.name, email: item.email, phone: item.phone, role: item.role, password: '', employeeCode: item.employeeCode ?? '' });
+    else setForm({ name: '', email: '', phone: '', role: '', password: '', employeeCode: '' });
   };
 
   const closeModal = () => { setModal({ open: false, item: null }); setFormErr({}); };
@@ -102,6 +102,7 @@ export default function Staff() {
         await updateStaff(modal.item.id, {
           full_name: form.name,
           role: ROLE_TO_BACKEND[form.role] || form.role,
+          ...(form.employeeCode.trim() && form.employeeCode.trim() !== modal.item.employeeCode ? { employee_code: form.employeeCode.trim() } : {}),
         });
         message.success('Đã cập nhật nhân viên thành công!');
       } else {
@@ -230,6 +231,13 @@ export default function Staff() {
             </Select>
             {formErr.role && <div style={errStyle}>{formErr.role}</div>}
           </div>
+          {/* Username Veno (employee_code) - chỉ hiện khi edit */}
+          {isEdit && (
+            <div>
+              <label style={labelStyle}>Username Veno <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(dùng để đăng nhập Veno File Manager)</small></label>
+              <Input value={form.employeeCode} onChange={e => setForm(f => ({ ...f, employeeCode: e.target.value }))} placeholder="VD: abcxyz" />
+            </div>
+          )}
           {/* Mật khẩu */}
           <div>
             <label style={labelStyle}>Mật khẩu {!isEdit && <span style={{ color: DANGER }}>*</span>}{isEdit && <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(Để trống = không thay đổi)</small>}</label>
@@ -312,7 +320,7 @@ export default function Staff() {
                   <div>
                     <div style={{ fontWeight: 600 }}>{s.name}</div>
                     <div style={{ fontSize: 12, color: TEXT_MUTED }}>{s.email}</div>
-                    <div style={{ fontSize: 12, color: TEXT_MUTED }}>{s.phone}</div>
+                    {s.employeeCode && <div style={{ fontSize: 11, color: '#1a6b4e', fontFamily: 'monospace', marginTop: 2 }}>@{s.employeeCode}</div>}
                   </div>
                 </div>
               );

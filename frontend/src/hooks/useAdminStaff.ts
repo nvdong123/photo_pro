@@ -29,7 +29,7 @@ export function useAdminStaff() {
 
   const updateStaff = async (
     id: string,
-    updates: { full_name?: string; role?: string; is_active?: boolean },
+    updates: { full_name?: string; role?: string; is_active?: boolean; employee_code?: string },
   ) => {
     await apiClient.patch(`/api/v1/admin/auth/users/${id}`, updates);
     await refetch();
