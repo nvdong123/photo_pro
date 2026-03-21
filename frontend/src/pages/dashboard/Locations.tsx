@@ -301,7 +301,7 @@ export default function Locations() {
                 </div>
                 <div style={{ position: 'absolute', bottom: 12, left: 12, color: '#fff' }}>
                   <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 4 }}>
-                    📅 {loc.date}
+                     {loc.date}
                   </div>
                   <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#fff' }}>{loc.name}</h3>
                 </div>
@@ -313,9 +313,9 @@ export default function Locations() {
                   display: 'flex', justifyContent: 'space-between', marginBottom: 12,
                   fontSize: 13, color: '#5a6170',
                 }}>
-                  <span>🖼️ {loc.photos} ảnh</span>
-                  <span>🛒 {loc.orders} đơn</span>
-                  <span>💰 {loc.revenue}</span>
+                  <span> {loc.photos} ảnh</span>
+                  <span> {loc.orders} đơn</span>
+                  <span> {loc.revenue}</span>
                 </div>
 
                 {/* Assigned staff */}
@@ -326,7 +326,7 @@ export default function Locations() {
                       padding: '2px 8px', background: '#e8f5f0', color: '#1a6b4e',
                       borderRadius: 12, fontSize: 11, fontWeight: 500,
                     }}>
-                      👤 {s.name}
+                       {s.name}
                     </span>
                   ))}
                   {assignedStaffData.length === 0 && (
@@ -408,7 +408,7 @@ export default function Locations() {
         title="Sửa Địa Điểm"
         footer={[
           <Button key="cancel" onClick={closeModal}>Hủy</Button>,
-          <Button key="save" type="primary" onClick={handleSaveEdit}>💾 Lưu thay đổi</Button>,
+          <Button key="save" type="primary" onClick={handleSaveEdit}> Lưu thay đổi</Button>,
         ]}
         width={600}
       >
@@ -465,11 +465,11 @@ export default function Locations() {
                   <Tag color={STATUS_BADGE[selectedLoc.status].color} style={{ fontSize: 13, padding: '3px 12px' }}>
                     {STATUS_BADGE[selectedLoc.status].label}
                   </Tag>
-                  <span style={{ fontSize: 13, color: '#8b91a0' }}>📅 Ngày chụp: {selectedLoc.date}</span>
+                  <span style={{ fontSize: 13, color: '#8b91a0' }}> Ngày chụp: {selectedLoc.date}</span>
                 </div>
               </div>
               <div style={{ fontSize: 14, color: '#5a6170', marginBottom: 20 }}>
-                📍 {selectedLoc.address}
+                 {selectedLoc.address}
               </div>
 
               {/* Stats */}
@@ -491,7 +491,7 @@ export default function Locations() {
 
               {/* Assigned staff */}
               <div style={{ marginBottom: 20 }}>
-                <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 600 }}>👥 Nhân viên được phân công</h4>
+                <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 600 }}> Nhân viên được phân công</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {allStaff.filter(s => selectedLoc.assignedStaff.includes(s.id)).map(s => (
                     <div key={s.id} style={{
@@ -510,12 +510,12 @@ export default function Locations() {
                           <div style={{ fontSize: 12, color: '#8b91a0' }}>{s.code} · {s.uploadCount} ảnh uploaded</div>
                         </div>
                       </div>
-                      <Tag color="success" style={{ fontSize: 11 }}>Upload ✓</Tag>
+                      <Tag color="success" style={{ fontSize: 11 }}>Upload </Tag>
                     </div>
                   ))}
                 </div>
                 <p style={{ fontSize: 12, color: '#8b91a0', marginTop: 8 }}>
-                  ℹ️ Staff chỉ xem được ảnh do chính mình upload.
+                   Staff chỉ xem được ảnh do chính mình upload.
                 </p>
               </div>
 
@@ -532,7 +532,7 @@ export default function Locations() {
       <Modal
         open={modalMode === 'delete' && !!locToDelete}
         onCancel={closeModal}
-        title={<span style={{ color: '#d63b3b' }}>⚠️ Xác nhận xóa</span>}
+        title={<span style={{ color: '#d63b3b' }}> Xác nhận xóa</span>}
         footer={locToDelete ? [
           <Button key="cancel" onClick={closeModal}>Hủy</Button>,
           <Button key="delete" danger icon={<DeleteOutlined />} onClick={handleConfirmDelete}>Xóa vĩnh viễn</Button>,

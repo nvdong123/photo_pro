@@ -65,10 +65,10 @@ export default function Orders() {
   const totalCount = ordersData?.total ?? 0;
 
   const stats = [
-    { label: 'Hoàn thành', val: orders.filter(o => o.status === 'completed').length, color: '#1a854a', icon: '✅' },
+    { label: 'Hoàn thành', val: orders.filter(o => o.status === 'completed').length, color: '#1a854a', icon: '' },
     { label: 'Đang xử lý', val: orders.filter(o => o.status === 'processing').length, color: '#d4870e', icon: '⏳' },
-    { label: 'Đã hoàn tiền', val: orders.filter(o => o.status === 'refunded').length, color: '#d63b3b', icon: '↩️' },
-    { label: 'Tổng đơn', val: totalCount, color: PRIMARY, icon: '📦' },
+    { label: 'Đã hoàn tiền', val: orders.filter(o => o.status === 'refunded').length, color: '#d63b3b', icon: '' },
+    { label: 'Tổng đơn', val: totalCount, color: PRIMARY, icon: '' },
   ];
 
   const resetFilters = () => { setSearch(''); setStatusFilter(''); setPage(1); };
@@ -106,18 +106,18 @@ export default function Orders() {
           <div>
             <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin khách hàng</strong>
             <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
-              <div style={{ marginBottom: 4 }}>📱 Số điện thoại: <strong>{o.phone}</strong></div>
-              <div>📧 Email: <strong>{o.email}</strong></div>
+              <div style={{ marginBottom: 4 }}> Số điện thoại: <strong>{o.phone}</strong></div>
+              <div> Email: <strong>{o.email}</strong></div>
             </div>
           </div>
           {/* Thông tin đơn hàng */}
           <div>
             <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin đơn hàng</strong>
             <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
-              <div style={{ marginBottom: 4 }}>📂 Album: <strong>{o.album}</strong></div>
-              <div style={{ marginBottom: 4 }}>📸 Số ảnh: <strong>{o.photoCount} ảnh</strong></div>
-              <div style={{ marginBottom: 4 }}>💰 Gói giá: <strong>Gói {o.photoCount} ảnh - {o.price}</strong></div>
-              <div style={{ marginBottom: 4 }}>📅 Ngày mua: <strong>{o.date}</strong></div>
+              <div style={{ marginBottom: 4 }}> Album: <strong>{o.album}</strong></div>
+              <div style={{ marginBottom: 4 }}> Số ảnh: <strong>{o.photoCount} ảnh</strong></div>
+              <div style={{ marginBottom: 4 }}> Gói giá: <strong>Gói {o.photoCount} ảnh - {o.price}</strong></div>
+              <div style={{ marginBottom: 4 }}> Ngày mua: <strong>{o.date}</strong></div>
               <div>⏰ Hết hạn: <strong>{o.expiry}</strong></div>
             </div>
           </div>
@@ -146,9 +146,9 @@ export default function Orders() {
           <div>
             <strong style={{ display: 'block', marginBottom: 8 }}>Lịch sử</strong>
             <div style={{ fontSize: 13, color: '#5a6170' }}>
-              <div style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}>✅ <strong>{o.date}</strong> - Thanh toán thành công</div>
-              <div style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}>📧 <strong>{o.date.replace(/(d+:d+)/, (m) => { const [h, min] = m.split(':'); return `${h}:${String(parseInt(min) + 1).padStart(2, '0')}`; })}</strong> - Gửi link qua SMS</div>
-              <div style={{ padding: '8px 0' }}>📥 Khách tải ảnh (1/5 lượt)</div>
+              <div style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}> <strong>{o.date}</strong> - Thanh toán thành công</div>
+              <div style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}> <strong>{o.date.replace(/(d+:d+)/, (m) => { const [h, min] = m.split(':'); return `${h}:${String(parseInt(min) + 1).padStart(2, '0')}`; })}</strong> - Gửi link qua SMS</div>
+              <div style={{ padding: '8px 0' }}> Khách tải ảnh (1/5 lượt)</div>
             </div>
           </div>
         </div>

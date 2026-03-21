@@ -103,7 +103,7 @@ export default function DashboardAlbums() {
           style={{ borderRadius:12, border:`1px solid ${BORDER}`, overflow:'hidden', boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}
         >
               <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>{a.name}</div>
-              <div style={{ color:'#8b91a0', fontSize:13, marginBottom:12 }}>📍 {a.location} · 📅 {a.date}</div>
+              <div style={{ color:'#8b91a0', fontSize:13, marginBottom:12 }}> {a.location} ·  {a.date}</div>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:12 }}>
                 <div style={{ textAlign:'center', flex:1 }}><div style={{ fontWeight:700, color:PRIMARY }}>{a.photos}</div><div style={{ fontSize:11, color:'#8b91a0' }}>Ảnh</div></div>
                 <div style={{ textAlign:'center', flex:1, borderLeft:`1px solid ${BORDER}`, borderRight:`1px solid ${BORDER}` }}><div style={{ fontWeight:700, color:'#2563eb' }}>{a.orders}</div><div style={{ fontSize:11, color:'#8b91a0' }}>Đơn</div></div>
@@ -133,7 +133,7 @@ export default function DashboardAlbums() {
       {/* Delete Modal */}
       <Modal title="Xác nhận xóa" open={!!deleteTarget} onOk={handleDelete} onCancel={() => setDeleteTarget(null)} okText="Xóa" okButtonProps={{ danger:true }} cancelText="Hủy">
         <p>Bạn có chắc muốn xóa album <strong>{deleteTarget?.name}</strong>?</p>
-        <p style={{ color:'#d63b3b', fontSize:13 }}>⚠️ Hành động này không thể hoàn tác. Tất cả ảnh trong album sẽ bị xóa.</p>
+        <p style={{ color:'#d63b3b', fontSize:13 }}> Hành động này không thể hoàn tác. Tất cả ảnh trong album sẽ bị xóa.</p>
       </Modal>
     </div>
   );

@@ -1,5 +1,6 @@
 from app.models.admin_user import AdminRole, AdminUser  # backward compat
 from app.models.bundle import BundlePricing
+from app.models.coupon import Coupon
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media, MediaStatus, PhotoStatus
 from app.models.order import Order, OrderItem, OrderPhoto, OrderStatus
@@ -17,6 +18,7 @@ __all__ = [
     "AdminRole",
     # Other models
     "BundlePricing",
+    "Coupon",
     "DigitalDelivery",
     "Media",
     "MediaStatus",

@@ -327,7 +327,7 @@ export default function Settings() {
                 <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</div>
                 <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2 }}>{c.sub}</div>
                 {selectedColor === c.key && (
-                  <div style={{ marginTop: 6, fontSize: 11, color: c.primary, fontWeight: 600 }}>✓ Đang dùng</div>
+                  <div style={{ marginTop: 6, fontSize: 11, color: c.primary, fontWeight: 600 }}> Đang dùng</div>
                 )}
               </div>
             ))}
@@ -456,7 +456,7 @@ export default function Settings() {
       <h1 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Cài đặt Hệ thống</h1>
 
       <div style={{ padding: '12px 16px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, fontSize: 13, color: '#1d4ed8', marginBottom: 20, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
+        <span style={{ fontSize: 16, flexShrink: 0 }}></span>
         <div>
           <strong style={{ display: 'block', marginBottom: 4 }}>Chỉ Admin System mới có quyền truy cập</strong>
           Thay đổi cài đặt hệ thống có thể ảnh hưởng đến toàn bộ hoạt động. Vui lòng cẩn thận khi điều chỉnh.
@@ -465,9 +465,9 @@ export default function Settings() {
 
       <Tabs items={[
         { key: 'retention', label: '⏱ Thời hạn', children: retentionTab },
-        { key: 'domain', label: '🌐 Domain', children: domainTab },
-        { key: 'payment', label: '💳 Thanh toán', children: paymentTab },
-        { key: 'appearance', label: '🎨 Giao diện', children: appearanceTab },
+        { key: 'domain', label: ' Domain', children: domainTab },
+        { key: 'payment', label: ' Thanh toán', children: paymentTab },
+        { key: 'appearance', label: ' Giao diện', children: appearanceTab },
       ]} />
     </div>
   );

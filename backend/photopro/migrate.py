@@ -17,7 +17,7 @@ from app.core.security import hash_password
 
 # Import all models so Base.metadata is fully populated
 from app.models import (  # noqa: F401
-    AdminUser, BundlePricing, DigitalDelivery, Media, MediaTag,
+    AdminUser, BundlePricing, Coupon, DigitalDelivery, Media, MediaTag,
     Order, OrderItem, OrderPhoto, Staff, StaffRole,
     StaffLocationAssignment, SystemSetting, Tag,
 )

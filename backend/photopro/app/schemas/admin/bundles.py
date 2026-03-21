@@ -30,6 +30,7 @@ class CreateBundleRequest(BaseModel):
 
 class PatchBundleRequest(BaseModel):
     name: str | None = None
+    photo_count: int | None = None
     price: int | None = None
     is_active: bool | None = None
     is_popular: bool | None = None

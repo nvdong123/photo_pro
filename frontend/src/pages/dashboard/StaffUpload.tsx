@@ -149,10 +149,10 @@ export default function StaffUpload() {
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}>
         {[
-          { icon: '📍', value: ASSIGNED_LOCATIONS.length, label: 'Địa điểm', bg: '#e8f5f0', color: '#1a6b4e' },
-          { icon: '🖼️', value: totalPhotos, label: 'Tổng ảnh', bg: '#e8f5f0', color: '#1a6b4e' },
-          { icon: '🛒', value: totalSold, label: 'Đã bán', bg: '#dcfce7', color: '#1a854a' },
-          { icon: '📅', value: todayPhotos, label: 'Hôm nay', bg: '#fef3e8', color: '#d4870e' },
+          { icon: '', value: ASSIGNED_LOCATIONS.length, label: 'Địa điểm', bg: '#e8f5f0', color: '#1a6b4e' },
+          { icon: '', value: totalPhotos, label: 'Tổng ảnh', bg: '#e8f5f0', color: '#1a6b4e' },
+          { icon: '', value: totalSold, label: 'Đã bán', bg: '#dcfce7', color: '#1a854a' },
+          { icon: '', value: todayPhotos, label: 'Hôm nay', bg: '#fef3e8', color: '#d4870e' },
         ].map((item, i, arr) => (
           <div key={item.label} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
             <div style={{
@@ -179,14 +179,14 @@ export default function StaffUpload() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            📍 Chọn Địa Điểm
+             Chọn Địa Điểm
           </h3>
           <Tag color="blue">{ASSIGNED_LOCATIONS.length} địa điểm</Tag>
         </div>
         <div style={{ padding: 20 }}>
           {ASSIGNED_LOCATIONS.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#8b91a0' }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📍</div>
+              <div style={{ fontSize: 40, marginBottom: 12 }}></div>
               <h4 style={{ margin: '0 0 4px', fontWeight: 600 }}>Chưa có địa điểm</h4>
               <p style={{ margin: 0 }}>Bạn chưa được phân công vào địa điểm nào. Liên hệ Admin để được phân công.</p>
             </div>
@@ -218,12 +218,12 @@ export default function StaffUpload() {
                           width: 48, height: 48, borderRadius: 12, background: d.bg, color: d.color,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0,
                         }}>
-                          📍
+                          
                         </div>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 2 }}>{name}</div>
                           <div style={{ fontSize: 12, color: '#8b91a0', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            📅 {d.date}
+                             {d.date}
                           </div>
                         </div>
                       </div>
@@ -246,7 +246,7 @@ export default function StaffUpload() {
                         boxShadow: `0 2px 8px ${d.color}4d`,
                         color: '#fff', fontSize: 14,
                       }}>
-                        ✓
+                        
                       </div>
                     )}
                   </div>
@@ -272,16 +272,16 @@ export default function StaffUpload() {
                 background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
               }}>
-                📍
+                
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{selectedLoc}</h3>
                 <span style={{ fontSize: 13, opacity: 0.85 }}>
-                  📅 {currentLocData.date} · {currentLocData.myPhotos} ảnh đã upload
+                   {currentLocData.date} · {currentLocData.myPhotos} ảnh đã upload
                 </span>
               </div>
             </div>
-            <Tag color="success" style={{ fontSize: 12, padding: '4px 12px' }}>✅ Đang hoạt động</Tag>
+            <Tag color="success" style={{ fontSize: 12, padding: '4px 12px' }}> Đang hoạt động</Tag>
           </div>
 
           {/* Upload Zone */}
@@ -327,7 +327,7 @@ export default function StaffUpload() {
                   marginBottom: 12, fontSize: 32,
                   transition: 'transform 0.2s',
                 }}>
-                  ☁️
+                  
                 </div>
                 <h4 style={{ margin: '0 0 4px', fontWeight: 600, fontSize: 16 }}>Kéo thả ảnh vào đây</h4>
                 <p style={{ color: '#8b91a0', margin: '0 0 12px', fontSize: 13 }}>
@@ -338,9 +338,9 @@ export default function StaffUpload() {
                   background: '#f6f7f9', borderRadius: 20,
                   fontSize: 12, color: '#5a6170',
                 }}>
-                  <span>📄 JPG, PNG, HEIC</span>
-                  <span>📚 Tối đa 20 ảnh/lần</span>
-                  <span>💾 50MB/ảnh</span>
+                  <span> JPG, PNG, HEIC</span>
+                  <span> Tối đa 20 ảnh/lần</span>
+                  <span> 50MB/ảnh</span>
                 </div>
               </div>
 
@@ -350,7 +350,7 @@ export default function StaffUpload() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <h5 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {doneCount === uploadFiles.length ? (
-                        <span style={{ color: '#1a854a' }}>✓ Upload hoàn tất!</span>
+                        <span style={{ color: '#1a854a' }}> Upload hoàn tất!</span>
                       ) : (
                         <><Spin size="small" /> Đang tải lên...</>
                       )}
@@ -368,7 +368,7 @@ export default function StaffUpload() {
                           width: 38, height: 38, borderRadius: 8, background: '#e8f5f0', color: '#1a6b4e',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18,
                         }}>
-                          🖼️
+                          
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
@@ -384,7 +384,7 @@ export default function StaffUpload() {
                           color: f.status === 'done' ? '#1a854a' : '#8b91a0',
                           fontSize: 12,
                         }}>
-                          {f.status === 'done' ? '✓' : `${f.progress}%`}
+                          {f.status === 'done' ? '' : `${f.progress}%`}
                         </div>
                       </div>
                     ))}
@@ -401,7 +401,7 @@ export default function StaffUpload() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🖼️ Ảnh đã upload
+                 Ảnh đã upload
               </h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 13, color: '#8b91a0' }}>{currentLocData.myPhotos} ảnh</span>
@@ -422,7 +422,7 @@ export default function StaffUpload() {
                     width: 80, height: 80, borderRadius: '50%', background: '#e8f5f0', color: '#1a6b4e',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, marginBottom: 16,
                   }}>
-                    🖼️
+                    
                   </div>
                   <h4 style={{ margin: '0 0 4px', fontWeight: 600 }}>Chưa có ảnh nào</h4>
                   <p style={{ color: '#8b91a0', margin: 0, fontSize: 13 }}>Hãy upload ảnh đầu tiên cho địa điểm này!</p>

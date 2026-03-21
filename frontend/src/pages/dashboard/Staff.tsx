@@ -263,7 +263,7 @@ export default function Staff() {
       </div>
 
       <div style={{ padding: '12px 16px', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, fontSize: 13, color: '#1d4ed8', marginBottom: 20, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 16, flexShrink: 0 }}>ℹ️</span>
+        <span style={{ fontSize: 16, flexShrink: 0 }}></span>
         <div><strong style={{ display: 'block', marginBottom: 4 }}>Chỉ Admin System mới có quyền quản lý nhân viên</strong>Trang này chỉ hiển thị cho Admin System. Admin Sales và Manager không thể truy cập.</div>
       </div>
 

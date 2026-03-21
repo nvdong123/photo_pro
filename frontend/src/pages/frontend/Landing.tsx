@@ -40,7 +40,7 @@ function useCountUp(target: number, duration = 1800, active = false) {
   return count;
 }
 
-interface Album { id: string; name: string; photoCount: number; }
+interface Album { id: string; name: string; photoCount: number; thumbnailUrl: string | null; }
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -78,6 +78,7 @@ export default function Landing() {
     id: a.id,
     name: a.name,
     photoCount: a.media_count,
+    thumbnailUrl: a.thumbnail_url,
   }));
 
   return (
@@ -230,8 +231,15 @@ export default function Landing() {
               <div className="album-grid">
                 {albums.map(album => (
                   <div key={album.id} className="album-card" style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
-                    <div className="album-cover" style={{ background: '#111' }}>
-                      <PictureOutlined style={{ fontSize: 48, opacity: 0.3, color: '#fff' }} />
+                    <div className="album-cover" style={{
+                      background: album.thumbnailUrl ? '#111' : 'linear-gradient(135deg, #1a6b3c 0%, #0f3d22 100%)',
+                    }}>
+                      {album.thumbnailUrl ? (
+                        <img src={album.thumbnailUrl} alt={album.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                      ) : (
+                        <PictureOutlined style={{ fontSize: 48, opacity: 0.3, color: '#fff' }} />
+                      )}
                     </div>
                     <div className="album-info">
                       <div className="album-title" style={{ color: '#fff' }}>{album.name}</div>
@@ -252,11 +260,11 @@ export default function Landing() {
       )}
 
       {/* PRICING */}
-      <section id="pricing" style={{ background: '#f8f9fa', padding: '80px 0' }}>
+      <section id="pricing" className="dark-section" style={{ padding: '80px 0' }}>
         <div className="container">
-          <div className="section-header-dark" style={{ color: '#1a1a2e' }}>
-            <div className="section-eyebrow" style={{ color: '#1a6b4e' }}>Minh Bạch &amp; Đơn Giản</div>
-            <h2 className="section-title-dark" style={{ color: '#1a1a2e' }}><DollarOutlined /> Bảng Giá Ảnh HD</h2>
+          <div className="section-header-dark">
+            <div className="section-eyebrow">Minh Bạch &amp; Đơn Giản</div>
+            <h2 className="section-title-dark"><DollarOutlined /> Bảng Giá Ảnh HD</h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, marginBottom: 32, paddingTop: 16 }}>
             {bundleLoading
@@ -281,22 +289,22 @@ export default function Landing() {
                         style={{
                           background: isRecommended
                             ? 'linear-gradient(135deg, #0d3622 0%, #1a6b4e 100%)'
-                            : '#ffffff',
-                          border: `1px solid ${isRecommended ? 'rgba(26,107,78,0.7)' : '#e0e0e0'}`,
+                            : '#1a1a1a',
+                          border: `1px solid ${isRecommended ? 'rgba(26,107,78,0.7)' : '#2a2a2a'}`,
                           borderRadius: 16,
                           padding: 28,
                           textAlign: 'center',
-                          boxShadow: isRecommended ? '0 8px 40px rgba(26,107,78,0.22)' : '0 2px 12px rgba(0,0,0,0.06)',
+                          boxShadow: isRecommended ? '0 8px 40px rgba(26,107,78,0.22)' : 'none',
                           height: '100%',
                         }}
                       >
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: isRecommended ? '#fff' : '#1a1a2e', marginBottom: 12 }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: 12 }}>
                           {bundle.name}
                         </div>
                         <div style={{ fontSize: '2.6rem', fontWeight: 800, color: isRecommended ? '#5dffb0' : '#1a6b4e', marginBottom: 8 }}>
                           {bundle.price.toLocaleString('vi-VN')}đ
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: isRecommended ? 'rgba(255,255,255,0.55)' : '#888', marginBottom: savingsPct > 0 ? 8 : 24 }}>
+                        <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: savingsPct > 0 ? 8 : 24 }}>
                           {unitPrice.toLocaleString('vi-VN')}đ / ảnh
                         </div>
                         {savingsPct > 0 && (
@@ -308,14 +316,14 @@ export default function Landing() {
                           type={isRecommended ? 'primary' : 'default'}
                           onClick={() => navigate('/face-search')}
                           block
-                          style={isRecommended ? {} : { borderColor: '#d0d0d0', color: '#1a1a2e' }}
+                          style={isRecommended ? {} : { borderColor: '#444', color: '#fff' }}
                         >
                           Chọn Gói
                         </Button>
                       </div>
                     );
                     return isRecommended ? (
-                      <Badge.Ribbon key={bundle.id} text="★ KHUYẾN NGHỊI" color="var(--accent)">
+                      <Badge.Ribbon key={bundle.id} text="KHUYẾN NGHỊI" color="var(--accent)">
                         {card}
                       </Badge.Ribbon>
                     ) : (

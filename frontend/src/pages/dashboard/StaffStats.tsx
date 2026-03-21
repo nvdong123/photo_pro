@@ -142,10 +142,10 @@ function AdminView({ staffData }: { staffData: StaffStat[] }) {
       {/* Summary Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Tổng nhân viên', value: staffData.length, icon: '👥', color: '#1a6b4e' },
-          { label: 'Tổng ảnh upload', value: totalPhotos, icon: '🖼️', sub: '+320 tháng này', color: '#1a854a' },
-          { label: 'Tổng ảnh bán', value: totalSold, icon: '🛒', sub: '+15% so với kỳ trước', color: '#d4870e' },
-          { label: 'Tỉ lệ chuyển đổi TB', value: avgRate, icon: '📊', color: '#2563eb' },
+          { label: 'Tổng nhân viên', value: staffData.length, icon: '', color: '#1a6b4e' },
+          { label: 'Tổng ảnh upload', value: totalPhotos, icon: '', sub: '+320 tháng này', color: '#1a854a' },
+          { label: 'Tổng ảnh bán', value: totalSold, icon: '', sub: '+15% so với kỳ trước', color: '#d4870e' },
+          { label: 'Tỉ lệ chuyển đổi TB', value: avgRate, icon: '', color: '#2563eb' },
         ].map(item => (
           <div key={item.label} style={{
             background: '#fff', borderRadius: 12, padding: 20,
@@ -352,7 +352,7 @@ function AdminView({ staffData }: { staffData: StaffStat[] }) {
               {/* Locations + Quick Info */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
-                  <h4 style={{ marginBottom: 12, fontWeight: 600 }}>📍 Địa điểm phân công</h4>
+                  <h4 style={{ marginBottom: 12, fontWeight: 600 }}> Địa điểm phân công</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {selectedStat.locations.map(l => (
                       <div key={l} style={{ padding: '10px 12px', background: '#f6f7f9', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
@@ -365,12 +365,12 @@ function AdminView({ staffData }: { staffData: StaffStat[] }) {
                   </div>
                 </div>
                 <div>
-                  <h4 style={{ marginBottom: 12, fontWeight: 600 }}>ℹ️ Thông tin nhanh</h4>
+                  <h4 style={{ marginBottom: 12, fontWeight: 600 }}> Thông tin nhanh</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {[
                       { label: 'DT trung bình/ảnh', value: selectedStat.avgRevPerPhoto },
                       { label: 'Upload gần nhất', value: selectedStat.lastUpload },
-                      { label: 'Trạng thái', value: selectedStat.status === 'active' ? '✅ Hoạt động' : '🔒 Đã khóa' },
+                      { label: 'Trạng thái', value: selectedStat.status === 'active' ? ' Hoạt động' : ' Đã khóa' },
                     ].map(item => (
                       <div key={item.label} style={{ padding: '10px 12px', background: '#f6f7f9', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: '#5a6170', fontSize: 13 }}>{item.label}</span>
@@ -428,10 +428,10 @@ function StaffView() {
       {/* Personal Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Ảnh đã upload', value: '1,800', sub: '+45 tháng này', color: '#1a6b4e', icon: '🖼️' },
-          { label: 'Ảnh đã bán', value: '720', sub: '+18 tháng này', color: '#1a854a', icon: '🛒' },
-          { label: 'Tỉ lệ chuyển đổi', value: '40.0%', sub: '+2.1% so với kỳ trước', color: '#d4870e', icon: '🎯' },
-          { label: 'Tổng doanh thu', value: '36M', sub: '+12% so với kỳ trước', color: '#2563eb', icon: '💰' },
+          { label: 'Ảnh đã upload', value: '1,800', sub: '+45 tháng này', color: '#1a6b4e', icon: '' },
+          { label: 'Ảnh đã bán', value: '720', sub: '+18 tháng này', color: '#1a854a', icon: '' },
+          { label: 'Tỉ lệ chuyển đổi', value: '40.0%', sub: '+2.1% so với kỳ trước', color: '#d4870e', icon: '' },
+          { label: 'Tổng doanh thu', value: '36M', sub: '+12% so với kỳ trước', color: '#2563eb', icon: '' },
         ].map(item => (
           <div key={item.label} style={{
             background: '#fff', borderRadius: 12, padding: 20,
@@ -451,7 +451,7 @@ function StaffView() {
           padding: '16px 20px', borderBottom: '1px solid #e2e5ea',
           display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, fontSize: 16,
         }}>
-          📈 Doanh thu theo khoảng thời gian
+           Doanh thu theo khoảng thời gian
         </div>
         <div style={{ padding: '20px 24px' }}>
           {/* Period Tabs */}
@@ -501,7 +501,7 @@ function StaffView() {
         {/* Locations */}
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e5ea', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e5ea', fontWeight: 600, fontSize: 15 }}>
-            📍 Địa điểm được phân công
+             Địa điểm được phân công
           </div>
           <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {myLocations.map(l => (
@@ -513,7 +513,7 @@ function StaffView() {
                   width: 40, height: 40, borderRadius: 10, background: l.bg, color: l.color,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  📍
+                  
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{l.name}</div>
@@ -528,7 +528,7 @@ function StaffView() {
         {/* Quick Info */}
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e5ea', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e5ea', fontWeight: 600, fontSize: 15 }}>
-            ℹ️ Thông tin nhanh
+             Thông tin nhanh
           </div>
           <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
