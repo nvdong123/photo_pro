@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,12 +16,16 @@ from app.schemas.admin.auth import (
     AdminLoginRequest,
     AdminLoginResponse,
     AdminUserOut,
+    AdminUserListOut,
     ChangePasswordRequest,
     CreateAdminUserRequest,
     PatchAdminUserRequest,
     PatchProfileRequest,
 )
 from app.schemas.common import APIResponse
+from app.services import veno_sync_service as veno
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -104,6 +109,11 @@ async def create_admin(
         else:
             employee_code = "NV001"
 
+    # Generate Veno password for staff with an employee_code
+    veno_password = None
+    if employee_code:
+        veno_password = veno.generate_veno_password()
+
     user = Staff(
         email=body.email,
         hashed_password=hash_password(body.password),
@@ -111,6 +121,7 @@ async def create_admin(
         role=body.role,
         employee_code=employee_code,
         phone=body.phone,
+        veno_password=veno_password,
     )
     db.add(user)
     await db.flush()  # obtain user.id before inserting location assignments
@@ -128,16 +139,31 @@ async def create_admin(
 
     await db.commit()
     await db.refresh(user)
+
+    # Sync to Veno File Manager
+    if employee_code and veno_password:
+        try:
+            dirs = veno.build_staff_dirs(employee_code, [])
+            await veno.create_veno_user(
+                username=employee_code,
+                password=veno_password,
+                role="user",
+                email=body.email,
+                dirs=dirs,
+            )
+        except Exception:
+            logger.exception("Failed to sync Veno user for %s", employee_code)
+
     return APIResponse.ok(AdminUserOut.model_validate(user))
 
 
-@router.get("/users", response_model=APIResponse[list[AdminUserOut]])
+@router.get("/users", response_model=APIResponse[list[AdminUserListOut]])
 async def list_admins(
     admin: Staff = Depends(require_system),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Staff).order_by(Staff.created_at))
-    return APIResponse.ok([AdminUserOut.model_validate(u) for u in result.scalars().all()])
+    return APIResponse.ok([AdminUserListOut.model_validate(u) for u in result.scalars().all()])
 
 
 @router.patch("/users/{user_id}", response_model=APIResponse[AdminUserOut])
@@ -148,10 +174,29 @@ async def patch_admin(
     db: AsyncSession = Depends(get_db),
 ):
     user = await db.get(Staff, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
     if body.role is not None:
         user.role = body.role
     if body.is_active is not None:
         user.is_active = body.is_active
+        # Sync active/disabled state to Veno
+        if user.employee_code:
+            try:
+                if body.is_active:
+                    # Re-enable: create user if missing, or just update
+                    if user.veno_password:
+                        await veno.create_veno_user(
+                            username=user.employee_code,
+                            password=user.veno_password,
+                            role="user",
+                            email=user.email,
+                            dirs=veno.build_staff_dirs(user.employee_code, []),
+                        )
+                else:
+                    await veno.disable_veno_user(user.employee_code)
+            except Exception:
+                logger.exception("Failed to sync Veno state for %s", user.employee_code)
     await db.commit()
     await db.refresh(user)
     return APIResponse.ok(AdminUserOut.model_validate(user))
@@ -164,8 +209,58 @@ async def delete_admin(
     db: AsyncSession = Depends(get_db),
 ):
     user = await db.get(Staff, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    employee_code = user.employee_code
+    await db.delete(user)
     await db.commit()
-    return APIResponse.ok({"message": "User deactivated"})
+    # Disable in Veno after successful DB delete
+    if employee_code:
+        try:
+            await veno.delete_veno_user(employee_code)
+        except Exception:
+            logger.exception("Failed to delete Veno user %s", employee_code)
+    return APIResponse.ok({"message": "User deleted"})
+
+
+@router.get("/users/{user_id}", response_model=APIResponse[AdminUserOut])
+async def get_admin_user(
+    user_id: uuid.UUID,
+    admin: Staff = Depends(require_system),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(Staff, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    return APIResponse.ok(AdminUserOut.model_validate(user))
+
+
+@router.post("/users/{user_id}/reset-veno-password", response_model=APIResponse[dict])
+async def reset_veno_password(
+    user_id: uuid.UUID,
+    admin: Staff = Depends(require_system),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await db.get(Staff, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if not user.employee_code:
+        raise HTTPException(400, "User has no employee_code — Veno account not applicable")
+
+    new_pw = veno.generate_veno_password()
+    user.veno_password = new_pw
+    await db.commit()
+
+    # Update password in Veno
+    try:
+        await veno.update_veno_user_password(user.employee_code, new_pw)
+    except Exception:
+        logger.exception("Failed to reset Veno password for %s", user.employee_code)
+
+    return APIResponse.ok({
+        "message": "Veno password reset",
+        "veno_password": new_pw,
+    })
 
 
 @router.get("/activity", response_model=APIResponse[list[dict]])

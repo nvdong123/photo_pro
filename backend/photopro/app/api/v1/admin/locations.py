@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,6 +14,9 @@ from app.models.staff_location import StaffLocationAssignment
 from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.services.cache_service import get_cached_presigned_url
+from app.services import veno_sync_service as veno
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -80,6 +84,25 @@ def _sla_to_dict(sla: StaffLocationAssignment, staff: Staff) -> dict:
         "can_upload": sla.can_upload,
         "assigned_at": sla.assigned_at.isoformat(),
     }
+
+
+async def _sync_veno_folders(db: AsyncSession, staff: Staff) -> None:
+    """Sync a staff member's Veno folder permissions based on their current assignments."""
+    if not staff.employee_code:
+        return
+    try:
+        # Fetch shoot_dates from assigned locations
+        rows = await db.execute(
+            select(Tag.shoot_date)
+            .join(StaffLocationAssignment, StaffLocationAssignment.tag_id == Tag.id)
+            .where(StaffLocationAssignment.staff_id == staff.id)
+            .where(Tag.shoot_date.isnot(None))
+        )
+        shoot_dates = [r[0] for r in rows.all()]
+        dirs = veno.build_staff_dirs(staff.employee_code, shoot_dates)
+        await veno.update_veno_user_folders(staff.employee_code, dirs)
+    except Exception:
+        logger.exception("Failed to sync Veno folders for %s", staff.employee_code)
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -237,6 +260,8 @@ async def assign_staff_to_location(
             assigned_by=current.id,
         ))
     await db.commit()
+    # Sync Veno folders for this staff member
+    await _sync_veno_folders(db, staff)
     return APIResponse.ok({"message": "Staff assigned"})
 
 
@@ -258,6 +283,10 @@ async def unassign_staff_from_location(
         raise HTTPException(404, "Assignment not found")
     await db.delete(sla)
     await db.commit()
+    # Sync Veno folders after unassignment
+    staff_member = await db.get(Staff, staff_id)
+    if staff_member:
+        await _sync_veno_folders(db, staff_member)
     return APIResponse.ok({"message": "Staff unassigned"})
 
 

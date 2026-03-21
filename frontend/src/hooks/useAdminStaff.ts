@@ -6,8 +6,10 @@ export interface AdminUser {
   email: string;
   full_name: string | null;
   role: "SYSTEM" | "SALES" | "MANAGER" | "STAFF";
+  employee_code: string | null;
   is_active: boolean;
   created_at: string;
+  veno_password_hint: string | null;
 }
 
 export function useAdminStaff() {
@@ -38,5 +40,13 @@ export function useAdminStaff() {
     await refetch();
   };
 
-  return { staff: data ?? [], loading, error, createStaff, updateStaff, deleteStaff };
+  const resetVenoPassword = async (id: string): Promise<string> => {
+    const res = await apiClient.post<{ veno_password: string }>(
+      `/api/v1/admin/auth/users/${id}/reset-veno-password`,
+    );
+    await refetch();
+    return res.veno_password;
+  };
+
+  return { staff: data ?? [], loading, error, createStaff, updateStaff, deleteStaff, resetVenoPassword };
 }

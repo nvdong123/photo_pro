@@ -29,6 +29,9 @@ class Staff(Base):
     # Only used for role=STAFF; format: NV001, NV002, ...
     employee_code: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
 
+    # Plain-text Veno File Manager password (separate from PhotoPro auth)
+    veno_password: Mapped[str | None] = mapped_column(String(100))
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

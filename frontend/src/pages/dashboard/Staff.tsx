@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Input, Select, Button, Tag, message, Modal, Table } from 'antd';
-import { SearchOutlined, PlusOutlined, EditOutlined, LockOutlined, UnlockOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { Input, Select, Button, Tag, message, Modal, Table, Tooltip } from 'antd';
+import { SearchOutlined, PlusOutlined, EditOutlined, LockOutlined, UnlockOutlined, DeleteOutlined, SaveOutlined, ReloadOutlined } from '@ant-design/icons';
 import { hasRole, getAvatarInitials } from '../../hooks/useAuth';
 import { useAdminStaff } from '../../hooks/useAdminStaff';
 
@@ -16,6 +16,7 @@ type StaffStatus = 'active' | 'locked';
 interface StaffMember {
   id: string; name: string; email: string; phone: string; role: StaffRole;
   uploads: string; joinDate: string; status: StaffStatus;
+  employeeCode: string | null; venoPasswordHint: string | null;
 }
 
 const ROLE_REMAP: Record<string, StaffRole> = {
@@ -40,7 +41,7 @@ interface ModalState { open: boolean; item: StaffMember | null; }
 interface StaffFormData { name: string; email: string; phone: string; role: string; password: string; }
 
 export default function Staff() {
-  const { staff: apiStaff, loading, createStaff, updateStaff, deleteStaff } = useAdminStaff();
+  const { staff: apiStaff, loading, createStaff, updateStaff, deleteStaff, resetVenoPassword } = useAdminStaff();
   const staff: StaffMember[] = apiStaff.map((u, i) => ({
     id: u.id,
     name: u.full_name ?? u.email,
@@ -50,6 +51,8 @@ export default function Staff() {
     uploads: '—',
     joinDate: new Date(u.created_at).toLocaleDateString('vi-VN'),
     status: u.is_active ? 'active' : 'locked' as StaffStatus,
+    employeeCode: u.employee_code ?? null,
+    venoPasswordHint: u.veno_password_hint ?? null,
   }));
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -147,6 +150,32 @@ export default function Staff() {
           message.success('Đã xóa nhân viên');
         } catch (err) {
           message.error(err instanceof Error ? err.message : 'Xóa thất bại');
+        }
+      },
+    });
+  };
+
+  const handleResetVeno = (s: StaffMember) => {
+    Modal.confirm({
+      title: 'Reset Veno Password',
+      content: `Tạo mật khẩu Veno mới cho ${s.name}? Mật khẩu cũ sẽ không dùng được nữa.`,
+      okText: 'Reset',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          const newPw = await resetVenoPassword(s.id);
+          Modal.info({
+            title: 'Mật khẩu Veno mới',
+            content: (
+              <div>
+                <p>Mật khẩu mới cho <strong>{s.employeeCode}</strong>:</p>
+                <code style={{ display: 'block', padding: '8px 12px', background: '#f5f5f5', borderRadius: 6, fontSize: 16, letterSpacing: 1, userSelect: 'all' }}>{newPw}</code>
+                <p style={{ marginTop: 8, fontSize: 13, color: TEXT_MUTED }}>Hãy gửi mật khẩu này cho nhân viên.</p>
+              </div>
+            ),
+          });
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : 'Reset thất bại');
         }
       },
     });
@@ -293,6 +322,22 @@ export default function Staff() {
           { title: 'Số ảnh upload', key: 'uploads', render: (s: StaffMember) => <strong>{s.uploads}</strong> },
           { title: 'Ngày tham gia', key: 'joinDate', render: (s: StaffMember) => <span style={{ color: '#5a6170' }}>{s.joinDate}</span> },
           { title: 'Trạng thái', key: 'status', render: (s: StaffMember) => <Tag color={s.status === 'active' ? 'green' : 'default'}>{s.status === 'active' ? 'Hoạt động' : 'Đã khóa'}</Tag> },
+          {
+            title: 'Veno FM', key: 'veno', width: 180,
+            render: (s: StaffMember) => {
+              if (!s.employeeCode || !s.venoPasswordHint) return <span style={{ color: TEXT_MUTED, fontSize: 12 }}>—</span>;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <code style={{ fontSize: 12, letterSpacing: 0.5 }}>
+                    {s.venoPasswordHint}
+                  </code>
+                  <Tooltip title="Reset password">
+                    <Button size="small" type="text" icon={<ReloadOutlined />} onClick={() => handleResetVeno(s)} />
+                  </Tooltip>
+                </div>
+              );
+            },
+          },
           {
             title: 'Thao tác', key: 'actions',
             render: (s: StaffMember) => (
