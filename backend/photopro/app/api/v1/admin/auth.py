@@ -59,9 +59,9 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ):
     if body.full_name is not None:
-        admin.full_name = body.full_name
+        admin.full_name = body.full_name.strip() or None
     if body.phone is not None:
-        admin.phone = body.phone
+        admin.phone = body.phone.strip() or None
     await db.commit()
     await db.refresh(admin)
     return APIResponse.ok(AdminUserOut.model_validate(admin))
