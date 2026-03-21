@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Frontend Pages
 import Landing from './pages/frontend/Landing';
@@ -59,7 +60,7 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         {/* Dashboard Routes */}
-        <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route path="/dashboard" element={<ErrorBoundary><DashboardLayout /></ErrorBoundary>}>
           <Route index element={<DashboardHome />} />
           <Route path="albums" element={<DashboardAlbums />} />
           <Route path="locations" element={<Locations />} />

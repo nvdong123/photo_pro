@@ -52,7 +52,8 @@ export function hasPermission(requiredRole: string): boolean {
   return userLevel >= requiredLevel;
 }
 
-export function getAvatarInitials(name: string): string {
+export function getAvatarInitials(name: string | null | undefined): string {
+  if (!name) return '?';
   return name
     .split(' ')
     .map((n) => n[0])

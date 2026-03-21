@@ -32,7 +32,7 @@ export function useAdminAuth() {
       JSON.stringify({
         username: email,
         role: frontendRole,
-        name: data.full_name,
+        name: data.full_name ?? email.split('@')[0],
         loginTime: new Date().toISOString(),
         rememberMe: false,
       }),
