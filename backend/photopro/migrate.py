@@ -58,7 +58,8 @@ async def ensure_tables(engine) -> None:
 
 
 async def stamp_alembic(engine) -> None:
-    """Transaction 3: stamp alembic_version."""
+    """Transaction 3: ensure alembic_version is at head."""
+    head = "0004_staff_veno_password"
     async with engine.begin() as conn:
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -70,11 +71,37 @@ async def stamp_alembic(engine) -> None:
         if row is None:
             await conn.execute(text(
                 "INSERT INTO alembic_version (version_num) "
-                "VALUES ('0002_staff_schema_v2')"
+                f"VALUES ('{head}')"
             ))
-            print("Stamped alembic_version = 0002_staff_schema_v2", flush=True)
+            print(f"Stamped alembic_version = {head}", flush=True)
+        elif row[0] != head:
+            await conn.execute(text(
+                f"UPDATE alembic_version SET version_num = '{head}'"
+            ))
+            print(f"Updated alembic_version {row[0]} -> {head}", flush=True)
         else:
             print("alembic_version = " + str(row[0]), flush=True)
+
+
+async def apply_pending_columns(engine) -> None:
+    """Add columns that create_all cannot add to pre-existing tables."""
+    column_checks = [
+        ("staff", "veno_password", "VARCHAR(100)"),
+        ("bundle_pricing", "is_popular", "BOOLEAN DEFAULT false"),
+    ]
+    async with engine.begin() as conn:
+        for table, column, col_type in column_checks:
+            row = (await conn.execute(text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = :t AND column_name = :c"
+            ), {"t": table, "c": column})).fetchone()
+            if row is None:
+                await conn.execute(text(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                ))
+                print(f"  Added column {table}.{column}", flush=True)
+            else:
+                print(f"  Column {table}.{column} already exists", flush=True)
 
 
 async def seed_admin(engine) -> None:
@@ -128,6 +155,7 @@ async def run() -> None:
     try:
         await ensure_enums(engine)
         await ensure_tables(engine)
+        await apply_pending_columns(engine)
         await stamp_alembic(engine)
         await seed_admin(engine)
         print("=== Verifying tables ===", flush=True)
