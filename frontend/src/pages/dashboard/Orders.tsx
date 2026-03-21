@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Input, Select, Button, Tag, DatePicker, message, Modal, Table } from 'antd';
-import { SearchOutlined, EyeOutlined, RollbackOutlined, CopyOutlined, DownloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, EyeOutlined, RollbackOutlined, CopyOutlined, DownloadOutlined, CheckCircleOutlined, ClockCircleOutlined, ShoppingOutlined } from '@ant-design/icons';
 import { hasRole } from '../../hooks/useAuth';
 import { useOrders, resendEmail } from '../../hooks/useOrders';
 
@@ -65,13 +65,35 @@ export default function Orders() {
   const totalCount = ordersData?.total ?? 0;
 
   const stats = [
-    { label: 'Hoàn thành', val: orders.filter(o => o.status === 'completed').length, color: '#1a854a', icon: '' },
-    { label: 'Đang xử lý', val: orders.filter(o => o.status === 'processing').length, color: '#d4870e', icon: '⏳' },
-    { label: 'Đã hoàn tiền', val: orders.filter(o => o.status === 'refunded').length, color: '#d63b3b', icon: '' },
-    { label: 'Tổng đơn', val: totalCount, color: PRIMARY, icon: '' },
+    { label: 'Hoàn thành', val: orders.filter(o => o.status === 'completed').length, color: '#1a854a', icon: <CheckCircleOutlined style={{ fontSize: 22, color: '#1a854a' }} /> },
+    { label: 'Đang xử lý', val: orders.filter(o => o.status === 'processing').length, color: '#d4870e', icon: <ClockCircleOutlined style={{ fontSize: 22, color: '#d4870e' }} /> },
+    { label: 'Đã hoàn tiền', val: orders.filter(o => o.status === 'refunded').length, color: '#d63b3b', icon: <RollbackOutlined style={{ fontSize: 22, color: '#d63b3b' }} /> },
+    { label: 'Tổng đơn', val: totalCount, color: PRIMARY, icon: <ShoppingOutlined style={{ fontSize: 22, color: PRIMARY }} /> },
   ];
 
   const resetFilters = () => { setSearch(''); setStatusFilter(''); setPage(1); };
+
+  const handleExportCSV = () => {
+    if (orders.length === 0) { message.warning('Không có dữ liệu để xuất'); return; }
+    const headers = ['Mã đơn', 'Số điện thoại', 'Email', 'Số ảnh', 'Tổng tiền', 'Trạng thái', 'Ngày mua', 'Hết hạn'];
+    const rows = orders.map(o => [
+      o.code, o.phone, o.email, o.photoCount,
+      o.price.replace('\u0111', ''),
+      STATUS_MAP[o.status].label,
+      o.date, o.expiry,
+    ]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `don_hang_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    message.success('Xuất file thành công!');
+  };
 
   const canRefund = hasRole(['admin-system', 'admin-sales']);
 
@@ -198,7 +220,7 @@ export default function Orders() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Quản lý Đơn hàng</h1>
-        <Button icon={<DownloadOutlined />}>Xuất Excel</Button>
+        <Button icon={<DownloadOutlined />} onClick={handleExportCSV}>Xuất Excel</Button>
       </div>
 
       {/* Stats */}
