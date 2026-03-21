@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, TTL } from "../lib/api-client";
 
 export interface PublicBundle {
   id: string;
@@ -13,7 +13,7 @@ export interface PublicBundle {
 
 export function usePublicBundles() {
   const { data, loading, error } = useAsync(() =>
-    apiClient.get<PublicBundle[]>("/api/v1/bundles"),
+    apiClient.get<PublicBundle[]>("/api/v1/bundles", TTL.LONG),
   );
 
   const bundles: PublicBundle[] = (data ?? [])

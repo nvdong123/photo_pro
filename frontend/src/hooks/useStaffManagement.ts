@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache } from "../lib/api-client";
 
 export interface Staff {
   id: string;
@@ -24,13 +24,16 @@ export interface CreateStaffPayload {
   location_ids?: string[];
 }
 
+const STAFF_PATH = "/api/v1/admin/auth/users";
+
 export function useStaffManagement() {
   const { data, loading, error, refetch } = useAsync(() =>
-    apiClient.get<Staff[]>("/api/v1/admin/auth/users"),
+    apiClient.get<Staff[]>(STAFF_PATH),
   );
 
   const create = async (payload: CreateStaffPayload) => {
-    await apiClient.post("/api/v1/admin/auth/users", payload);
+    await apiClient.post(STAFF_PATH, payload);
+    invalidateApiCache(STAFF_PATH);
     await refetch();
   };
 
@@ -38,12 +41,14 @@ export function useStaffManagement() {
     id: string,
     updates: { full_name?: string; role?: string; is_active?: boolean },
   ) => {
-    await apiClient.patch(`/api/v1/admin/auth/users/${id}`, updates);
+    await apiClient.patch(`${STAFF_PATH}/${id}`, updates);
+    invalidateApiCache(STAFF_PATH);
     await refetch();
   };
 
   const remove = async (id: string) => {
-    await apiClient.delete(`/api/v1/admin/auth/users/${id}`);
+    await apiClient.delete(`${STAFF_PATH}/${id}`);
+    invalidateApiCache(STAFF_PATH);
     await refetch();
   };
 

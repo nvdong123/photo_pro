@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache } from "../lib/api-client";
 
 export interface Coupon {
   id: string;
@@ -22,23 +22,28 @@ export interface CreateCouponPayload {
   is_active?: boolean;
 }
 
+const COUPONS_PATH = "/api/v1/admin/coupons";
+
 export function useCoupons() {
   const { data, refetch, loading, error } = useAsync(() =>
-    apiClient.get<Coupon[]>("/api/v1/admin/coupons"),
+    apiClient.get<Coupon[]>(COUPONS_PATH),
   );
 
   const create = async (p: CreateCouponPayload) => {
-    await apiClient.post("/api/v1/admin/coupons", p);
+    await apiClient.post(COUPONS_PATH, p);
+    invalidateApiCache(COUPONS_PATH);
     await refetch();
   };
 
   const update = async (id: string, p: Partial<CreateCouponPayload>) => {
-    await apiClient.patch(`/api/v1/admin/coupons/${id}`, p);
+    await apiClient.patch(`${COUPONS_PATH}/${id}`, p);
+    invalidateApiCache(COUPONS_PATH);
     await refetch();
   };
 
   const remove = async (id: string) => {
-    await apiClient.delete(`/api/v1/admin/coupons/${id}`);
+    await apiClient.delete(`${COUPONS_PATH}/${id}`);
+    invalidateApiCache(COUPONS_PATH);
     await refetch();
   };
 

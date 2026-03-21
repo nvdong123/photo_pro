@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, TTL } from "../lib/api-client";
 
 export interface LocationItem {
   id: string;
@@ -14,6 +14,6 @@ export interface LocationItem {
  */
 export function useLocations() {
   return useAsync(() =>
-    apiClient.get<LocationItem[]>("/api/v1/search/albums"),
+    apiClient.get<LocationItem[]>("/api/v1/search/albums", TTL.LONG),
   );
 }

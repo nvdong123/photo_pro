@@ -79,6 +79,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return data.data as T;
 }
 
+/** TTL presets — pass as second arg to apiClient.get() */
+export const TTL = {
+  SHORT:   15_000,   // 15 s — realtime-ish (cart, download tokens)
+  DEFAULT: 30_000,   // 30 s — general dashboard data
+  LONG:   300_000,   // 5 min — rarely-changing config (settings, bundles, albums)
+} as const;
+
 export const apiClient = {
   /** Cached GET — returns from in-memory cache within TTL, deduplicates in-flight requests. */
   get: <T>(path: string, ttl = DEFAULT_TTL) =>
@@ -90,29 +97,21 @@ export const apiClient = {
     return getCached<T>(path, () => request<T>(path), DEFAULT_TTL);
   },
 
-  post: <T>(path: string, body: unknown) => {
-    invalidateApiCache();
-    return request<T>(path, { method: "POST", body: JSON.stringify(body) });
-  },
-  postForm: <T>(path: string, form: FormData) => {
-    invalidateApiCache();
-    return request<T>(path, { method: "POST", body: form });
-  },
-  put: <T>(path: string, body: unknown) => {
-    invalidateApiCache();
-    return request<T>(path, { method: "PUT", body: JSON.stringify(body) });
-  },
-  patch: <T>(path: string, body: unknown) => {
-    invalidateApiCache();
-    return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
-  },
-  delete: <T>(path: string, body?: unknown) => {
-    invalidateApiCache();
-    return request<T>(path, {
+  // Mutation methods — do NOT auto-invalidate the global cache.
+  // Each call-site is responsible for calling invalidateApiCache(path) before refetch().
+  post: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  postForm: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: "POST", body: form }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
       method: "DELETE",
       body: body ? JSON.stringify(body) : undefined,
-    });
-  },
+    }),
 };
 
 export { API_BASE };

@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, TTL } from "../lib/api-client";
 
 export interface AlbumItem {
   id: string;
@@ -10,6 +10,6 @@ export interface AlbumItem {
 
 export function useAlbums() {
   return useAsync(() =>
-    apiClient.get<AlbumItem[]>("/api/v1/search/albums"),
+    apiClient.get<AlbumItem[]>("/api/v1/search/albums", TTL.LONG),
   );
 }

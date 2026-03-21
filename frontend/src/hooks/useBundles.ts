@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache, TTL } from "../lib/api-client";
 
 export interface Bundle {
   id: string;
@@ -19,23 +19,28 @@ export interface CreateBundlePayload {
   sort_order?: number;
 }
 
+const BUNDLES_PATH = "/api/v1/admin/bundles";
+
 export function useBundles() {
   const { data, refetch, loading, error } = useAsync(() =>
-    apiClient.get<Bundle[]>("/api/v1/admin/bundles"),
+    apiClient.get<Bundle[]>(BUNDLES_PATH, TTL.LONG),
   );
 
   const create = async (p: CreateBundlePayload) => {
-    await apiClient.post("/api/v1/admin/bundles", p);
+    await apiClient.post(BUNDLES_PATH, p);
+    invalidateApiCache(BUNDLES_PATH);
     await refetch();
   };
 
   const update = async (id: string, p: Partial<Bundle>) => {
-    await apiClient.patch(`/api/v1/admin/bundles/${id}`, p);
+    await apiClient.patch(`${BUNDLES_PATH}/${id}`, p);
+    invalidateApiCache(BUNDLES_PATH);
     await refetch();
   };
 
   const remove = async (id: string) => {
-    await apiClient.delete(`/api/v1/admin/bundles/${id}`);
+    await apiClient.delete(`${BUNDLES_PATH}/${id}`);
+    invalidateApiCache(BUNDLES_PATH);
     await refetch();
   };
 

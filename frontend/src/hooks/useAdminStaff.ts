@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache } from "../lib/api-client";
 
 export interface AdminUser {
   id: string;
@@ -12,9 +12,11 @@ export interface AdminUser {
   veno_password_hint: string | null;
 }
 
+const STAFF_PATH = "/api/v1/admin/auth/users";
+
 export function useAdminStaff() {
   const { data, loading, error, refetch } = useAsync(() =>
-    apiClient.get<AdminUser[]>("/api/v1/admin/auth/users"),
+    apiClient.get<AdminUser[]>(STAFF_PATH),
   );
 
   const createStaff = async (payload: {
@@ -23,7 +25,8 @@ export function useAdminStaff() {
     full_name?: string;
     role: string;
   }) => {
-    await apiClient.post("/api/v1/admin/auth/users", payload);
+    await apiClient.post(STAFF_PATH, payload);
+    invalidateApiCache(STAFF_PATH);
     await refetch();
   };
 
@@ -31,20 +34,23 @@ export function useAdminStaff() {
     id: string,
     updates: { full_name?: string; role?: string; is_active?: boolean; employee_code?: string },
   ) => {
-    await apiClient.patch(`/api/v1/admin/auth/users/${id}`, updates);
+    await apiClient.patch(`${STAFF_PATH}/${id}`, updates);
+    invalidateApiCache(STAFF_PATH);
     await refetch();
   };
 
   const deleteStaff = async (id: string) => {
-    await apiClient.delete(`/api/v1/admin/auth/users/${id}`);
+    await apiClient.delete(`${STAFF_PATH}/${id}`);
+    invalidateApiCache(STAFF_PATH);
     await refetch();
   };
 
   const resetVenoPassword = async (id: string): Promise<string> => {
     const res = await apiClient.post<{ veno_password: string }>(
-      `/api/v1/admin/auth/users/${id}/reset-veno-password`,
+      `${STAFF_PATH}/${id}/reset-veno-password`,
       {},
     );
+    invalidateApiCache(STAFF_PATH);
     await refetch();
     return res.veno_password;
   };

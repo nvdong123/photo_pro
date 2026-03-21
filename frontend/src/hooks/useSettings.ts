@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache, TTL } from "../lib/api-client";
 
 function hexToHSL(hex: string): { h: number; s: number; l: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -32,7 +32,7 @@ function applyColorToDOM(cssVar: string, hex: string) {
 
 export function useSettings() {
   const { data: rawSettings, refetch, loading, error } = useAsync(() =>
-    apiClient.get<Array<{ key: string; value: string }>>("/api/v1/admin/settings"),
+    apiClient.get<Array<{ key: string; value: string }>>("/api/v1/admin/settings", TTL.LONG),
   );
 
   // Convert array to Record for easy lookup
@@ -42,6 +42,7 @@ export function useSettings() {
 
   const update = async (key: string, value: string) => {
     await apiClient.patch("/api/v1/admin/settings", { key, value });
+    invalidateApiCache("/api/v1/admin/settings");
     await refetch();
     if (key === "primary_color") applyColorToDOM("--primary", value);
     if (key === "accent_color")  applyColorToDOM("--accent",  value);

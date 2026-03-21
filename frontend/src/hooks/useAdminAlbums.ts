@@ -1,5 +1,5 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache, TTL } from "../lib/api-client";
 
 export interface AdminAlbum {
   id: string;
@@ -8,23 +8,28 @@ export interface AdminAlbum {
   media_count: number;
 }
 
+const ALBUMS_PATH = "/api/v1/admin/albums";
+
 export function useAdminAlbums() {
   const { data, loading, error, refetch } = useAsync(() =>
-    apiClient.get<AdminAlbum[]>("/api/v1/admin/albums"),
+    apiClient.get<AdminAlbum[]>(ALBUMS_PATH, TTL.LONG),
   );
 
   const createAlbum = async (name: string, description?: string) => {
-    await apiClient.post("/api/v1/admin/albums", { name, description: description ?? null });
+    await apiClient.post(ALBUMS_PATH, { name, description: description ?? null });
+    invalidateApiCache(ALBUMS_PATH);
     await refetch();
   };
 
   const deleteAlbum = async (id: string) => {
-    await apiClient.delete(`/api/v1/admin/albums/${id}`);
+    await apiClient.delete(`${ALBUMS_PATH}/${id}`);
+    invalidateApiCache(ALBUMS_PATH);
     await refetch();
   };
 
   const patchAlbum = async (id: string, updates: { name?: string; description?: string }) => {
-    await apiClient.patch(`/api/v1/admin/albums/${id}`, updates);
+    await apiClient.patch(`${ALBUMS_PATH}/${id}`, updates);
+    invalidateApiCache(ALBUMS_PATH);
     await refetch();
   };
 

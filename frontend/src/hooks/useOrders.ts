@@ -1,6 +1,8 @@
 import { useAsync } from "./useAsync";
-import { apiClient } from "../lib/api-client";
+import { apiClient, invalidateApiCache, TTL } from "../lib/api-client";
 import { hasRole } from "./useAuth";
+
+const ORDERS_PATH = "/api/v1/admin/orders";
 
 export interface AdminOrder {
   id: string;
@@ -54,7 +56,8 @@ export function useOrders(filters: {
   return useAsync(
     () =>
       apiClient.get<{ items: AdminOrder[]; total: number; page: number; pages: number }>(
-        `/api/v1/admin/orders?${params}`,
+        `${ORDERS_PATH}?${params}`,
+        TTL.SHORT,
       ),
     [JSON.stringify(filters)],
     canAccess,
@@ -64,17 +67,23 @@ export function useOrders(filters: {
 export function useOrderDetail(orderId: string) {
   const canAccess = hasRole(["admin-system", "admin-sales", "manager"]);
   return useAsync(
-    () => apiClient.get<OrderDetail>(`/api/v1/admin/orders/${orderId}`),
+    () => apiClient.get<OrderDetail>(`${ORDERS_PATH}/${orderId}`, TTL.SHORT),
     [orderId],
     canAccess,
   );
 }
 
-export const resendEmail = (id: string) =>
-  apiClient.patch(`/api/v1/admin/orders/${id}/resend-email`, {});
+export const resendEmail = (id: string) => {
+  invalidateApiCache(ORDERS_PATH);
+  return apiClient.patch(`${ORDERS_PATH}/${id}/resend-email`, {});
+};
 
-export const revokeLink = (id: string) =>
-  apiClient.patch(`/api/v1/admin/orders/${id}/revoke-link`, {});
+export const revokeLink = (id: string) => {
+  invalidateApiCache(ORDERS_PATH);
+  return apiClient.patch(`${ORDERS_PATH}/${id}/revoke-link`, {});
+};
 
-export const newLink = (id: string) =>
-  apiClient.patch(`/api/v1/admin/orders/${id}/new-link`, {});
+export const newLink = (id: string) => {
+  invalidateApiCache(ORDERS_PATH);
+  return apiClient.patch(`${ORDERS_PATH}/${id}/new-link`, {});
+};

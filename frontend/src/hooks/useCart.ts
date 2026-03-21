@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiClient, APIError } from "../lib/api-client";
+import { apiClient, APIError, TTL } from "../lib/api-client";
+
+const CART_PATH = "/api/v1/cart";
 
 export interface PackLine {
   bundle_id: string;
@@ -37,16 +39,20 @@ export function useCart() {
 
   const fetchCart = useCallback(async () => {
     try {
-      const data = await apiClient.get<CartData>("/api/v1/cart");
+      const data = await apiClient.get<CartData>(CART_PATH, TTL.SHORT);
       setCart(data);
     } catch {
       // not critical — might not have session yet
     }
   }, []);
 
+  // Only creates a cart session if one doesn't exist yet (tracked per browser tab).
   const initAndFetch = useCallback(async () => {
     try {
-      await apiClient.post("/api/v1/cart/session", {});
+      if (!sessionStorage.getItem("cart_session_initialized")) {
+        await apiClient.post("/api/v1/cart/session", {});
+        sessionStorage.setItem("cart_session_initialized", "1");
+      }
       await fetchCart();
     } catch {
       // ignore
@@ -58,7 +64,7 @@ export function useCart() {
     setError(null);
     try {
       await apiClient.post("/api/v1/cart/items", { media_id: mediaId });
-      const updated = await apiClient.get<CartData>("/api/v1/cart");
+      const updated = await apiClient.getFresh<CartData>(CART_PATH);
       setCart(updated);
     } catch (e) {
       if (e instanceof APIError && e.code === "MEDIA_ALREADY_SOLD") {
@@ -75,7 +81,7 @@ export function useCart() {
     setLoading(true);
     try {
       await apiClient.delete(`/api/v1/cart/items/${mediaId}`);
-      const updated = await apiClient.get<CartData>("/api/v1/cart");
+      const updated = await apiClient.getFresh<CartData>(CART_PATH);
       setCart(updated);
     } finally {
       setLoading(false);
