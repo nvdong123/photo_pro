@@ -101,7 +101,7 @@ export default function Landing() {
             src="/images/Logo_PhotoPro_no_bg.png"
             alt="PhotoPro"
             className="hero-logo"
-            style={{ height: 80 }}
+            style={{ height: 120 }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <h1 className="hero-title">
@@ -301,7 +301,7 @@ export default function Landing() {
                         <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: 12 }}>
                           {bundle.name}
                         </div>
-                        <div style={{ fontSize: '2.6rem', fontWeight: 800, color: isRecommended ? '#5dffb0' : '#1a6b4e', marginBottom: 8 }}>
+                        <div style={{ fontSize: '2.6rem', fontWeight: 800, color: '#5dffb0', marginBottom: 8 }}>
                           {bundle.price.toLocaleString('vi-VN')}đ
                         </div>
                         <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginBottom: savingsPct > 0 ? 8 : 24 }}>
