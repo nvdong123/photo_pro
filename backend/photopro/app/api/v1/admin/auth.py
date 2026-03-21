@@ -300,3 +300,44 @@ async def get_activity(
     Phase 1: returns empty list — frontend gracefully shows 'no activity' message.
     """
     return APIResponse.ok([])
+
+
+@router.get("/my-locations", response_model=APIResponse[list[dict]])
+async def my_locations(
+    admin: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return locations assigned to the current STAFF user, with Veno folder URL."""
+    from app.models.staff_location import StaffLocationAssignment
+    from app.models.tag import Tag, TagType
+    from app.services import veno_sync_service as veno
+    from app.services.veno_sync_service import _normalize_location_name
+
+    rows = await db.execute(
+        select(Tag, StaffLocationAssignment)
+        .join(StaffLocationAssignment, StaffLocationAssignment.tag_id == Tag.id)
+        .where(
+            StaffLocationAssignment.staff_id == admin.id,
+            Tag.tag_type == TagType.LOCATION,
+        )
+        .order_by(Tag.shoot_date.desc())
+    )
+
+    veno_base = settings.VENO_BASE_URL.rstrip("/")
+    result = []
+    for tag, sla in rows.all():
+        veno_folder_url: str | None = None
+        if admin.employee_code and tag.shoot_date:
+            folder = f"{tag.shoot_date}/{admin.employee_code}/{_normalize_location_name(tag.name)}"
+            veno_folder_url = f"{veno_base}/?dir=./uploads/{folder}"
+        result.append({
+            "id": str(tag.id),
+            "name": tag.name,
+            "address": tag.address,
+            "shoot_date": tag.shoot_date,
+            "description": tag.description,
+            "can_upload": sla.can_upload,
+            "veno_folder_url": veno_folder_url,
+        })
+    return APIResponse.ok(result)
+
