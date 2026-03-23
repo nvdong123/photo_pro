@@ -49,9 +49,7 @@ async def face_search(
     raw = await image.read()
     if len(raw) > MAX_SELFIE_SIZE:
         raise HTTPException(422, "Image too large (max 5MB)")
-    # Validate Content-Type header AND actual magic bytes
-    if image.content_type not in ("image/jpeg", "image/png", "image/jpg"):
-        raise HTTPException(422, "Only JPEG/PNG images are accepted")
+    # Validate by actual magic bytes only — browser may report generic content_type
     _validate_image_magic(raw)
 
     threshold = await get_setting_float(db, "face_search_threshold", default=85.0)
@@ -107,7 +105,7 @@ async def face_search(
 
     t0 = time.monotonic()
     try:
-        face_result = await face_client.search(raw, threshold / 100.0, top_k, tag_filter_ids)
+        face_result = await face_client.search(raw, threshold, top_k, tag_filter_ids)
     except Exception as exc:
         raise HTTPException(503, detail={"code": "FACE_SERVICE_UNAVAILABLE", "message": str(exc)})
     elapsed_ms = (time.monotonic() - t0) * 1000
