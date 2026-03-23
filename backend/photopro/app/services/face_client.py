@@ -21,7 +21,7 @@ class FaceServiceClient:
         async with self._make_client() as client:
             r = await client.post(
                 "/api/v1/face/index",
-                json={"photo_id": photo_id, "photo_url": photo_url},
+                params={"photo_id": photo_id, "photo_url": photo_url},
             )
             r.raise_for_status()
             return r.json()
