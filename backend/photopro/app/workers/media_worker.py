@@ -2,6 +2,7 @@ import asyncio
 import io
 import logging
 import os
+import random
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -270,8 +271,8 @@ async def _async_scan_upload_folder():
                 "Re-queuing index_faces for %d media stuck in DERIVATIVES_READY",
                 len(stuck_media),
             )
-            for m in stuck_media:
-                index_faces.delay(str(m.id))
+            for i, m in enumerate(stuck_media):
+                index_faces.apply_async(args=[str(m.id)], countdown=i * 2)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -355,6 +356,9 @@ async def _async_index_faces(task, media_id: str):
             media.has_face = False
             await db.commit()
             return
+
+        # Jitter: spread concurrent workers to avoid S3 connection pool exhaustion
+        await asyncio.sleep(random.uniform(0, 2))
 
         # Presigned URL TTL 10 min for Face Service
         photo_url = storage_service.get_presigned_url(

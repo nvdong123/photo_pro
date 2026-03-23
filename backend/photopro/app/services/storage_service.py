@@ -15,7 +15,11 @@ class StorageService:
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_REGION,
-            config=Config(signature_version="s3v4"),
+            config=Config(
+                signature_version="s3v4",
+                max_pool_connections=5,
+                retries={"max_attempts": 3, "mode": "standard"},
+            ),
         )
         self._bucket = settings.S3_BUCKET
 
