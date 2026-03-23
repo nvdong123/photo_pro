@@ -255,6 +255,24 @@ async def _async_scan_upload_folder():
             await db.commit()
             create_derivatives.delay(str(media.id))
 
+    # ── Re-queue indexing for media stuck in DERIVATIVES_READY ──────────────
+    async with AsyncSessionLocal() as db:
+        stuck_result = await db.execute(
+            select(Media).where(
+                Media.process_status == MediaStatus.DERIVATIVES_READY,
+                Media.face_service_photo_id.is_(None),
+                Media.deleted_at.is_(None),
+            )
+        )
+        stuck_media = stuck_result.scalars().all()
+        if stuck_media:
+            logger.info(
+                "Re-queuing index_faces for %d media stuck in DERIVATIVES_READY",
+                len(stuck_media),
+            )
+            for m in stuck_media:
+                index_faces.delay(str(m.id))
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Task 2: create_derivatives
@@ -313,7 +331,7 @@ def _resize(data: bytes, width: int, quality: int = 85) -> bytes:
 # Task 3: index_faces
 # ─────────────────────────────────────────────────────────────────────────────
 
-@celery_app.task(name="index_faces", bind=True, max_retries=5)
+@celery_app.task(name="index_faces", bind=True, max_retries=3)
 def index_faces(self, media_id: str):
     _run_async(_async_index_faces(self, media_id))
 
@@ -325,6 +343,10 @@ async def _async_index_faces(task, media_id: str):
     async with AsyncSessionLocal() as db:
         media = await db.get(Media, uuid.UUID(media_id))
         if not media or media.deleted_at:
+            return
+
+        # Idempotency guard – skip if already indexed (e.g. re-queued by scan)
+        if media.process_status == MediaStatus.INDEXED and media.face_service_photo_id:
             return
 
         # Only V1: skip non-jpg
@@ -352,7 +374,7 @@ async def _async_index_faces(task, media_id: str):
             logger.warning("Face service HTTP error for media %s (attempt %s/%s): %s",
                            media_id, task.request.retries + 1, task.max_retries + 1, exc)
             try:
-                raise task.retry(exc=retry_exc, countdown=120)
+                raise task.retry(exc=retry_exc, countdown=60)
             except MaxRetriesExceededError:
                 logger.error("Face service unavailable after %s retries – marking media %s as FAILED",
                              task.max_retries, media_id)
@@ -367,7 +389,7 @@ async def _async_index_faces(task, media_id: str):
             logger.warning("Unexpected error indexing media %s (attempt %s/%s): %s",
                            media_id, task.request.retries + 1, task.max_retries + 1, exc)
             try:
-                raise task.retry(exc=retry_exc, countdown=120)
+                raise task.retry(exc=retry_exc, countdown=60)
             except MaxRetriesExceededError:
                 logger.error("Max retries exceeded indexing media %s – marking FAILED. Last error: %s",
                              media_id, exc)
