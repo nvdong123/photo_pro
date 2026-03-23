@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button, Tag, Select, Modal, Table, Progress, Spin } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
+import { MapPin } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -469,8 +470,8 @@ function StaffView() {
                 }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: 10, background: c.bg, color: c.color,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18,
-                  }}>📍</div>
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}><MapPin className="w-5 h-5" /></div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{l.name}</div>
                     {l.shoot_date && <div style={{ fontSize: 12, color: '#8b91a0' }}>{l.shoot_date}</div>}

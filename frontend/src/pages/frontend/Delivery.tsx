@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Checkbox, Alert, message } from 'antd';
 import { DownloadOutlined, InboxOutlined, PictureOutlined, BulbOutlined, QuestionCircleOutlined, PhoneOutlined, MessageOutlined, AlertOutlined } from '@ant-design/icons';
+import { Check } from 'lucide-react';
 import '../styles/frontend.css';
 
 interface Photo {
@@ -71,14 +72,14 @@ export default function Delivery() {
   const handleDownloadAll = () => {
     message.loading({ content: 'Đang tạo ZIP với tất cả ảnh... Vui lòng chờ.', key: 'download-all', duration: 2 });
     setTimeout(() => {
-      message.success({ content: '✓ Tải xuống hoàn tất!', key: 'download-all' });
+      message.success({ content: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check className="w-4 h-4" /> Tải xuống hoàn tất!</span>, key: 'download-all' });
     }, 2000);
   };
 
   const handleDownloadPhoto = (photoId: number) => {
     message.loading({ content: `Đang tải ảnh ${photoId}...`, key: `download-${photoId}`, duration: 1 });
     setTimeout(() => {
-      message.success({ content: `✓ Ảnh ${photoId} đã tải xuống!`, key: `download-${photoId}` });
+      message.success({ content: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check className="w-4 h-4" /> Ảnh ${photoId} đã tải xuống!</span>, key: `download-${photoId}` });
     }, 1000);
   };
 

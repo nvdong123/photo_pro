@@ -1,5 +1,6 @@
 ﻿import { Tag, Spin, Button } from 'antd';
 import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, ExportOutlined } from '@ant-design/icons';
+import { Check, Calendar, MapPin } from 'lucide-react';
 import { useMyLocations } from '../../hooks/useMyLocations';
 import { useMyStats } from '../../hooks/useStaffStats';
 
@@ -50,7 +51,7 @@ export default function StaffUpload() {
               width: 40, height: 40, borderRadius: 10, background: item.bg, color: item.color,
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0,
             }}>
-              {i === 0 ? <EnvironmentOutlined /> : i === 2 ? '✓' : i === 3 ? '📅' : <UploadOutlined />}
+              {i === 0 ? <EnvironmentOutlined /> : i === 2 ? <Check className="w-4 h-4" /> : i === 3 ? <Calendar className="w-4 h-4" /> : <UploadOutlined />}
             </div>
             <div>
               <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1d23', lineHeight: 1.1 }}>
@@ -79,7 +80,7 @@ export default function StaffUpload() {
             <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
           ) : !locations || locations.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: TEXT_MUTED }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📍</div>
+              <div style={{ fontSize: 40, marginBottom: 12, display: 'flex', justifyContent: 'center' }}><MapPin className="w-10 h-10" style={{ color: '#8b91a0' }} /></div>
               <h4 style={{ margin: '0 0 4px', fontWeight: 600 }}>Chưa có địa điểm</h4>
               <p style={{ margin: 0 }}>Bạn chưa được phân công vào địa điểm nào. Liên hệ Admin để được phân công.</p>
             </div>

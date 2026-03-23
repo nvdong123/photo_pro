@@ -46,3 +46,10 @@ export function useBundles() {
 
   return { bundles: data, loading, error, create, update, remove, refetch };
 }
+
+export function usePublicBundles() {
+  const { data, loading, error } = useAsync(() =>
+    apiClient.get<Bundle[]>("/api/v1/bundles", TTL.LONG),
+  );
+  return { bundles: data ?? [], loading, error };
+}

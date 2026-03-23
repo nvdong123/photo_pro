@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Tag, Alert, message } from 'antd';
 import { CheckCircleOutlined, InboxOutlined, LinkOutlined, MobileOutlined, CopyOutlined, DownloadOutlined, ClockCircleOutlined, MessageOutlined, PhoneOutlined, SendOutlined, SearchOutlined, HomeOutlined } from '@ant-design/icons';
+import { AlertTriangle } from 'lucide-react';
 import '../styles/frontend.css';
 
 interface OrderInfo {
@@ -199,7 +200,7 @@ export default function Success() {
             </div>
 
             <div style={{ background: 'rgba(26, 107, 78, 0.08)', border: '1px solid rgba(26, 107, 78, 0.2)', borderRadius: '8px', padding: '16px', marginTop: '16px', textAlign: 'left' }}>
-              <strong>⚠ Lưu ý quan trọng:</strong>
+              <strong style={{ display: 'flex', alignItems: 'center', gap: 6 }}><AlertTriangle className="w-4 h-4" style={{ flexShrink: 0 }} /> Lưu ý quan trọng:</strong>
               <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
                 <li>Link chỉ có hiệu lực trong <strong>{order.expiryHours} giờ</strong></li>
                 <li>Vui lòng tải ảnh về trước khi hết hạn</li>

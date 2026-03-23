@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Select, Checkbox, Modal, message } from 'antd';
 import { StarOutlined, ReloadOutlined, SearchOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { AlertTriangle, CheckCircle2, Lightbulb, Image as ImageIcon } from 'lucide-react';
+import { usePublicBundles } from '../../hooks/useBundles';
 import '../styles/frontend.css';
 
 interface Photo {
@@ -66,7 +68,7 @@ export default function Results() {
         apiResults.forEach((r) => {
           const key = r.album_code ?? r.photographer_code ?? 'default';
           if (!albumMap.has(key)) {
-            albumMap.set(key, { id: albumCounter++, name: r.album_code ?? r.photographer_code ?? 'Album', icon: '🖼️', category: key });
+            albumMap.set(key, { id: albumCounter++, name: r.album_code ?? r.photographer_code ?? 'Album', icon: '', category: key });
           }
         });
         const albumsList = Array.from(albumMap.values());
@@ -163,40 +165,47 @@ export default function Results() {
     setPreviewPhoto(photo);
   };
 
-  const getPackageName = (count: number) => {
-    if (count === 1) return 'Gói 1 ảnh - 20k';
-    if (count === 3) return 'Gói 3 ảnh - 50k';
-    if (count >= 8) return 'Gói 8 ảnh - 100k';
-    return `${count} ảnh - ${count * 20}k`;
-  };
-
-  // Greedy algorithm: tính tổng tiền tối ưu
-  const calcTotalPrice = (count: number): number => {
-    if (count === 0) return 0;
-    const TIERS = [{ photos: 8, price: 100000 }, { photos: 3, price: 50000 }, { photos: 1, price: 20000 }];
-    let remaining = count;
-    let total = 0;
-    for (const tier of TIERS) {
-      const qty = Math.floor(remaining / tier.photos);
-      if (qty > 0) { total += qty * tier.price; remaining -= qty * tier.photos; }
-    }
-    return total;
-  };
+  const { bundles } = usePublicBundles();
 
   const formatPrice = (price: number) => price.toLocaleString('vi-VN') + 'đ';
 
-  const getPackageInfo = (count: number) => {
-    if (count === 0) return 'Chưa có gói';
-    const TIERS = [{ photos: 8, name: 'Gói 8' }, { photos: 3, name: 'Gói 3' }];
-    const parts: string[] = [];
+  const suggestion = useMemo(() => {
+    const count = selectedPhotos.length;
+    if (!bundles.length || count === 0) return null;
+    const active = bundles.filter((b) => b.is_active);
+    const single = active.find((b) => b.photo_count === 1);
+    const singlePrice = single?.price ?? 0;
+
+    // Greedy: largest bundles first
+    const tiers = [...active].sort((a, b) => b.photo_count - a.photo_count);
     let remaining = count;
-    for (const tier of TIERS) {
-      const qty = Math.floor(remaining / tier.photos);
-      if (qty > 0) { parts.push(`${tier.name} ×${qty}`); remaining -= qty * tier.photos; }
+    let total = 0;
+    let mainBundle = null as (typeof active)[0] | null;
+    for (const b of tiers) {
+      const qty = Math.floor(remaining / b.photo_count);
+      if (qty > 0) {
+        if (!mainBundle) mainBundle = b;
+        total += qty * b.price;
+        remaining -= qty * b.photo_count;
+      }
     }
-    if (remaining > 0) parts.push(`${remaining} lẻ`);
-    return parts.join(' + ');
-  };
+    if (remaining > 0 && single) total += remaining * singlePrice;
+
+    const savings = singlePrice > 0 && singlePrice * count > total
+      ? Math.round((1 - total / (singlePrice * count)) * 100)
+      : 0;
+
+    const exactMatch = active.find((b) => b.photo_count === count) ?? null;
+    const nextBundle = [...active]
+      .filter((b) => b.photo_count > count)
+      .sort((a, b) => a.photo_count - b.photo_count)[0] ?? null;
+    const diff = nextBundle ? nextBundle.photo_count - count : 0;
+    const nextSavings = nextBundle && singlePrice > 0
+      ? Math.round((1 - nextBundle.price / (singlePrice * nextBundle.photo_count)) * 100)
+      : 0;
+
+    return { total, mainBundle, savings, exactMatch, nextBundle, diff, nextSavings };
+  }, [selectedPhotos.length, bundles]);
 
   return (
     <div className="page-section active" style={{ paddingTop: '120px', paddingBottom: '120px' }}>
@@ -288,7 +297,7 @@ export default function Results() {
               group.photos.length > 0 ? (
                 <div key={group.album.id} className="card card-padded mb-3">
                   <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1.5rem' }}>{group.album.icon}</span>
+                    <ImageIcon className="w-5 h-5" style={{ color: 'var(--primary)', flexShrink: 0 }} />
                     {group.album.name}
                   </h3>
                   <div className="photo-grid">
@@ -355,8 +364,9 @@ export default function Results() {
                           {photo.similarity}%
                         </div>
                         {photo.warning && (
-                          <div className="photo-warning">
-                            ⚠️ {photo.warning}
+                          <div className="photo-warning" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <AlertTriangle className="w-4 h-4" style={{ flexShrink: 0 }} />
+                            {photo.warning}
                           </div>
                         )}
                         <div
@@ -389,15 +399,46 @@ export default function Results() {
       {getTotalPhotosCount() > 0 && (
         <div className="sticky-bottom-bar">
           <div className="sticky-cart-content">
+            {/* Left: selected count */}
             <div className="sticky-info">
               <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '2px' }}>Đã chọn</div>
-              <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '4px' }}>{selectedPhotos.length} ảnh</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{getPackageInfo(selectedPhotos.length)}</div>
+              <div style={{ fontSize: '18px', fontWeight: 700 }}>{selectedPhotos.length} ảnh</div>
             </div>
+
+            {/* Middle: bundle hint */}
+            <div style={{ flex: 1, minWidth: 0, padding: '0 16px' }}>
+              {selectedPhotos.length > 0 && suggestion ? (
+                suggestion.exactMatch ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontWeight: 600, fontSize: 13 }}>
+                    <CheckCircle2 className="w-4 h-4" style={{ flexShrink: 0 }} />
+                    Phù hợp với {suggestion.exactMatch.name}
+                    {suggestion.savings > 0 && (
+                      <span style={{ color: '#16a34a', fontSize: 12 }}>(tiết kiệm {suggestion.savings}%)</span>
+                    )}
+                  </div>
+                ) : suggestion.nextBundle && suggestion.nextSavings > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#d97706', fontWeight: 600, fontSize: 13 }}>
+                    <Lightbulb className="w-4 h-4" style={{ flexShrink: 0 }} />
+                    Thêm {suggestion.diff} ảnh để dùng {suggestion.nextBundle.name} (tiết kiệm {suggestion.nextSavings}%)
+                  </div>
+                ) : suggestion.mainBundle ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontWeight: 600, fontSize: 13 }}>
+                    <CheckCircle2 className="w-4 h-4" style={{ flexShrink: 0 }} />
+                    {suggestion.mainBundle.name}
+                    {suggestion.savings > 0 && (
+                      <span style={{ color: '#16a34a', fontSize: 12 }}>(tiết kiệm {suggestion.savings}%)</span>
+                    )}
+                  </div>
+                ) : null
+              ) : null}
+            </div>
+
             <div className="sticky-price-action">
               <div className="sticky-price">
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tổng</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)' }}>{formatPrice(calcTotalPrice(selectedPhotos.length))}</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)' }}>
+                  {formatPrice(suggestion?.total ?? 0)}
+                </div>
               </div>
               <Button
                 type="primary"

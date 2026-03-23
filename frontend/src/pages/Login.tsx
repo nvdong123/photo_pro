@@ -5,6 +5,7 @@ import {
   Typography, Alert, ConfigProvider,
 } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { Camera, UploadCloud, BarChart2, MapPin } from 'lucide-react';
 import { useAdminAuth } from '../hooks/useAdminAuth';
 
 const { Title, Text, Link } = Typography;
@@ -88,8 +89,9 @@ export default function Login() {
               width: 52, height: 52, borderRadius: 14,
               background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(12px)',
               border: '1px solid rgba(255,255,255,0.2)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
-            }}>📷</div>
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            ><Camera className="w-7 h-7" /></div>
             <span style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px' }}>PhotoPro</span>
           </div>
 
@@ -106,14 +108,14 @@ export default function Login() {
 
           {/* Features */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 56 }}>
-            {[
-              { icon: '☁️', title: 'Upload nhanh chóng',  sub: 'Tải lên hàng nghìn ảnh mỗi ngày' },
-              { icon: '📊', title: 'Thống kê chi tiết',    sub: 'Doanh thu, hiệu suất theo thời gian thực' },
-              { icon: '📍', title: 'Đa địa điểm',          sub: 'Quản lý nhiều điểm chụp cùng lúc' },
-            ].map((f) => (
+            {([
+              { icon: <UploadCloud className="w-5 h-5" />, title: 'Upload nhanh chóng',  sub: 'Tải lên hàng nghìn ảnh mỗi ngày' },
+              { icon: <BarChart2 className="w-5 h-5" />,   title: 'Thống kê chi tiết',    sub: 'Doanh thu, hiệu suất theo thời gian thực' },
+              { icon: <MapPin className="w-5 h-5" />,      title: 'Đa địa điểm',          sub: 'Quản lý nhiều điểm chụp cùng lúc' },
+            ] as { icon: React.ReactNode; title: string; sub: string }[]).map((f) => (
               <div key={f.title} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                 <div style={{
-                  width: 44, height: 44, borderRadius: 12, flexShrink: 0, fontSize: 20,
+                  width: 44, height: 44, borderRadius: 12, flexShrink: 0,
                   background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>{f.icon}</div>

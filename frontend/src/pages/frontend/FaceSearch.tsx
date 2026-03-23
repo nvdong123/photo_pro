@@ -16,6 +16,7 @@ import {
   BulbOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
+import { Check } from 'lucide-react';
 import dayjs from 'dayjs';
 import '../styles/frontend.css';
 
@@ -39,7 +40,7 @@ export default function FaceSearch() {
   const urlAlbumId = searchParams.get('album_id');
 
   const { data: albumsData } = useAlbums();
-  const albums: Album[] = (albumsData ?? []).map((a) => ({ id: a.id, name: a.name, icon: '🖼️', media_count: a.media_count }));
+  const albums: Album[] = (albumsData ?? []).map((a) => ({ id: a.id, name: a.name, icon: '', media_count: a.media_count }));
   const [searchScope, setSearchScope] = useState(() => urlAlbumId ? 'specific' : 'all');
   const [selectedAlbums, setSelectedAlbums] = useState<string[]>(() => urlAlbumId ? [urlAlbumId] : []);
   const [dateFrom, setDateFrom] = useState('');
@@ -327,10 +328,11 @@ export default function FaceSearch() {
         ctx.fillRect(0, 0, 400, 500);
         
         // Draw face emoji in center
-        ctx.font = 'bold 180px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 64px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('😊', 200, 250);
+        ctx.fillText('DEMO', 200, 250);
         
         canvas.toBlob((blob) => {
           if (blob) {
@@ -592,7 +594,7 @@ export default function FaceSearch() {
                 }}>
                   {facesDetected ? (
                     <>
-                      <span style={{ color: '#4fffb0', fontSize: 16 }}>✓</span>
+                      <Check className="w-4 h-4" style={{ color: '#4fffb0' }} />
                       <span style={{ color: '#fff', fontSize: 14, fontWeight: 500 }}>Phát hiện khuôn mặt!</span>
                     </>
                   ) : (
