@@ -18,7 +18,7 @@ from app.core.security import hash_password
 # Import all models so Base.metadata is fully populated
 from app.models import (  # noqa: F401
     AdminUser, BundlePricing, Coupon, DigitalDelivery, Media, MediaTag,
-    Order, OrderItem, OrderPhoto, Staff, StaffRole,
+    Order, OrderItem, OrderPhoto, Staff, StaffActivity, StaffRole,
     StaffLocationAssignment, SystemSetting, Tag,
 )
 
@@ -59,7 +59,7 @@ async def ensure_tables(engine) -> None:
 
 async def stamp_alembic(engine) -> None:
     """Transaction 3: ensure alembic_version is at head."""
-    head = "0004_staff_veno_password"
+    head = "0005_staff_activity"
     async with engine.begin() as conn:
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS alembic_version "

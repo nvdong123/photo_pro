@@ -12,6 +12,7 @@ from app.core.database import Base
 # Import all models so Alembic discovers them
 from app.models import (  # noqa: F401
     Staff,
+    StaffActivity,
     AdminUser,
     BundlePricing,
     DigitalDelivery,

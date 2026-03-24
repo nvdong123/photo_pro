@@ -5,6 +5,7 @@ from app.models.delivery import DigitalDelivery
 from app.models.media import Media, MediaStatus, PhotoStatus
 from app.models.order import Order, OrderItem, OrderPhoto, OrderStatus
 from app.models.staff import Staff, StaffRole
+from app.models.staff_activity import StaffActivity
 from app.models.staff_location import StaffLocationAssignment
 from app.models.system_setting import SystemSetting
 from app.models.tag import MediaTag, Tag, TagType
@@ -13,6 +14,7 @@ __all__ = [
     # Staff (was AdminUser)
     "Staff",
     "StaffRole",
+    "StaffActivity",
     # Backward compat aliases
     "AdminUser",
     "AdminRole",
