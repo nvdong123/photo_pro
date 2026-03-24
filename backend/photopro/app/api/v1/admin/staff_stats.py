@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_admin, require_manager_up, require_roles
+from app.core.deps import get_current_admin, require_manager_up
 from app.models.staff import Staff, StaffRole
 from app.schemas.common import APIResponse
 
@@ -31,10 +31,12 @@ async def get_all_staff_stats(
 
 @router.get("/me", response_model=APIResponse[dict])
 async def get_my_stats(
-    current: Staff = Depends(require_roles(StaffRole.STAFF)),
+    current: Staff = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """STAFF-only — personal statistics from the v_staff_statistics view."""
+    """All authenticated users — personal statistics from the v_staff_statistics view.
+    Non-STAFF roles (SYSTEM/SALES/MANAGER) are not in the view, so returns zeros.
+    """
     result = await db.execute(
         text("SELECT * FROM v_staff_statistics WHERE staff_id = :staff_id"),
         {"staff_id": current.id},
