@@ -10,6 +10,7 @@ export interface AdminUser {
   is_active: boolean;
   created_at: string;
   veno_password_hint: string | null;
+  total_photos: number;
 }
 
 const STAFF_PATH = "/api/v1/admin/auth/users";

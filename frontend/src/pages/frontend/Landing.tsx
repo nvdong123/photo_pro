@@ -336,10 +336,10 @@ export default function Landing() {
           <Alert
             type="info"
             showIcon
-            icon={<BulbOutlined />}
-            message={<strong>Auto-pack Thông Minh</strong>}
-            description="Hệ thống tự động chọn gói tối ưu khi bạn chọn ảnh. Ví dụ: Chọn 2 ảnh → Đề xuất Gói 3 (tiết kiệm thêm 1 ảnh!)"
-            style={{ borderRadius: 12, background: 'rgba(26,107,78,0.08)', border: '1px solid rgba(26,107,78,0.2)' }}
+            icon={<BulbOutlined style={{ color: '#5dffb0' }} />}
+            message={<strong style={{ color: '#f0fdf4' }}>Auto-pack Thông Minh</strong>}
+            description={<span style={{ color: 'rgba(255,255,255,0.72)' }}>Hệ thống tự động chọn gói tối ưu khi bạn chọn ảnh. Ví dụ: Chọn 2 ảnh → Đề xuất Gói 3 (tiết kiệm thêm 1 ảnh!)</span>}
+            style={{ borderRadius: 12, background: 'rgba(26,107,78,0.18)', border: '1px solid rgba(93,255,176,0.25)' }}
           />
         </div>
       </section>

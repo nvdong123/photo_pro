@@ -67,7 +67,7 @@ export default function Staff() {
     { label: 'Tổng nhân viên', val: staff.length, color: PRIMARY },
     { label: 'Đang hoạt động', val: staff.filter(s => s.status === 'active').length, color: '#1a854a' },
     { label: 'Đã khóa', val: staff.filter(s => s.status === 'locked').length, color: DANGER },
-    { label: 'Tổng ảnh upload', val: '8,450', color: '#d4870e' },
+    { label: 'Tổng ảnh upload', val: apiStaff.reduce((sum, u) => sum + (u.total_photos ?? 0), 0).toLocaleString('vi-VN'), color: '#d4870e' },
   ];
 
   const filtered = staff

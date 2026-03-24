@@ -1,8 +1,8 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -10,7 +10,9 @@ from app.core.database import get_db
 from app.core.deps import get_current_admin, require_system
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
+from app.models.media import Media
 from app.models.staff import Staff, StaffRole
+from app.models.staff_activity import StaffActivity
 from app.models.staff_location import StaffLocationAssignment
 from app.models.tag import Tag, TagType
 from app.schemas.admin.auth import (
@@ -45,6 +47,16 @@ async def admin_login(
     if not admin or not admin.is_active or not verify_password(body.password, admin.hashed_password):
         raise HTTPException(401, "Invalid credentials")
     token = create_access_token(str(admin.id), admin.role.value)
+    # Record login activity
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    db.add(StaffActivity(
+        staff_id=admin.id,
+        action="Đăng nhập",
+        ip_address=client_ip,
+        user_agent=user_agent,
+    ))
+    await db.commit()
     return APIResponse.ok(AdminLoginResponse(
         access_token=token,
         role=admin.role,
@@ -167,8 +179,25 @@ async def list_admins(
     admin: Staff = Depends(require_system),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Staff).order_by(Staff.created_at))
-    return APIResponse.ok([AdminUserListOut.model_validate(u) for u in result.scalars().all()])
+    users_result = await db.execute(select(Staff).order_by(Staff.created_at))
+    users = users_result.scalars().all()
+
+    # Count non-deleted photos per staff member
+    photo_counts_result = await db.execute(
+        select(Media.uploader_id, func.count(Media.id).label("cnt"))
+        .where(Media.deleted_at.is_(None), Media.uploader_id.isnot(None))
+        .group_by(Media.uploader_id)
+    )
+    photo_counts: dict[uuid.UUID, int] = {
+        row.uploader_id: row.cnt for row in photo_counts_result
+    }
+
+    out = []
+    for u in users:
+        item = AdminUserListOut.model_validate(u)
+        item.total_photos = photo_counts.get(u.id, 0)
+        out.append(item)
+    return APIResponse.ok(out)
 
 
 @router.patch("/users/{user_id}", response_model=APIResponse[AdminUserOut])
@@ -295,12 +324,54 @@ async def reset_veno_password(
 
 @router.get("/activity", response_model=APIResponse[list[dict]])
 async def get_activity(
+    limit: int = Query(20, ge=1, le=100),
     admin: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Return recent login activity for the current admin user.
-    Phase 1: returns empty list — frontend gracefully shows 'no activity' message.
-    """
-    return APIResponse.ok([])
+    """Return recent login activity for the current admin user."""
+
+    def _parse_device(ua: str | None) -> str:
+        if not ua:
+            return "Unknown"
+        ua_lower = ua.lower()
+        os_part = "Windows"
+        if "windows" in ua_lower:
+            os_part = "Windows"
+        elif "macintosh" in ua_lower or "mac os" in ua_lower:
+            os_part = "macOS"
+        elif "android" in ua_lower:
+            os_part = "Android"
+        elif "iphone" in ua_lower or "ipad" in ua_lower:
+            os_part = "iOS"
+        elif "linux" in ua_lower:
+            os_part = "Linux"
+        browser_part = "Browser"
+        if "chrome" in ua_lower and "edg" not in ua_lower:
+            browser_part = "Chrome"
+        elif "firefox" in ua_lower:
+            browser_part = "Firefox"
+        elif "safari" in ua_lower and "chrome" not in ua_lower:
+            browser_part = "Safari"
+        elif "edg" in ua_lower:
+            browser_part = "Edge"
+        return f"{browser_part}/{os_part}"
+
+    result = await db.execute(
+        select(StaffActivity)
+        .where(StaffActivity.staff_id == admin.id)
+        .order_by(StaffActivity.created_at.desc())
+        .limit(limit)
+    )
+    activities = result.scalars().all()
+    return APIResponse.ok([
+        {
+            "action": a.action,
+            "ip": a.ip_address or "-",
+            "device": _parse_device(a.user_agent),
+            "created_at": a.created_at.isoformat(),
+        }
+        for a in activities
+    ])
 
 
 @router.get("/my-locations", response_model=APIResponse[list[dict]])

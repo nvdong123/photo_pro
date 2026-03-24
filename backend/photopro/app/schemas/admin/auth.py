@@ -49,6 +49,7 @@ class AdminUserListOut(BaseModel):
     is_active: bool
     created_at: datetime
     veno_password_hint: str | None = None
+    total_photos: int = 0
 
     @classmethod
     def model_validate(cls, obj, **kwargs):  # type: ignore[override]

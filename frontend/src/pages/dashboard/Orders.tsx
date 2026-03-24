@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Input, Select, Button, Tag, DatePicker, message, Modal, Table } from 'antd';
+import { Input, Select, Button, Tag, DatePicker, message, Modal, Table, Spin } from 'antd';
 import { SearchOutlined, EyeOutlined, RollbackOutlined, CopyOutlined, DownloadOutlined, CheckCircleOutlined, ClockCircleOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { Clock } from 'lucide-react';
 import { hasRole } from '../../hooks/useAuth';
-import { useOrders, resendEmail } from '../../hooks/useOrders';
+import { useOrders, useOrderDetail, resendEmail } from '../../hooks/useOrders';
 
 const BORDER = '#e2e5ea';
 const SURFACE_ALT = '#f6f7f9';
@@ -36,12 +37,13 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [refundOrder, setRefundOrder] = useState<Order | null>(null);
   const [refundReason, setRefundReason] = useState('');
   const [refundNote, setRefundNote] = useState('');
 
   const { data: ordersData, loading } = useOrders({ status: statusFilter || undefined, search: search || undefined, page });
+  const { data: orderDetail, loading: detailLoading } = useOrderDetail(detailOrderId ?? '');
 
   const STATUS_BACKEND_MAP: Record<string, OrderStatus> = {
     PAID: 'completed', PENDING: 'processing', REFUNDED: 'refunded', EXPIRED: 'expired',
@@ -109,71 +111,109 @@ export default function Orders() {
 
   // ---- Order Detail Modal ----
   const renderDetailModal = () => {
-    const o = detailOrder;
-    if (!o) return null;
-    const photoColors = ['linear-gradient(135deg,#1a6b4e 0%,#134a36 100%)', 'linear-gradient(135deg,#2563eb 0%,#1e40af 100%)', 'linear-gradient(135deg,#d4870e 0%,#92400e 100%)', 'linear-gradient(135deg,#7c3aed 0%,#5b21b6 100%)', 'linear-gradient(135deg,#db2777 0%,#9d174d 100%)', 'linear-gradient(135deg,#059669 0%,#065f46 100%)', 'linear-gradient(135deg,#dc2626 0%,#991b1b 100%)', 'linear-gradient(135deg,#0891b2 0%,#164e63 100%)'];
+    // Find the list-level order to get code/phone/email for header while detail loads
+    const listOrder = orders.find(o => o.id === detailOrderId);
+    const detail = orderDetail;
+
+    const fmtDt = (iso: string | null | undefined) => {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      return `${h}:${m} ${day}/${mo}/${d.getFullYear()}`;
+    };
+
+    const downloadUrl = detail?.delivery?.download_url ?? listOrder?.lookupLink ?? '';
+    const currentRefundOrder = listOrder ?? null;
+
     return (
       <Modal
-        open={!!detailOrder}
-        onCancel={() => setDetailOrder(null)}
-        title={<>Chi tiết đơn hàng <span style={{ color: PRIMARY }}>{o.code}</span></>}
+        open={!!detailOrderId}
+        onCancel={() => setDetailOrderId(null)}
+        title={<>Chi tiết đơn hàng <span style={{ color: PRIMARY }}>{listOrder?.code ?? ''}</span></>}
         footer={[
-          <Button key="close" onClick={() => setDetailOrder(null)}>Đóng</Button>,
-          canRefund && o.status === 'completed' && <Button key="refund" danger icon={<RollbackOutlined />} onClick={() => { setDetailOrder(null); setRefundOrder(o); }}>Hoàn tiền</Button>,
+          <Button key="close" onClick={() => setDetailOrderId(null)}>Đóng</Button>,
+          canRefund && listOrder?.status === 'completed' && (
+            <Button key="refund" danger icon={<RollbackOutlined />} onClick={() => { setDetailOrderId(null); setRefundOrder(currentRefundOrder); }}>Hoàn tiền</Button>
+          ),
         ]}
         width={580}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Thông tin khách hàng */}
-          <div>
-            <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin khách hàng</strong>
-            <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
-              <div style={{ marginBottom: 4 }}> Số điện thoại: <strong>{o.phone}</strong></div>
-              <div> Email: <strong>{o.email}</strong></div>
-            </div>
-          </div>
-          {/* Thông tin đơn hàng */}
-          <div>
-            <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin đơn hàng</strong>
-            <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
-              <div style={{ marginBottom: 4 }}> Album: <strong>{o.album}</strong></div>
-              <div style={{ marginBottom: 4 }}> Số ảnh: <strong>{o.photoCount} ảnh</strong></div>
-              <div style={{ marginBottom: 4 }}> Gói giá: <strong>Gói {o.photoCount} ảnh - {o.price}</strong></div>
-              <div style={{ marginBottom: 4 }}> Ngày mua: <strong>{o.date}</strong></div>
-              <div>⏰ Hết hạn: <strong>{o.expiry}</strong></div>
-            </div>
-          </div>
-          {/* Danh sách ảnh */}
-          <div>
-            <strong style={{ display: 'block', marginBottom: 8 }}>Danh sách ảnh</strong>
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(o.photoCount, 4)}, 1fr)`, gap: 8 }}>
-              {Array.from({ length: o.photoCount }).map((_, i) => (
-                <div key={i} style={{ aspectRatio: '3/4', background: photoColors[i % photoColors.length], borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, fontWeight: 600 }}>
-                  IMG_00{i + 1}.jpg
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* Link tải ảnh */}
-          {o.lookupLink && (
+        {detailLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}><Spin /></div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Thông tin khách hàng */}
             <div>
-              <strong style={{ display: 'block', marginBottom: 8 }}>Link tải ảnh</strong>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Input value={o.lookupLink} readOnly style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, background: SURFACE_ALT }} />
-                <Button icon={<CopyOutlined />} onClick={() => copyLink(o.lookupLink)} />
+              <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin khách hàng</strong>
+              <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
+                <div style={{ marginBottom: 4 }}>Số điện thoại: <strong>{detail?.customer_phone ?? listOrder?.phone ?? '-'}</strong></div>
+                <div>Email: <strong>{detail?.customer_email ?? listOrder?.email ?? '-'}</strong></div>
               </div>
             </div>
-          )}
-          {/* Lịch sử */}
-          <div>
-            <strong style={{ display: 'block', marginBottom: 8 }}>Lịch sử</strong>
-            <div style={{ fontSize: 13, color: '#5a6170' }}>
-              <div style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}> <strong>{o.date}</strong> - Thanh toán thành công</div>
-              <div style={{ padding: '8px 0', borderBottom: `1px solid ${BORDER}` }}> <strong>{o.date.replace(/(d+:d+)/, (m) => { const [h, min] = m.split(':'); return `${h}:${String(parseInt(min) + 1).padStart(2, '0')}`; })}</strong> - Gửi link qua SMS</div>
-              <div style={{ padding: '8px 0' }}> Khách tải ảnh (1/5 lượt)</div>
+            {/* Thông tin đơn hàng */}
+            <div>
+              <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin đơn hàng</strong>
+              <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
+                <div style={{ marginBottom: 4 }}>Số ảnh: <strong>{detail?.photo_count ?? listOrder?.photoCount ?? 0} ảnh</strong></div>
+                <div style={{ marginBottom: 4 }}>Tổng tiền: <strong>{((detail?.amount ?? 0) || 0).toLocaleString('vi-VN')}đ</strong></div>
+                <div style={{ marginBottom: 4 }}>Ngày mua: <strong>{fmtDt(detail?.created_at ?? listOrder?.date)}</strong></div>
+                {detail?.delivery?.expires_at && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={14} style={{ color: TEXT_MUTED, flexShrink: 0 }} />
+                    Hết hạn: <strong>{fmtDt(detail.delivery.expires_at)}</strong>
+                  </div>
+                )}
+              </div>
             </div>
+            {/* Danh sách ảnh */}
+            {detail && (detail.photos.length > 0 || detail.items.length > 0) && (
+              <div>
+                <strong style={{ display: 'block', marginBottom: 8 }}>Danh sách ảnh ({detail.photos.length > 0 ? detail.photos.length : detail.items.length} ảnh)</strong>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(detail.photos.length > 0 ? detail.photos.length : detail.items.length, 4)}, 1fr)`, gap: 8 }}>
+                  {detail.photos.length > 0
+                    ? detail.photos.map((p, i) => (
+                        <div key={i} style={{ aspectRatio: '3/4', borderRadius: 8, overflow: 'hidden', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {p.preview_url
+                            ? <img src={p.preview_url} alt={p.filename} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ color: '#fff', fontSize: 10, padding: 4, textAlign: 'center' }}>{p.filename}</span>}
+                        </div>
+                      ))
+                    : detail.items.map((item, i) => (
+                        <div key={i} style={{ aspectRatio: '3/4', borderRadius: 8, overflow: 'hidden', background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {item.thumb_url
+                            ? <img src={item.thumb_url} alt={item.photographer_code} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ color: '#fff', fontSize: 10, padding: 4, textAlign: 'center' }}>{item.photographer_code}</span>}
+                        </div>
+                      ))
+                  }
+                </div>
+              </div>
+            )}
+            {/* Delivery */}
+            {detail?.delivery && (
+              <div>
+                <strong style={{ display: 'block', marginBottom: 8 }}>Thông tin tải ảnh</strong>
+                <div style={{ background: SURFACE_ALT, padding: 12, borderRadius: 8 }}>
+                  <div style={{ marginBottom: 4 }}>Đã tải: <strong>{detail.delivery.download_count}/{detail.delivery.max_downloads} lượt</strong></div>
+                  <div>Trạng thái: <Tag color={detail.delivery.is_active ? 'success' : 'default'}>{detail.delivery.is_active ? 'Còn hiệu lực' : 'Đã vô hiệu'}</Tag></div>
+                </div>
+              </div>
+            )}
+            {/* Link tải ảnh */}
+            {downloadUrl && (
+              <div>
+                <strong style={{ display: 'block', marginBottom: 8 }}>Link tải ảnh</strong>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Input value={downloadUrl} readOnly style={{ flex: 1, fontFamily: 'monospace', fontSize: 12, background: SURFACE_ALT }} />
+                  <Button icon={<CopyOutlined />} onClick={() => copyLink(downloadUrl)} />
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </Modal>
     );
   };
@@ -280,7 +320,7 @@ export default function Orders() {
             title: 'Thao tác', key: 'actions',
             render: (o: Order) => (
               <div style={{ display: 'flex', gap: 4 }}>
-                <Button size="small" icon={<EyeOutlined />} onClick={() => setDetailOrder(o)} title="Xem chi tiết" />
+                <Button size="small" icon={<EyeOutlined />} onClick={() => setDetailOrderId(o.id)} title="Xem chi tiết" />
                 {canRefund && o.status === 'completed' && (
                   <Button size="small" danger icon={<RollbackOutlined />} onClick={() => setRefundOrder(o)} title="Hoàn tiền" />
                 )}
