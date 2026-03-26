@@ -30,9 +30,6 @@ class Staff(Base):
     # Only used for role=STAFF; format: NV001, NV002, ...
     employee_code: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
 
-    # Plain-text Veno File Manager password (separate from PhotoPro auth)
-    veno_password: Mapped[str | None] = mapped_column(String(100))
-
     # Commission rate: % of revenue paid to this staff member (default 100)
     commission_rate: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), nullable=False, server_default="100.00"

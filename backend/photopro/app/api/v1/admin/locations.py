@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,6 @@ from app.models.staff_location import StaffLocationAssignment
 from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.services.cache_service import get_cached_presigned_url
-from app.services.storage_service import storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -88,36 +87,6 @@ def _sla_to_dict(sla: StaffLocationAssignment, staff: Staff) -> dict:
     }
 
 
-def _ensure_s3_location_folder(shoot_date: str, location_name: str) -> None:
-    """Create the S3 folder placeholder for a location.
-
-    Structure: originals/{shoot_date}/  (date-level folder)
-    Staff-level folders are created on assign.
-    """
-    try:
-        storage_service.ensure_folder(f"originals/{shoot_date}")
-    except Exception:
-        logger.exception("Failed to create S3 folder for %s", shoot_date)
-
-
-def _ensure_s3_staff_folder(
-    shoot_date: str, employee_code: str, location_name: str,
-) -> None:
-    """Create the S3 folder for a staff member at a location.
-
-    Structure: originals/{shoot_date}/{employee_code}/{location_name}/
-    """
-    try:
-        storage_service.ensure_folder(
-            f"originals/{shoot_date}/{employee_code}/{location_name}"
-        )
-    except Exception:
-        logger.exception(
-            "Failed to create S3 folder for %s/%s/%s",
-            shoot_date, employee_code, location_name,
-        )
-
-
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=APIResponse[list[LocationOut]])
@@ -178,7 +147,6 @@ async def list_locations(
 @router.post("", response_model=APIResponse[LocationOut])
 async def create_location(
     body: LocationCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: Staff = Depends(require_sales_up),
 ):
@@ -197,9 +165,6 @@ async def create_location(
     db.add(tag)
     await db.commit()
     await db.refresh(tag)
-    # Create S3 folder structure for this location
-    if tag.shoot_date:
-        background_tasks.add_task(_ensure_s3_location_folder, tag.shoot_date, tag.name)
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
@@ -299,7 +264,6 @@ async def list_location_staff(
 async def assign_staff_to_location(
     location_id: uuid.UUID,
     body: AssignStaffRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current: Staff = Depends(require_sales_up),
 ):
@@ -326,9 +290,7 @@ async def assign_staff_to_location(
     # Create S3 folder for this staff + location
     tag = await _get_location(db, location_id)
     if tag.shoot_date and staff.employee_code:
-        background_tasks.add_task(
-            _ensure_s3_staff_folder, tag.shoot_date, staff.employee_code, tag.name,
-        )
+        pass  # S3 is flat — no folder placeholders needed
     return APIResponse.ok({"message": "Staff assigned"})
 
 

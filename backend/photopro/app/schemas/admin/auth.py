@@ -32,14 +32,12 @@ class AdminUserOut(BaseModel):
     avatar_url: str | None = None
     is_active: bool
     created_at: datetime
-    veno_password: str | None = None
     commission_rate: float = 100.0
 
     model_config = {"from_attributes": True}
 
 
 class AdminUserListOut(BaseModel):
-    """Slimmer output for list endpoint — hides full veno_password."""
     id: uuid.UUID
     email: str
     full_name: str | None
@@ -49,19 +47,8 @@ class AdminUserListOut(BaseModel):
     avatar_url: str | None = None
     is_active: bool
     created_at: datetime
-    veno_password_hint: str | None = None
     total_photos: int = 0
     commission_rate: float = 100.0
-
-    @classmethod
-    def model_validate(cls, obj, **kwargs):  # type: ignore[override]
-        data = super().model_validate(obj, **kwargs)
-        pw = getattr(obj, "veno_password", None)
-        if pw and len(pw) >= 4:
-            data.veno_password_hint = "****" + pw[-4:]
-        elif pw:
-            data.veno_password_hint = "****"
-        return data
 
     model_config = {"from_attributes": True}
 
