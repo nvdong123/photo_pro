@@ -87,59 +87,6 @@ def _sla_to_dict(sla: StaffLocationAssignment, staff: Staff) -> dict:
     }
 
 
-async def _get_location(db: AsyncSession, location_id: uuid.UUID) -> Tag:
-    tag = await db.get(Tag, location_id)
-    if not tag or tag.tag_type != TagType.LOCATION:
-        raise HTTPException(404, detail={"code": "ALBUM_NOT_FOUND"})
-    return tag
-
-
-async def _sync_veno_folders(db: AsyncSession, staff: Staff) -> None:
-    """Sync a staff member's Veno folder permissions based on their current assignments."""
-    if not staff.employee_code:
-        return
-    try:
-        # Fetch (shoot_date, location_name) pairs for all assigned locations
-        rows = await db.execute(
-            select(Tag.shoot_date, Tag.name)
-            .join(StaffLocationAssignment, StaffLocationAssignment.tag_id == Tag.id)
-            .where(StaffLocationAssignment.staff_id == staff.id)
-            .where(Tag.shoot_date.isnot(None))
-        )
-        locations = [(r[0], r[1]) for r in rows.all()]
-        dirs = veno.build_staff_dirs(staff.employee_code, locations)
-        # ALWAYS physically create the directories first (no user needed)
-        if dirs:
-            await veno.ensure_directories(dirs)
-        # Remove legacy root-level /{employee_code}/ folder if it exists
-        await veno.remove_legacy_root_dir(staff.employee_code)
-        # Ensure staff always has a Veno password — auto-generate if missing
-        if not staff.veno_password:
-            staff.veno_password = veno.generate_veno_password()
-            await db.commit()
-        # Upsert Veno user (create or update)
-        await veno.create_veno_user(
-            username=staff.employee_code,
-            password=staff.veno_password,
-            role="editor",
-            email=staff.email or "",
-            dirs=dirs,
-        )
-    except Exception:
-        logger.exception("Failed to sync Veno folders for %s", staff.employee_code)
-
-
-async def _veno_sync_task_for_staff(staff_id: uuid.UUID) -> None:
-    """Background task: open own DB session and sync Veno folders for one staff."""
-    try:
-        async with AsyncSessionLocal() as db:
-            staff = await db.get(Staff, staff_id)
-            if staff:
-                await _sync_veno_folders(db, staff)
-    except Exception:
-        logger.exception("Background Veno sync failed for staff %s", staff_id)
-
-
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=APIResponse[list[LocationOut]])
