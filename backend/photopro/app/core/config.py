@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     FACE_SERVICE_URL: str = "http://localhost:8001"
     FACE_SERVICE_API_KEY: str = "internal-secret"
 
-    UPLOAD_SCAN_FOLDER: str = "/photopro_upload"
-    UPLOAD_ROOT: str = "/photopro_upload"  # alias for UPLOAD_SCAN_FOLDER
     WATERMARK_PATH: str = "./assets/watermark.png"
     THUMB_WIDTH: int = 300
     PREVIEW_WIDTH: int = 1200

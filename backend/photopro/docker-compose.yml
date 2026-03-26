@@ -10,7 +10,6 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./photopro_upload:/photopro_upload:ro
       - ./assets:/app/assets:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
@@ -22,7 +21,6 @@ services:
       - redis
       - postgres
     volumes:
-      - ./photopro_upload:/photopro_upload:ro
       - ./assets:/app/assets:ro
     command: >
       celery -A app.workers.media_worker worker
