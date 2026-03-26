@@ -1,5 +1,6 @@
 from app.models.admin_user import AdminRole, AdminUser  # backward compat
 from app.models.bundle import BundlePricing
+from app.models.commission import PayrollCycle, PayrollCycleStatus, PayrollItem, StaffCommission
 from app.models.coupon import Coupon
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media, MediaStatus, PhotoStatus
@@ -16,9 +17,13 @@ __all__ = [
     "Staff",
     "StaffRole",
     "StaffActivity",
+    "StaffCommission",
     "StaffPayment",
     "PaymentCycle",
     "PaymentStatus",
+    "PayrollCycle",
+    "PayrollCycleStatus",
+    "PayrollItem",
     # Backward compat aliases
     "AdminUser",
     "AdminRole",

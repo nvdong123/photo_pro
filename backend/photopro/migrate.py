@@ -21,6 +21,9 @@ from app.models import (  # noqa: F401
     Order, OrderItem, OrderPhoto, Staff, StaffActivity, StaffPayment, StaffRole,
     StaffLocationAssignment, SystemSetting, Tag,
 )
+from app.models.commission import (  # noqa: F401
+    StaffCommission, PayrollCycle, PayrollItem, PayrollCycleStatus,
+)
 
 # ENUM types used with create_type=False in models.
 # Uses SELECT-based check + CREATE TYPE (no DO blocks — asyncpg compatibility).
@@ -30,8 +33,9 @@ _ENUM_SPECS: list[tuple[str, list[str]]] = [
     ("mediastatus",   ["NEW", "DERIVATIVES_READY", "INDEXED", "FAILED"]),
     ("photostatus",   ["available", "sold"]),
     ("orderstatus",   ["CREATED", "PAID", "FAILED", "REFUNDED"]),
-    ("paymentcycle",  ["weekly", "monthly", "quarterly"]),
-    ("paymentstatus", ["pending", "paid"]),
+    ("paymentcycle",       ["weekly", "monthly", "quarterly"]),
+    ("paymentstatus",      ["pending", "paid"]),
+    ("payrollcyclestatus", ["pending", "processing", "paid"]),
 ]
 
 
@@ -61,7 +65,7 @@ async def ensure_tables(engine) -> None:
 
 async def stamp_alembic(engine) -> None:
     """Transaction 3: ensure alembic_version is at head."""
-    head = "0006_staff_payroll"
+    head = "0007_commission_payroll"
     async with engine.begin() as conn:
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -105,6 +109,29 @@ async def apply_pending_columns(engine) -> None:
                 print(f"  Added column {table}.{column}", flush=True)
             else:
                 print(f"  Column {table}.{column} already exists", flush=True)
+
+
+async def seed_settings(engine) -> None:
+    """Seed SystemSetting defaults including commission config."""
+    defaults = {
+        "default_commission_rate": ("30", "Default commission rate (%) for new staff"),
+        "payroll_cycle_default":   ("monthly", "Default payroll cycle: weekly | monthly | quarterly"),
+    }
+    async with engine.begin() as conn:
+        for key, (value, desc) in defaults.items():
+            row = (await conn.execute(
+                text("SELECT 1 FROM system_settings WHERE key = :k"),
+                {"k": key},
+            )).fetchone()
+            if row is None:
+                await conn.execute(text(
+                    "INSERT INTO system_settings (key, value, description) "
+                    "VALUES (:k, :v, :d)"
+                ), {"k": key, "v": value, "d": desc})
+                print(f"  Seeded setting: {key}={value}", flush=True)
+            else:
+                print(f"  Setting already exists: {key}", flush=True)
+    print("seed_settings done.", flush=True)
 
 
 async def seed_admin(engine) -> None:
@@ -251,6 +278,7 @@ async def run() -> None:
         await backfill_order_item_prices(engine)
         await stamp_alembic(engine)
         await seed_admin(engine)
+        await seed_settings(engine)
         print("=== Verifying tables ===", flush=True)
         await verify_tables(engine)
     except Exception:

@@ -65,6 +65,18 @@ export default function DashboardLayout() {
     },
     {
       type: 'group' as const,
+      label: 'Thu nhập',
+      children: [
+        {
+          key: '/dashboard/my-earnings',
+          icon: <DollarOutlined />,
+          label: 'Thu Nhập Của Tôi',
+          onClick: () => navigate('/dashboard/my-earnings'),
+        },
+      ],
+    },
+    {
+      type: 'group' as const,
       label: 'Tài khoản',
       children: [
         {
@@ -145,7 +157,7 @@ export default function DashboardLayout() {
           ? [{
               key: '/dashboard/payroll',
               icon: <DollarOutlined />,
-              label: 'Lương NV',
+              label: 'Bảng Lương',
               onClick: () => navigate('/dashboard/payroll'),
             }]
           : []),
