@@ -141,6 +141,7 @@ async def vnpay_webhook(
 
 
 @router.get("/vnpay/return")
+@router.get("/vnpay-return")
 async def vnpay_return(
     request: Request,
     db: AsyncSession = Depends(get_db),
