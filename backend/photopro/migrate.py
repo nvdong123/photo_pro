@@ -181,8 +181,10 @@ async def verify_tables(engine) -> None:
 async def ensure_views(engine) -> None:
     """Create or replace DB views that create_all cannot handle."""
     async with engine.begin() as conn:
+        # DROP first — CREATE OR REPLACE cannot reorder/rename columns
+        await conn.execute(text("DROP VIEW IF EXISTS v_staff_statistics"))
         await conn.execute(text("""
-            CREATE OR REPLACE VIEW v_staff_statistics AS
+            CREATE VIEW v_staff_statistics AS
             SELECT
                 s.id AS staff_id,
                 s.employee_code,
