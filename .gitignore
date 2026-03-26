@@ -39,3 +39,22 @@ Thumbs.db
 # ─── Test / Coverage ────────────────────────────────────────────────────────
 .pytest_cache/
 .coverage
+
+# ─── Internal docs (not for repo) ───────────────────────────────────────────
+docs/
+task.md
+CLONE-SUMMARY.md
+_tmp_contents.txt
+.github/COPILOT_PROMPTS.md
+.github/COPILOT_PROMPTS_V2.md
+
+# ─── Test result logs ───────────────────────────────────────────────────────
+**/result*.txt
+**/int_out.txt
+**/int-result*.txt
+**/int_result*.txt
+**/unit-result*.txt
+**/e2e_result*.txt
+**/test_result*.txt
+**/landing_orig_check.txt
+**/r.txt
