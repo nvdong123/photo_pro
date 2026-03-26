@@ -8,7 +8,6 @@ export interface MyLocation {
   shoot_date: string | null;
   description: string | null;
   can_upload: boolean;
-  veno_folder_url: string | null;
 }
 
 export function useMyLocations() {

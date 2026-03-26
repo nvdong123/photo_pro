@@ -9,7 +9,6 @@ export interface AdminUser {
   employee_code: string | null;
   is_active: boolean;
   created_at: string;
-  veno_password_hint: string | null;
   total_photos: number;
 }
 
@@ -46,15 +45,5 @@ export function useAdminStaff() {
     await refetch();
   };
 
-  const resetVenoPassword = async (id: string): Promise<string> => {
-    const res = await apiClient.post<{ veno_password: string }>(
-      `${STAFF_PATH}/${id}/reset-veno-password`,
-      {},
-    );
-    invalidateApiCache(STAFF_PATH);
-    await refetch();
-    return res.veno_password;
-  };
-
-  return { staff: data ?? [], loading, error, createStaff, updateStaff, deleteStaff, resetVenoPassword };
+  return { staff: data ?? [], loading, error, createStaff, updateStaff, deleteStaff };
 }

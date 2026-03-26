@@ -4,9 +4,7 @@ import logging
 import os
 import random
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from celery import Celery
 from celery.schedules import crontab
@@ -16,10 +14,8 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import WorkerAsyncSessionLocal as AsyncSessionLocal
 from app.models.media import Media, MediaStatus
-from app.models.tag import MediaTag, Tag, TagType
 from app.services.face_client import face_client
 from app.services.storage_service import storage_service
-from app.services.veno_sync_service import _normalize_location_name as _norm
 
 logger = logging.getLogger(__name__)
 
@@ -42,17 +38,9 @@ celery_app.conf.update(
 )
 
 celery_app.conf.beat_schedule = {
-    "scan-upload-folder": {
-        "task": "scan_upload_folder",
-        "schedule": crontab(minute="*/5"),
-    },
     "cleanup-expired": {
         "task": "cleanup_expired",
         "schedule": crontab(minute=0, hour="*/1"),
-    },
-    "sync-veno-orphans": {
-        "task": "sync_veno_orphans",
-        "schedule": crontab(minute=0, hour=3),  # daily at 03:00
     },
 }
 
@@ -67,59 +55,6 @@ def _run_async(coro):
         return loop.run_until_complete(coro)
     finally:
         loop.close()
-
-
-def parse_upload_path(path: str) -> dict:
-    """Parse an upload path into shoot_date, photographer_code, album_code.
-
-    Expected structure (relative to any root):
-        .../{YYYY-MM-DD}/{photographer_code}/[{album_code}/...]{filename}
-
-    Returns dict with keys: shoot_date, photographer_code, album_code (or None).
-    Raises ValueError for paths that don't match the expected structure.
-    """
-    import re
-    from pathlib import PurePosixPath
-
-    parts = PurePosixPath(path.replace("\\", "/")).parts
-    date_re = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
-    date_idx = next((i for i, p in enumerate(parts) if date_re.match(p.strip().replace(" ", ""))), None)
-    if date_idx is None or len(parts) < date_idx + 3:
-        raise ValueError(f"Invalid upload path structure: {path!r}")
-
-    shoot_date = parts[date_idx].strip().replace(" ", "")
-    photographer_code = parts[date_idx + 1]
-    after_photographer = parts[date_idx + 2:]
-    # If more than just the filename remains, the first component is the album
-    album_code = after_photographer[0] if len(after_photographer) > 1 else None
-    return {
-        "shoot_date": shoot_date,
-        "photographer_code": photographer_code,
-        "album_code": album_code,
-    }
-
-
-def _compress_for_storage(data: bytes, quality: int = 82) -> bytes:
-    """Compress a JPEG before uploading as the 'original' on S3.
-
-    Reduces storage cost by ~40-60% with minimal visible quality loss.
-    Keeps full resolution — only applies JPEG compression.
-    """
-    try:
-        img = Image.open(io.BytesIO(data)).convert("RGB")
-        out = io.BytesIO()
-        img.save(out, format="JPEG", quality=quality, optimize=True)
-        compressed = out.getvalue()
-        saving_pct = 100 - int(len(compressed) * 100 / len(data))
-        logger.debug(
-            "Compressed original: %d KB → %d KB (%d%% saved)",
-            len(data) // 1024, len(compressed) // 1024, saving_pct,
-        )
-        return compressed
-    except Exception as exc:
-        logger.warning("Compression failed, using raw bytes: %s", exc)
-        return data
 
 
 def apply_watermark(img_bytes: bytes, opacity: float = 0.4) -> bytes:
@@ -163,147 +98,7 @@ def apply_watermark(img_bytes: bytes, opacity: float = 0.4) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Task 1: scan_upload_folder
-# ─────────────────────────────────────────────────────────────────────────────
-
-@celery_app.task(name="scan_upload_folder")
-def scan_upload_folder():
-    _run_async(_async_scan_upload_folder())
-
-
-async def _async_scan_upload_folder():
-    scan_root = Path(settings.UPLOAD_SCAN_FOLDER)
-    if not scan_root.exists():
-        logger.warning("Upload folder %s does not exist", scan_root)
-        return
-
-    # Discover all candidate files
-    patterns = ["**/*.jpg", "**/*.jpeg"]
-    all_files: list[Path] = []
-    for pat in patterns:
-        all_files.extend(scan_root.glob(pat))
-
-    if not all_files:
-        return
-
-    async with AsyncSessionLocal() as db:
-        # Load existing keys to skip duplicates
-        result = await db.execute(select(Media.original_s3_key))
-        existing_keys: set[str] = set(result.scalars().all())
-
-        # Fetch media_ttl_days setting
-        from app.services.settings_service import get_setting_int
-        ttl_days = await get_setting_int(db, "media_ttl_days", default=90)
-
-    files_to_process = []
-    for f in all_files:
-        parts = f.relative_to(scan_root).parts
-        # parts: (YYYY-MM-DD, photographer_code, [album_code,] filename)
-        if len(parts) < 3:
-            continue
-        shoot_date = parts[0].strip().replace(" ", "")
-        if len(shoot_date) != 10 or not shoot_date[4] == "-" or not shoot_date[7] == "-":
-            logger.warning("Skipping file with invalid shoot_date %r: %s", shoot_date, f)
-            continue
-        photographer_code = parts[1]
-        album_code = parts[2] if len(parts) > 3 else None
-        # Deterministic S3 key based on file's path within the upload folder.
-        # This ensures idempotency: same file → same key → skipped on re-scan.
-        dest_key = "originals/" + "/".join(parts)
-        if dest_key not in existing_keys:
-            files_to_process.append((f, shoot_date, photographer_code, album_code, dest_key))
-
-    def upload_one(args):
-        f, shoot_date, photographer_code, album_code, dest_key = args
-        try:
-            data = f.read_bytes()
-            # Validate magic bytes – reject non-JPEG files even with .jpg extension
-            if not (data[:3] == b"\xff\xd8\xff"):
-                logger.warning("Skipping non-JPEG file %s (bad magic bytes)", f)
-                return None
-            compressed = _compress_for_storage(data)
-            storage_service.upload_bytes(dest_key, compressed, content_type="image/jpeg")
-            return (dest_key, shoot_date, photographer_code, album_code)
-        except Exception as exc:
-            logger.error("Failed to upload %s: %s", f, exc)
-            return None
-
-    with ThreadPoolExecutor(max_workers=20) as pool:
-        upload_results = list(pool.map(upload_one, files_to_process))
-
-    async with AsyncSessionLocal() as db:
-        for res in upload_results:
-            if res is None:
-                continue
-            dest_key, shoot_date, photographer_code, album_code, *_ = res
-
-            expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
-            media = Media(
-                original_s3_key=dest_key,
-                photographer_code=photographer_code,
-                shoot_date=shoot_date,
-                album_code=album_code,
-                process_status=MediaStatus.NEW,
-                expires_at=expires_at,
-            )
-            db.add(media)
-            await db.flush()
-
-            if album_code:
-                # album_code from path is the normalized location name
-                # (e.g. "le_tot_nghiep" from folder "Lễ Tốt Nghiệp").
-                # Look up LOCATION tags with matching shoot_date, then
-                # compare normalized name — avoids orphan tag creation.
-                loc_rows = await db.execute(
-                    select(Tag).where(
-                        Tag.tag_type == TagType.LOCATION,
-                        Tag.shoot_date == shoot_date,
-                    )
-                )
-                tag = next(
-                    (t for t in loc_rows.scalars().all() if _norm(t.name) == album_code),
-                    None,
-                )
-                # Fallback: exact name match (English/already-normalized names)
-                if tag is None:
-                    tag = (await db.execute(
-                        select(Tag).where(
-                            Tag.tag_type == TagType.LOCATION,
-                            Tag.name == album_code,
-                        )
-                    )).scalar_one_or_none()
-                if tag:
-                    db.add(MediaTag(media_id=media.id, tag_id=tag.id))
-                else:
-                    logger.warning(
-                        "No LOCATION tag found for shoot_date=%s album_code=%s — media %s saved without tag",
-                        shoot_date, album_code, media.id,
-                    )
-
-            await db.commit()
-            create_derivatives.delay(str(media.id))
-
-    # ── Re-queue indexing for media stuck in DERIVATIVES_READY ──────────────
-    async with AsyncSessionLocal() as db:
-        stuck_result = await db.execute(
-            select(Media).where(
-                Media.process_status == MediaStatus.DERIVATIVES_READY,
-                Media.face_service_photo_id.is_(None),
-                Media.deleted_at.is_(None),
-            )
-        )
-        stuck_media = stuck_result.scalars().all()
-        if stuck_media:
-            logger.info(
-                "Re-queuing index_faces for %d media stuck in DERIVATIVES_READY",
-                len(stuck_media),
-            )
-            for i, m in enumerate(stuck_media):
-                index_faces.apply_async(args=[str(m.id)], countdown=i * 2)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Task 2: create_derivatives
+# Task 1: create_derivatives
 # ─────────────────────────────────────────────────────────────────────────────
 
 @celery_app.task(name="create_derivatives", bind=True, max_retries=3)
@@ -436,94 +231,3 @@ async def _async_index_faces(task, media_id: str):
         await db.commit()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Task 4: sync_veno_orphans
-# ─────────────────────────────────────────────────────────────────────────────
-
-@celery_app.task(name="sync_veno_orphans")
-def sync_veno_orphans():
-    """Daily task: detect media whose VPS source file was deleted via Veno.
-
-    Strategy:
-    - Load all active media records that have an 'originals/' S3 key.
-    - Reconstruct the expected VPS path from the key (reverse of upload_one logic).
-    - If the VPS file no longer exists AND no paid order references the media,
-      soft-delete the DB record and purge S3 objects (original + derivatives).
-    - If paid orders exist, only log a warning — never destroy purchased content.
-
-    NOTE: Face vectors in AWS Rekognition are NOT removed (no delete endpoint
-    available on the face service). Search results automatically exclude
-    soft-deleted media because the PhotoPro search API filters by deleted_at.
-    """
-    _run_async(_async_sync_veno_orphans())
-
-
-async def _async_sync_veno_orphans():
-    from app.models.order import Order, OrderItem, OrderStatus
-
-    scan_root = Path(settings.UPLOAD_SCAN_FOLDER)
-    if not scan_root.exists():
-        logger.warning("sync_veno_orphans: scan root %s not found, skipping", scan_root)
-        return
-
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(Media).where(
-                Media.deleted_at.is_(None),
-                Media.original_s3_key.like("originals/%"),
-            )
-        )
-        all_media = result.scalars().all()
-
-    deleted_count = 0
-    skipped_paid = 0
-    now = datetime.now(timezone.utc)
-
-    for media in all_media:
-        # Reconstruct VPS path: original_s3_key = "originals/{date}/{code}/[album/]filename"
-        rel = media.original_s3_key[len("originals/"):]  # strip "originals/" prefix
-        vps_path = scan_root / rel
-        if vps_path.exists():
-            continue  # file still on VPS, nothing to do
-
-        # File gone from VPS — check for paid orders before deleting
-        async with AsyncSessionLocal() as db:
-            has_paid = (await db.execute(
-                select(OrderItem.id)
-                .join(Order, Order.id == OrderItem.order_id)
-                .where(
-                    OrderItem.media_id == media.id,
-                    Order.status == OrderStatus.PAID,
-                )
-                .limit(1)
-            )).scalar_one_or_none()
-
-            if has_paid:
-                logger.warning(
-                    "sync_veno_orphans: media %s missing from VPS but has paid orders — skipping",
-                    media.id,
-                )
-                skipped_paid += 1
-                continue
-
-            # Safe to remove: soft-delete + S3 purge
-            keys = [k for k in [media.original_s3_key, media.thumb_s3_key, media.preview_s3_key] if k]
-            try:
-                storage_service.delete_objects(keys)
-            except Exception:
-                logger.exception("sync_veno_orphans: failed to delete S3 objects for media %s", media.id)
-
-            m = await db.get(Media, media.id)
-            if m and not m.deleted_at:
-                m.deleted_at = now
-                await db.commit()
-                deleted_count += 1
-                logger.info(
-                    "sync_veno_orphans: soft-deleted media %s (VPS file gone: %s)",
-                    media.id, vps_path,
-                )
-
-    logger.info(
-        "sync_veno_orphans done: %d deleted, %d skipped (paid orders)",
-        deleted_count, skipped_paid,
-    )

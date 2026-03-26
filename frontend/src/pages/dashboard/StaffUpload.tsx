@@ -1,8 +1,13 @@
-﻿import { Tag, Spin, Button } from 'antd';
-import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, ExportOutlined } from '@ant-design/icons';
+﻿import { useState, useCallback } from 'react';
+import { Tag, Spin, Button, Upload, message, Progress } from 'antd';
+import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, InboxOutlined } from '@ant-design/icons';
 import { Check, Calendar, MapPin } from 'lucide-react';
-import { useMyLocations } from '../../hooks/useMyLocations';
+import type { UploadFile } from 'antd/es/upload/interface';
+import { useMyLocations, type MyLocation } from '../../hooks/useMyLocations';
 import { useMyStats } from '../../hooks/useStaffStats';
+import { apiClient, invalidateApiCache } from '../../lib/api-client';
+
+const { Dragger } = Upload;
 
 const BORDER = '#e2e5ea';
 const TEXT_MUTED = '#8b91a0';
@@ -17,9 +22,20 @@ const CARD_COLORS = [
   { color: '#db2777', bg: '#fdf2f8' },
 ];
 
+interface UploadResult {
+  uploaded: number;
+  failed: number;
+  files: { media_id: string; filename: string; s3_key: string; size_kb: number }[];
+  errors: { filename: string; error: string }[];
+}
+
 export default function StaffUpload() {
-  const { data: locations, loading: locLoading } = useMyLocations();
+  const { data: locations, loading: locLoading, refetch } = useMyLocations();
   const { data: myStats, loading: statsLoading } = useMyStats();
+  const [selectedLocation, setSelectedLocation] = useState<MyLocation | null>(null);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const stats = [
     { label: 'Địa điểm', value: locations?.length ?? 0, color: PRIMARY, bg: '#e8f5f0' },
@@ -28,10 +44,63 @@ export default function StaffUpload() {
     { label: 'Hôm nay', value: 0, color: '#d4870e', bg: '#fef3e8' },
   ];
 
-  function openVeno(url: string | null) {
-    if (!url) return;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
+  const handleUpload = useCallback(async () => {
+    if (!selectedLocation || fileList.length === 0) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    // Upload in batches of 20
+    const batchSize = 20;
+    let totalUploaded = 0;
+    let totalFailed = 0;
+    const allErrors: { filename: string; error: string }[] = [];
+
+    for (let i = 0; i < fileList.length; i += batchSize) {
+      const batch = fileList.slice(i, i + batchSize);
+      const form = new FormData();
+      form.append('location_id', selectedLocation.id);
+      for (const f of batch) {
+        if (f.originFileObj) {
+          form.append('files', f.originFileObj);
+        }
+      }
+
+      try {
+        const result = await apiClient.postForm<UploadResult>('/api/v1/staff/upload', form);
+        totalUploaded += result.uploaded;
+        totalFailed += result.failed;
+        allErrors.push(...result.errors);
+      } catch (err: unknown) {
+        totalFailed += batch.length;
+        const errorMsg = err instanceof Error ? err.message : 'Upload batch failed';
+        for (const f of batch) {
+          allErrors.push({ filename: f.name, error: errorMsg });
+        }
+      }
+
+      setUploadProgress(Math.min(100, Math.round(((i + batch.length) / fileList.length) * 100)));
+    }
+
+    setUploading(false);
+    setUploadProgress(100);
+
+    if (totalUploaded > 0) {
+      message.success(`Upload thành công ${totalUploaded} ảnh!`);
+      invalidateApiCache('/my-locations');
+      invalidateApiCache('/staff/statistics');
+      refetch?.();
+    }
+    if (totalFailed > 0) {
+      message.error(`${totalFailed} ảnh upload thất bại`);
+      for (const e of allErrors.slice(0, 3)) {
+        message.warning(`${e.filename}: ${e.error}`, 5);
+      }
+    }
+
+    setFileList([]);
+    setUploadProgress(0);
+  }, [selectedLocation, fileList, refetch]);
 
   return (
     <div>
@@ -64,8 +133,8 @@ export default function StaffUpload() {
         ))}
       </div>
 
-      {/* Locations */}
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+      {/* Location Selection */}
+      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden', marginBottom: 24 }}>
         <div style={{
           padding: '16px 20px', borderBottom: `1px solid ${BORDER}`,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -88,19 +157,24 @@ export default function StaffUpload() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
               {locations.map((loc, i) => {
                 const palette = CARD_COLORS[i % CARD_COLORS.length];
+                const isSelected = selectedLocation?.id === loc.id;
                 return (
-                  <div key={loc.id} style={{
-                    border: `2px solid ${palette.color}33`,
-                    borderRadius: 14, overflow: 'hidden',
-                    background: '#fff',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                    transition: 'box-shadow 0.2s',
-                  }}>
-                    {/* Color bar */}
+                  <div
+                    key={loc.id}
+                    onClick={() => loc.can_upload && setSelectedLocation(loc)}
+                    style={{
+                      border: `2px solid ${isSelected ? palette.color : palette.color + '33'}`,
+                      borderRadius: 14, overflow: 'hidden',
+                      background: isSelected ? palette.bg : '#fff',
+                      boxShadow: isSelected ? `0 0 0 2px ${palette.color}33` : '0 1px 4px rgba(0,0,0,0.06)',
+                      transition: 'all 0.2s',
+                      cursor: loc.can_upload ? 'pointer' : 'not-allowed',
+                      opacity: loc.can_upload ? 1 : 0.6,
+                    }}
+                  >
                     <div style={{ height: 5, background: palette.color }} />
                     <div style={{ padding: 20 }}>
-                      {/* Header */}
-                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                         <div style={{
                           width: 44, height: 44, borderRadius: 11, background: palette.bg, color: palette.color,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
@@ -119,32 +193,13 @@ export default function StaffUpload() {
                           )}
                         </div>
                         {loc.can_upload ? (
-                          <Tag color="green" style={{ flexShrink: 0 }}>Upload</Tag>
+                          <Tag color={isSelected ? 'green' : 'default'} style={{ flexShrink: 0 }}>
+                            {isSelected ? 'Đã chọn' : 'Upload'}
+                          </Tag>
                         ) : (
                           <Tag color="default" style={{ flexShrink: 0 }}>Chỉ xem</Tag>
                         )}
                       </div>
-
-                      {/* Veno Upload Button */}
-                      {loc.veno_folder_url ? (
-                        <Button
-                          type="primary"
-                          icon={<ExportOutlined />}
-                          block
-                          onClick={() => openVeno(loc.veno_folder_url)}
-                          style={{ background: palette.color, borderColor: palette.color }}
-                          disabled={!loc.can_upload}
-                        >
-                          Mở thư mục Veno để upload
-                        </Button>
-                      ) : (
-                        <div style={{
-                          padding: '10px 14px', background: SURFACE, borderRadius: 8,
-                          fontSize: 13, color: TEXT_MUTED, textAlign: 'center',
-                        }}>
-                          Chưa có thư mục Veno — liên hệ Admin
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -154,6 +209,59 @@ export default function StaffUpload() {
         </div>
       </div>
 
+      {/* Upload Area */}
+      {selectedLocation && (
+        <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{
+            padding: '16px 20px', borderBottom: `1px solid ${BORDER}`,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <h3 style={{ margin: 0 }}>
+              Upload vào: <span style={{ color: PRIMARY }}>{selectedLocation.name}</span>
+            </h3>
+            {fileList.length > 0 && <Tag color="blue">{fileList.length} ảnh</Tag>}
+          </div>
+          <div style={{ padding: 20 }}>
+            <Dragger
+              multiple
+              accept=".jpg,.jpeg"
+              fileList={fileList}
+              beforeUpload={() => false}
+              onChange={({ fileList: newList }) => setFileList(newList)}
+              disabled={uploading}
+              showUploadList={{ showPreviewIcon: false }}
+            >
+              <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+              <p className="ant-upload-text">Kéo thả ảnh JPEG vào đây hoặc click để chọn</p>
+              <p className="ant-upload-hint">Tối đa 25MB/ảnh, chỉ chấp nhận file JPEG</p>
+            </Dragger>
+
+            {uploading && (
+              <Progress percent={uploadProgress} status="active" style={{ marginTop: 16 }} />
+            )}
+
+            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                size="large"
+                loading={uploading}
+                disabled={fileList.length === 0}
+                onClick={handleUpload}
+                style={{ background: PRIMARY, borderColor: PRIMARY }}
+              >
+                {uploading ? 'Đang upload...' : `Upload ${fileList.length} ảnh`}
+              </Button>
+              {fileList.length > 0 && !uploading && (
+                <Button size="large" onClick={() => setFileList([])}>
+                  Xóa tất cả
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Instructions */}
       <div style={{
         marginTop: 20, padding: '14px 18px', background: '#eff6ff',
@@ -161,9 +269,9 @@ export default function StaffUpload() {
       }}>
         <strong>Hướng dẫn upload:</strong>
         <ol style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-          <li>Nhấn <strong>"Mở thư mục Veno để upload"</strong> — trang Veno File Manager sẽ mở trực tiếp vào thư mục của bạn.</li>
-          <li>Đăng nhập bằng tài khoản Veno (username = mã nhân viên, mật khẩu xem ở trang <strong>Hồ sơ</strong>).</li>
-          <li>Upload ảnh JPEG vào đúng thư mục. Hệ thống sẽ tự động xử lý trong vòng 5 phút.</li>
+          <li>Chọn <strong>địa điểm</strong> muốn upload ảnh.</li>
+          <li>Kéo thả hoặc chọn các file ảnh JPEG (tối đa 25MB/ảnh).</li>
+          <li>Nhấn <strong>"Upload"</strong> — hệ thống sẽ tự động xử lý watermark và nhận diện khuôn mặt.</li>
         </ol>
       </div>
     </div>

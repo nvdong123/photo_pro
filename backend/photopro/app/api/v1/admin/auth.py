@@ -26,7 +26,6 @@ from app.schemas.admin.auth import (
     PatchProfileRequest,
 )
 from app.schemas.common import APIResponse
-from app.services import veno_sync_service as veno
 
 logger = logging.getLogger(__name__)
 
@@ -126,11 +125,6 @@ async def create_admin(
             suffix += 1
         employee_code = candidate
 
-    # Generate Veno password for staff with an employee_code
-    veno_password = None
-    if employee_code:
-        veno_password = veno.generate_veno_password()
-
     user = Staff(
         email=body.email,
         hashed_password=hash_password(body.password),
@@ -138,7 +132,6 @@ async def create_admin(
         role=body.role,
         employee_code=employee_code,
         phone=body.phone,
-        veno_password=veno_password,
     )
     db.add(user)
     await db.flush()  # obtain user.id before inserting location assignments
@@ -156,21 +149,6 @@ async def create_admin(
 
     await db.commit()
     await db.refresh(user)
-
-    # Sync to Veno File Manager
-    if employee_code and veno_password:
-        try:
-            dirs = veno.build_staff_dirs(employee_code, [])
-            await veno.create_veno_user(
-                username=employee_code,
-                password=veno_password,
-                role="editor",
-                email=body.email,
-                dirs=dirs,
-            )
-        except Exception:
-            logger.exception("Failed to sync Veno user for %s", employee_code)
-
     return APIResponse.ok(AdminUserOut.model_validate(user))
 
 
@@ -223,39 +201,9 @@ async def patch_admin(
             )).scalar_one_or_none()
             if conflict:
                 raise HTTPException(409, "employee_code already taken")
-            old_code = user.employee_code
             user.employee_code = new_code
-            # Rename Veno user: delete old, create new
-            if old_code and user.veno_password:
-                try:
-                    await veno.delete_veno_user(old_code)
-                    await veno.create_veno_user(
-                        username=new_code,
-                        password=user.veno_password,
-                        role="editor",
-                        email=user.email or "",
-                        dirs=veno.build_staff_dirs(new_code, []),
-                    )
-                except Exception:
-                    logger.exception("Failed to rename Veno user %s → %s", old_code, new_code)
     if body.is_active is not None:
         user.is_active = body.is_active
-        # Sync active/disabled state to Veno
-        if user.employee_code:
-            try:
-                if body.is_active:
-                    if user.veno_password:
-                        await veno.create_veno_user(
-                            username=user.employee_code,
-                            password=user.veno_password,
-                            role="editor",
-                            email=user.email,
-                            dirs=veno.build_staff_dirs(user.employee_code, []),
-                        )
-                else:
-                    await veno.disable_veno_user(user.employee_code)
-            except Exception:
-                logger.exception("Failed to sync Veno state for %s", user.employee_code)
     if body.commission_rate is not None:
         from decimal import Decimal
         user.commission_rate = Decimal(str(max(0.0, min(100.0, body.commission_rate))))
@@ -273,15 +221,8 @@ async def delete_admin(
     user = await db.get(Staff, user_id)
     if not user:
         raise HTTPException(404, "User not found")
-    employee_code = user.employee_code
     await db.delete(user)
     await db.commit()
-    # Disable in Veno after successful DB delete
-    if employee_code:
-        try:
-            await veno.delete_veno_user(employee_code)
-        except Exception:
-            logger.exception("Failed to delete Veno user %s", employee_code)
     return APIResponse.ok({"message": "User deleted"})
 
 
@@ -297,32 +238,7 @@ async def get_admin_user(
     return APIResponse.ok(AdminUserOut.model_validate(user))
 
 
-@router.post("/users/{user_id}/reset-veno-password", response_model=APIResponse[dict])
-async def reset_veno_password(
-    user_id: uuid.UUID,
-    admin: Staff = Depends(require_system),
-    db: AsyncSession = Depends(get_db),
-):
-    user = await db.get(Staff, user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
-    if not user.employee_code:
-        raise HTTPException(400, "User has no employee_code — Veno account not applicable")
 
-    new_pw = veno.generate_veno_password()
-    user.veno_password = new_pw
-    await db.commit()
-
-    # Update password in Veno
-    try:
-        await veno.update_veno_user_password(user.employee_code, new_pw)
-    except Exception:
-        logger.exception("Failed to reset Veno password for %s", user.employee_code)
-
-    return APIResponse.ok({
-        "message": "Veno password reset",
-        "veno_password": new_pw,
-    })
 
 
 @router.get("/activity", response_model=APIResponse[list[dict]])
@@ -382,11 +298,9 @@ async def my_locations(
     admin: Staff = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return locations assigned to the current STAFF user, with Veno folder URL."""
+    """Return locations assigned to the current STAFF user."""
     from app.models.staff_location import StaffLocationAssignment
     from app.models.tag import Tag, TagType
-    from app.services import veno_sync_service as veno
-    from app.services.veno_sync_service import _normalize_location_name
 
     rows = await db.execute(
         select(Tag, StaffLocationAssignment)
@@ -398,13 +312,8 @@ async def my_locations(
         .order_by(Tag.shoot_date.desc())
     )
 
-    veno_base = settings.VENO_BASE_URL.rstrip("/")
     result = []
     for tag, sla in rows.all():
-        veno_folder_url: str | None = None
-        if admin.employee_code and tag.shoot_date:
-            folder = f"{tag.shoot_date}/{admin.employee_code}/{_normalize_location_name(tag.name)}"
-            veno_folder_url = f"{veno_base}/?dir=./uploads/{folder}"
         result.append({
             "id": str(tag.id),
             "name": tag.name,
@@ -412,7 +321,6 @@ async def my_locations(
             "shoot_date": tag.shoot_date,
             "description": tag.description,
             "can_upload": sla.can_upload,
-            "veno_folder_url": veno_folder_url,
         })
     return APIResponse.ok(result)
 
