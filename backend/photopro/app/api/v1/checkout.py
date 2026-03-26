@@ -40,14 +40,28 @@ async def checkout(
     if not media_ids:
         raise HTTPException(400, "Cart is empty")
 
-    # Load bundle
+    # Load bundle — validate it still exists and is active
     bundle = await db.get(BundlePricing, body.bundle_id)
     if not bundle or not bundle.is_active or bundle.deleted_at:
         raise HTTPException(400, detail={"code": "BUNDLE_INACTIVE"})
 
-    # Calculate pack total
+    # Calculate pack total via greedy algorithm
     raw_pack = await suggest_pack(len(media_ids), db)
     total_amount = raw_pack.total_amount
+
+    # Derive canonical bundle_id from the pack result (largest bundle used).
+    # This ensures bundle_id stored in DB always matches the actual pricing applied,
+    # even when suggest_pack rounds up to a larger bundle than the user clicked.
+    if raw_pack.lines:
+        best_bundle_id = uuid.UUID(raw_pack.lines[0].bundle_id)
+    else:
+        best_bundle_id = body.bundle_id  # fallback
+
+    # Pre-compute per-photo price with integer distribution.
+    # Remainder goes to the last item so that SUM(price_at_purchase) == total_amount.
+    n = len(media_ids)
+    per_photo = total_amount // n
+    remainder = total_amount % n
 
     # Load media photographer codes (batch)
     media_result = await db.execute(
@@ -64,8 +78,8 @@ async def checkout(
         order_code=order_code,
         customer_phone=body.customer_phone,
         customer_email=body.customer_email,
-        bundle_id=body.bundle_id,
-        photo_count=len(media_ids),
+        bundle_id=best_bundle_id,
+        photo_count=n,
         amount=total_amount,
         status=OrderStatus.CREATED,
         payment_method=body.payment_method,
@@ -73,15 +87,18 @@ async def checkout(
     db.add(order)
     await db.flush()
 
-    for mid_str in media_ids:
+    for idx, mid_str in enumerate(media_ids):
         m = media_map.get(mid_str)
         if not m:
             await db.rollback()
             raise HTTPException(400, f"Media {mid_str} not found")
+        # Last photo absorbs any rounding remainder
+        price = per_photo + (remainder if idx == n - 1 else 0)
         db.add(OrderItem(
             order_id=order.id,
             media_id=m.id,
             photographer_code=m.photographer_code,
+            price_at_purchase=price,
         ))
 
     # Generate payment URL (may raise)

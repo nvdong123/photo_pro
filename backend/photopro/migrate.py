@@ -183,6 +183,49 @@ async def ensure_views(engine) -> None:
         print("ensure_views done.", flush=True)
 
 
+async def backfill_order_item_prices(engine) -> None:
+    """Idempotent: distribute order.amount across order_items where price_at_purchase = 0.
+    Only touches PAID orders — safe to run on every deploy.
+    """
+    async with engine.begin() as conn:
+        # Find PAID orders with at least one item price = 0
+        rows = (await conn.execute(text("""
+            SELECT DISTINCT o.id, o.amount
+            FROM orders o
+            JOIN order_items oi ON oi.order_id = o.id
+            WHERE o.status = 'PAID' AND oi.price_at_purchase = 0
+        """))).fetchall()
+
+        if not rows:
+            print("  backfill_order_item_prices: nothing to do.", flush=True)
+            return
+
+        updated = 0
+        for order_id, amount in rows:
+            item_ids = (await conn.execute(
+                text("SELECT id, media_id FROM order_items WHERE order_id = :oid ORDER BY id"),
+                {"oid": order_id},
+            )).fetchall()
+            n = len(item_ids)
+            if n == 0:
+                continue
+            per_photo = amount // n
+            remainder = amount % n
+            for idx, (item_id, media_id) in enumerate(item_ids):
+                price = per_photo + (remainder if idx == n - 1 else 0)
+                await conn.execute(
+                    text("UPDATE order_items SET price_at_purchase = :p WHERE id = :id"),
+                    {"p": price, "id": item_id},
+                )
+                await conn.execute(
+                    text("UPDATE order_photos SET price_at_purchase = :p WHERE order_id = :oid AND media_id = :mid"),
+                    {"p": price, "oid": order_id, "mid": media_id},
+                )
+            updated += n
+
+        print(f"  backfill_order_item_prices: updated {updated} items across {len(rows)} orders.", flush=True)
+
+
 async def run() -> None:
     print("=== migrate.py starting ===", flush=True)
 
@@ -192,6 +235,7 @@ async def run() -> None:
         await ensure_tables(engine)
         await apply_pending_columns(engine)
         await ensure_views(engine)
+        await backfill_order_item_prices(engine)
         await stamp_alembic(engine)
         await seed_admin(engine)
         print("=== Verifying tables ===", flush=True)
