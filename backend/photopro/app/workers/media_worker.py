@@ -50,6 +50,10 @@ celery_app.conf.beat_schedule = {
         "task": "cleanup_expired",
         "schedule": crontab(minute=0, hour="*/1"),
     },
+    "sync-veno-orphans": {
+        "task": "sync_veno_orphans",
+        "schedule": crontab(minute=0, hour=3),  # daily at 03:00
+    },
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -94,6 +98,28 @@ def parse_upload_path(path: str) -> dict:
         "photographer_code": photographer_code,
         "album_code": album_code,
     }
+
+
+def _compress_for_storage(data: bytes, quality: int = 82) -> bytes:
+    """Compress a JPEG before uploading as the 'original' on S3.
+
+    Reduces storage cost by ~40-60% with minimal visible quality loss.
+    Keeps full resolution — only applies JPEG compression.
+    """
+    try:
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        out = io.BytesIO()
+        img.save(out, format="JPEG", quality=quality, optimize=True)
+        compressed = out.getvalue()
+        saving_pct = 100 - int(len(compressed) * 100 / len(data))
+        logger.debug(
+            "Compressed original: %d KB → %d KB (%d%% saved)",
+            len(data) // 1024, len(compressed) // 1024, saving_pct,
+        )
+        return compressed
+    except Exception as exc:
+        logger.warning("Compression failed, using raw bytes: %s", exc)
+        return data
 
 
 def apply_watermark(img_bytes: bytes, opacity: float = 0.4) -> bytes:
@@ -195,7 +221,8 @@ async def _async_scan_upload_folder():
             if not (data[:3] == b"\xff\xd8\xff"):
                 logger.warning("Skipping non-JPEG file %s (bad magic bytes)", f)
                 return None
-            storage_service.upload_bytes(dest_key, data, content_type="image/jpeg")
+            compressed = _compress_for_storage(data)
+            storage_service.upload_bytes(dest_key, compressed, content_type="image/jpeg")
             return (dest_key, shoot_date, photographer_code, album_code)
         except Exception as exc:
             logger.error("Failed to upload %s: %s", f, exc)
@@ -407,3 +434,96 @@ async def _async_index_faces(task, media_id: str):
         media.face_service_photo_id = str(media.id)
         media.process_status = MediaStatus.INDEXED
         await db.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task 4: sync_veno_orphans
+# ─────────────────────────────────────────────────────────────────────────────
+
+@celery_app.task(name="sync_veno_orphans")
+def sync_veno_orphans():
+    """Daily task: detect media whose VPS source file was deleted via Veno.
+
+    Strategy:
+    - Load all active media records that have an 'originals/' S3 key.
+    - Reconstruct the expected VPS path from the key (reverse of upload_one logic).
+    - If the VPS file no longer exists AND no paid order references the media,
+      soft-delete the DB record and purge S3 objects (original + derivatives).
+    - If paid orders exist, only log a warning — never destroy purchased content.
+
+    NOTE: Face vectors in AWS Rekognition are NOT removed (no delete endpoint
+    available on the face service). Search results automatically exclude
+    soft-deleted media because the PhotoPro search API filters by deleted_at.
+    """
+    _run_async(_async_sync_veno_orphans())
+
+
+async def _async_sync_veno_orphans():
+    from app.models.order import Order, OrderItem, OrderStatus
+
+    scan_root = Path(settings.UPLOAD_SCAN_FOLDER)
+    if not scan_root.exists():
+        logger.warning("sync_veno_orphans: scan root %s not found, skipping", scan_root)
+        return
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Media).where(
+                Media.deleted_at.is_(None),
+                Media.original_s3_key.like("originals/%"),
+            )
+        )
+        all_media = result.scalars().all()
+
+    deleted_count = 0
+    skipped_paid = 0
+    now = datetime.now(timezone.utc)
+
+    for media in all_media:
+        # Reconstruct VPS path: original_s3_key = "originals/{date}/{code}/[album/]filename"
+        rel = media.original_s3_key[len("originals/"):]  # strip "originals/" prefix
+        vps_path = scan_root / rel
+        if vps_path.exists():
+            continue  # file still on VPS, nothing to do
+
+        # File gone from VPS — check for paid orders before deleting
+        async with AsyncSessionLocal() as db:
+            has_paid = (await db.execute(
+                select(OrderItem.id)
+                .join(Order, Order.id == OrderItem.order_id)
+                .where(
+                    OrderItem.media_id == media.id,
+                    Order.status == OrderStatus.PAID,
+                )
+                .limit(1)
+            )).scalar_one_or_none()
+
+            if has_paid:
+                logger.warning(
+                    "sync_veno_orphans: media %s missing from VPS but has paid orders — skipping",
+                    media.id,
+                )
+                skipped_paid += 1
+                continue
+
+            # Safe to remove: soft-delete + S3 purge
+            keys = [k for k in [media.original_s3_key, media.thumb_s3_key, media.preview_s3_key] if k]
+            try:
+                storage_service.delete_objects(keys)
+            except Exception:
+                logger.exception("sync_veno_orphans: failed to delete S3 objects for media %s", media.id)
+
+            m = await db.get(Media, media.id)
+            if m and not m.deleted_at:
+                m.deleted_at = now
+                await db.commit()
+                deleted_count += 1
+                logger.info(
+                    "sync_veno_orphans: soft-deleted media %s (VPS file gone: %s)",
+                    media.id, vps_path,
+                )
+
+    logger.info(
+        "sync_veno_orphans done: %d deleted, %d skipped (paid orders)",
+        deleted_count, skipped_paid,
+    )
