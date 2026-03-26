@@ -46,21 +46,21 @@ export default function MyEarnings() {
   const rate = commission?.commission_rate ?? earnings?.commission_rate ?? 0;
 
   if (eLoading) {
-    return <div style={{ padding: 32, textAlign: 'center' }}>Dang tai...</div>;
+    return <div style={{ padding: 32, textAlign: 'center' }}>Đang tải...</div>;
   }
 
   if (!earnings) {
-    return <div style={{ padding: 32, textAlign: 'center' }}>Khong co du lieu.</div>;
+    return <div style={{ padding: 32, textAlign: 'center' }}>Không có dữ liệu.</div>;
   }
 
   return (
     <div style={{ padding: '0 0 24px' }}>
-      <Title level={4} style={{ marginBottom: 20 }}>Thu Nhap Cua Toi</Title>
+      <Title level={4} style={{ marginBottom: 20 }}>Thu Nhập Của Tôi</Title>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
           <StatCard
-            title="Ti le hoa hong"
+            title="Tỉ lệ hoa hồng"
             value={rate}
             unit="%"
             color="#1677ff"
@@ -68,7 +68,7 @@ export default function MyEarnings() {
             sub={
               commission?.effective_from
                 ? <Text type="secondary" style={{ fontSize: 12 }}>
-                    Hieu luc tu {commission.effective_from}
+                    Hiệu lực từ {commission.effective_from}
                   </Text>
                 : null
             }
@@ -77,18 +77,18 @@ export default function MyEarnings() {
 
         <Col xs={24} sm={12} md={6}>
           <StatCard
-            title="Doanh thu thang nay"
+            title="Doanh thu tháng nay"
             value={fmt(earnings.this_month_gross)}
             unit=""
             color="#8c8c8c"
             icon={<BarChartOutlined style={{ color: '#8c8c8c' }} />}
-            sub={<Text type="secondary" style={{ fontSize: 12 }}>Tong anh da ban</Text>}
+            sub={<Text type="secondary" style={{ fontSize: 12 }}>Tổng ảnh đã bán</Text>}
           />
         </Col>
 
         <Col xs={24} sm={12} md={6}>
           <StatCard
-            title="Thuc nhan thang nay"
+            title="Thực nhận tháng nay"
             value={fmt(earnings.this_month_commission)}
             unit=""
             color="#52c41a"
@@ -103,7 +103,7 @@ export default function MyEarnings() {
 
         <Col xs={24} sm={12} md={6}>
           <StatCard
-            title="Dang cho thanh toan"
+            title="Đang chờ thanh toán"
             value={fmt(earnings.pending_amount)}
             unit=""
             color={earnings.pending_amount > 0 ? '#fa8c16' : '#52c41a'}
@@ -114,8 +114,8 @@ export default function MyEarnings() {
             }
             sub={
               earnings.pending_amount > 0
-                ? <Tag color="warning">Chua duoc thanh toan</Tag>
-                : <Tag color="success">Da thanh toan het</Tag>
+                ? <Tag color="warning">Chưa được thanh toán</Tag>
+                : <Tag color="success">Đã thanh toán hết</Tag>
             }
           />
         </Col>
@@ -124,12 +124,12 @@ export default function MyEarnings() {
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} sm={12}>
           <StatCard
-            title="Tong thuc nhan lich su"
+            title="Tổng thực nhận lịch sử"
             value={fmt(earnings.total_earned_all_time)}
             unit=""
             color="#1a6b4e"
             icon={<DollarOutlined style={{ color: '#1a6b4e' }} />}
-            sub={<Text type="secondary" style={{ fontSize: 12 }}>Tinh tren toan bo don hang da thanh toan</Text>}
+            sub={<Text type="secondary" style={{ fontSize: 12 }}>Tính trên toàn bộ đơn hàng đã thanh toán</Text>}
           />
         </Col>
       </Row>
