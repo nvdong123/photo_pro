@@ -7,6 +7,7 @@ from app.models.order import Order, OrderItem, OrderPhoto, OrderStatus
 from app.models.staff import Staff, StaffRole
 from app.models.staff_activity import StaffActivity
 from app.models.staff_location import StaffLocationAssignment
+from app.models.staff_payment import StaffPayment, PaymentCycle, PaymentStatus
 from app.models.system_setting import SystemSetting
 from app.models.tag import MediaTag, Tag, TagType
 
@@ -15,6 +16,9 @@ __all__ = [
     "Staff",
     "StaffRole",
     "StaffActivity",
+    "StaffPayment",
+    "PaymentCycle",
+    "PaymentStatus",
     # Backward compat aliases
     "AdminUser",
     "AdminRole",

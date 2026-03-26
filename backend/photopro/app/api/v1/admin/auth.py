@@ -256,6 +256,9 @@ async def patch_admin(
                     await veno.disable_veno_user(user.employee_code)
             except Exception:
                 logger.exception("Failed to sync Veno state for %s", user.employee_code)
+    if body.commission_rate is not None:
+        from decimal import Decimal
+        user.commission_rate = Decimal(str(max(0.0, min(100.0, body.commission_rate))))
     await db.commit()
     await db.refresh(user)
     return APIResponse.ok(AdminUserOut.model_validate(user))

@@ -18,18 +18,20 @@ from app.core.security import hash_password
 # Import all models so Base.metadata is fully populated
 from app.models import (  # noqa: F401
     AdminUser, BundlePricing, Coupon, DigitalDelivery, Media, MediaTag,
-    Order, OrderItem, OrderPhoto, Staff, StaffActivity, StaffRole,
+    Order, OrderItem, OrderPhoto, Staff, StaffActivity, StaffPayment, StaffRole,
     StaffLocationAssignment, SystemSetting, Tag,
 )
 
 # ENUM types used with create_type=False in models.
 # Uses SELECT-based check + CREATE TYPE (no DO blocks — asyncpg compatibility).
 _ENUM_SPECS: list[tuple[str, list[str]]] = [
-    ("staffrole",    ["SYSTEM", "SALES", "MANAGER", "STAFF"]),
-    ("tagtype",      ["location", "order"]),
-    ("mediastatus",  ["NEW", "DERIVATIVES_READY", "INDEXED", "FAILED"]),
-    ("photostatus",  ["available", "sold"]),
-    ("orderstatus",  ["CREATED", "PAID", "FAILED", "REFUNDED"]),
+    ("staffrole",     ["SYSTEM", "SALES", "MANAGER", "STAFF"]),
+    ("tagtype",       ["location", "order"]),
+    ("mediastatus",   ["NEW", "DERIVATIVES_READY", "INDEXED", "FAILED"]),
+    ("photostatus",   ["available", "sold"]),
+    ("orderstatus",   ["CREATED", "PAID", "FAILED", "REFUNDED"]),
+    ("paymentcycle",  ["weekly", "monthly", "quarterly"]),
+    ("paymentstatus", ["pending", "paid"]),
 ]
 
 
@@ -59,7 +61,7 @@ async def ensure_tables(engine) -> None:
 
 async def stamp_alembic(engine) -> None:
     """Transaction 3: ensure alembic_version is at head."""
-    head = "0005_staff_activity"
+    head = "0006_staff_payroll"
     async with engine.begin() as conn:
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -86,8 +88,9 @@ async def stamp_alembic(engine) -> None:
 async def apply_pending_columns(engine) -> None:
     """Add columns that create_all cannot add to pre-existing tables."""
     column_checks = [
-        ("staff", "veno_password", "VARCHAR(100)"),
+        ("staff", "veno_password",    "VARCHAR(100)"),
         ("bundle_pricing", "is_popular", "BOOLEAN DEFAULT false"),
+        ("staff", "commission_rate",  "NUMERIC(5,2) NOT NULL DEFAULT 100.00"),
     ]
     async with engine.begin() as conn:
         for table, column, col_type in column_checks:
@@ -159,6 +162,7 @@ async def ensure_views(engine) -> None:
                 s.full_name AS staff_name,
                 s.avatar_url,
                 s.is_active,
+                COALESCE(s.commission_rate, 100.0)                          AS commission_rate,
                 COUNT(DISTINCT m.id)                                        AS total_photos_uploaded,
                 COUNT(DISTINCT CASE WHEN m.photo_status = 'sold' THEN m.id END) AS total_photos_sold,
                 COALESCE(SUM(CASE WHEN DATE(o.created_at) = CURRENT_DATE
@@ -168,6 +172,15 @@ async def ensure_views(engine) -> None:
                 COALESCE(SUM(CASE WHEN DATE_TRUNC('year', o.created_at) = DATE_TRUNC('year', NOW())
                                   AND o.status = 'PAID' THEN oi.price_at_purchase END), 0) AS revenue_this_year,
                 COALESCE(SUM(CASE WHEN o.status = 'PAID' THEN oi.price_at_purchase END), 0) AS total_revenue,
+                -- Net amounts after commission
+                ROUND(COALESCE(SUM(CASE WHEN DATE(o.created_at) = CURRENT_DATE
+                                  AND o.status = 'PAID' THEN oi.price_at_purchase END), 0)
+                      * COALESCE(s.commission_rate, 100.0) / 100.0)        AS net_today,
+                ROUND(COALESCE(SUM(CASE WHEN DATE_TRUNC('month', o.created_at) = DATE_TRUNC('month', NOW())
+                                  AND o.status = 'PAID' THEN oi.price_at_purchase END), 0)
+                      * COALESCE(s.commission_rate, 100.0) / 100.0)        AS net_this_month,
+                ROUND(COALESCE(SUM(CASE WHEN o.status = 'PAID' THEN oi.price_at_purchase END), 0)
+                      * COALESCE(s.commission_rate, 100.0) / 100.0)        AS net_total,
                 MAX(m.created_at)                                           AS last_upload_date,
                 CASE WHEN COUNT(DISTINCT m.id) > 0
                      THEN ROUND(COUNT(DISTINCT CASE WHEN m.photo_status='sold' THEN m.id END)::numeric
@@ -178,7 +191,7 @@ async def ensure_views(engine) -> None:
             LEFT JOIN order_items oi ON oi.media_id = m.id
             LEFT JOIN orders o ON o.id = oi.order_id
             WHERE s.role = 'STAFF'
-            GROUP BY s.id, s.employee_code, s.full_name, s.avatar_url, s.is_active
+            GROUP BY s.id, s.employee_code, s.full_name, s.avatar_url, s.is_active, s.commission_rate
         """))
         print("ensure_views done.", flush=True)
 

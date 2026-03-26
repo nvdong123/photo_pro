@@ -385,12 +385,14 @@ function StaffView() {
       </div>
 
       {/* Personal Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Ảnh đã upload', value: (myStats?.total_photos_uploaded ?? 0).toLocaleString(), color: '#1a6b4e' },
           { label: 'Ảnh đã bán', value: (myStats?.total_photos_sold ?? 0).toLocaleString(), color: '#1a854a' },
           { label: 'Tỉ lệ chuyển đổi', value: Number(myStats?.conversion_rate ?? 0).toFixed(1) + '%', color: '#d4870e' },
           { label: 'Tổng doanh thu', value: fmtMoney(myStats?.total_revenue ?? 0), color: '#2563eb' },
+          { label: `Thực nhận tháng này (${myStats?.commission_rate ?? 100}%)`, value: fmtMoney(myStats?.net_this_month ?? 0), color: '#52c41a' },
+          { label: `Thực nhận tổng (${myStats?.commission_rate ?? 100}%)`, value: fmtMoney(myStats?.net_total ?? 0), color: '#389e0d' },
         ].map(item => (
           <div key={item.label} style={{
             background: '#fff', borderRadius: 12, padding: 20,

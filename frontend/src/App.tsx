@@ -28,6 +28,7 @@ import Staff from './pages/dashboard/Staff';
 import Pricing from './pages/dashboard/Pricing';
 import StaffStats from './pages/dashboard/StaffStats';
 import StaffUpload from './pages/dashboard/StaffUpload';
+import Payroll from './pages/dashboard/Payroll';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -72,6 +73,7 @@ function App() {
           <Route path="pricing" element={<Pricing />} />
           <Route path="staff-stats" element={<StaffStats />} />
           <Route path="staff-upload" element={<StaffUpload />} />
+          <Route path="payroll" element={<Payroll />} />
         </Route>
 
         {/* Error Pages */}

@@ -7,12 +7,16 @@ export interface StaffStat {
   staff_name: string | null;
   avatar_url: string | null;
   is_active: boolean;
+  commission_rate: number;
   total_photos_uploaded: number;
   total_photos_sold: number;
   revenue_today: number;
   revenue_this_month: number;
   revenue_this_year: number;
   total_revenue: number;
+  net_today: number;
+  net_this_month: number;
+  net_total: number;
   last_upload_date: string | null;
   conversion_rate: number;
 }

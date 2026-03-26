@@ -14,6 +14,7 @@ import {
   DownOutlined,
   BarChartOutlined,
   CloudUploadOutlined,
+  DollarOutlined,
 } from '@ant-design/icons';
 import { useEffect } from 'react';
 import { getUser, logout, hasRole, getAvatarInitials, ROLE_LABELS } from '../../hooks/useAuth';
@@ -140,6 +141,14 @@ export default function DashboardLayout() {
           label: 'Thống kê NV',
           onClick: () => navigate('/dashboard/staff-stats'),
         },
+        ...(hasRole(['admin-system', 'admin-sales'])
+          ? [{
+              key: '/dashboard/payroll',
+              icon: <DollarOutlined />,
+              label: 'Lương NV',
+              onClick: () => navigate('/dashboard/payroll'),
+            }]
+          : []),
       ],
     },
     ...(hasRole(['admin-system'])

@@ -33,6 +33,7 @@ class AdminUserOut(BaseModel):
     is_active: bool
     created_at: datetime
     veno_password: str | None = None
+    commission_rate: float = 100.0
 
     model_config = {"from_attributes": True}
 
@@ -50,6 +51,7 @@ class AdminUserListOut(BaseModel):
     created_at: datetime
     veno_password_hint: str | None = None
     total_photos: int = 0
+    commission_rate: float = 100.0
 
     @classmethod
     def model_validate(cls, obj, **kwargs):  # type: ignore[override]
@@ -79,6 +81,7 @@ class PatchAdminUserRequest(BaseModel):
     role: AdminRole | None = None
     is_active: bool | None = None
     employee_code: str | None = None
+    commission_rate: float | None = None  # % of revenue paid to the staff member
 
 
 class PatchProfileRequest(BaseModel):

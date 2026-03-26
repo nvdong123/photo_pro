@@ -1,8 +1,9 @@
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -31,6 +32,11 @@ class Staff(Base):
 
     # Plain-text Veno File Manager password (separate from PhotoPro auth)
     veno_password: Mapped[str | None] = mapped_column(String(100))
+
+    # Commission rate: % of revenue paid to this staff member (default 100)
+    commission_rate: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), nullable=False, server_default="100.00"
+    )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
