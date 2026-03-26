@@ -1,9 +1,10 @@
 import logging
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete as sa_delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -14,6 +15,7 @@ from app.models.staff_location import StaffLocationAssignment
 from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.services.cache_service import get_cached_presigned_url
+from app.services.storage_service import storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -234,13 +236,49 @@ async def delete_location(
     db: AsyncSession = Depends(get_db),
     _: Staff = Depends(require_system),
 ):
+    """Delete a location and cascade-delete all its non-sold media from S3 + DB."""
     tag = await _get_location(db, location_id)
-    cnt = await _available_media_count(db, tag.id)
-    if cnt > 0:
-        raise HTTPException(409, "Cannot delete location that still has available photos")
+
+    # Load all non-sold media linked to this location
+    media_rows = await db.execute(
+        select(Media)
+        .join(MediaTag, MediaTag.media_id == Media.id)
+        .where(
+            MediaTag.tag_id == location_id,
+            Media.photo_status == PhotoStatus.AVAILABLE,
+            Media.deleted_at.is_(None),
+        )
+    )
+    media_list = media_rows.scalars().all()
+
+    now = datetime.now(timezone.utc)
+
+    for media in media_list:
+        # Delete S3 objects (original + derivatives)
+        keys = [k for k in [
+            media.original_s3_key,
+            media.thumb_s3_key,
+            media.preview_s3_key,
+        ] if k]
+        if keys:
+            try:
+                storage_service.delete_objects(keys)
+            except Exception:
+                logger.exception("Failed to delete S3 objects for media %s", media.id)
+        media.deleted_at = now
+
+    # Delete MediaTag rows for this location
+    await db.execute(sa_delete(MediaTag).where(MediaTag.tag_id == location_id))
+    # Delete staff assignments
+    await db.execute(sa_delete(StaffLocationAssignment).where(StaffLocationAssignment.tag_id == location_id))
+    # Delete the tag itself
     await db.delete(tag)
     await db.commit()
-    return APIResponse.ok({"message": "Location deleted"})
+
+    return APIResponse.ok({
+        "message": "Location deleted",
+        "media_deleted": len(media_list),
+    })
 
 
 # ── Staff assignments ─────────────────────────────────────────────────────────

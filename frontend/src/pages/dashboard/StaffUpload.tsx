@@ -1,10 +1,10 @@
-﻿import { useState, useCallback, useRef } from 'react';
+﻿import { useState, useCallback, useRef, useEffect } from 'react';
 import { Tag, Spin, Button, message } from 'antd';
-import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, CheckCircleFilled, CloseCircleFilled, FileImageOutlined } from '@ant-design/icons';
+import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, CheckCircleFilled, CloseCircleFilled, FileImageOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Check, Calendar, MapPin } from 'lucide-react';
 import { useMyLocations, type MyLocation } from '../../hooks/useMyLocations';
 import { useMyStats } from '../../hooks/useStaffStats';
-import { invalidateApiCache } from '../../lib/api-client';
+import { apiClient, invalidateApiCache } from '../../lib/api-client';
 
 const BORDER = '#e2e5ea';
 const TEXT_MUTED = '#8b91a0';
@@ -18,6 +18,14 @@ interface FileItem {
   progress: number;
   status: FileStatus;
   error?: string;
+}
+
+interface LocationPhoto {
+  media_id: string;
+  thumb_url: string | null;
+  shoot_date: string | null;
+  process_status: string;
+  created_at: string;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
@@ -45,6 +53,30 @@ export default function StaffUpload() {
   const [uploading, setUploading] = useState(false);
   const [uploadDone, setUploadDone] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Photos uploaded to the selected location
+  const [locationPhotos, setLocationPhotos] = useState<LocationPhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+
+  const fetchLocationPhotos = useCallback(async (locationId: string) => {
+    setPhotosLoading(true);
+    try {
+      const data = await apiClient.get<LocationPhoto[]>(`/api/v1/admin/locations/${locationId}/photos?limit=100`);
+      setLocationPhotos(data ?? []);
+    } catch {
+      setLocationPhotos([]);
+    } finally {
+      setPhotosLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedLocation) {
+      fetchLocationPhotos(selectedLocation.id);
+    } else {
+      setLocationPhotos([]);
+    }
+  }, [selectedLocation, fetchLocationPhotos]);
 
   const stats = [
     { label: 'Địa điểm', value: locations?.length ?? 0, color: PRIMARY, bg: '#e8f5f0' },
@@ -135,6 +167,8 @@ export default function StaffUpload() {
       invalidateApiCache('/my-locations');
       invalidateApiCache('/staff/statistics');
       refetch?.();
+      // Refresh location photos list
+      if (selectedLocation) fetchLocationPhotos(selectedLocation.id);
     }
     if (errItems.length > 0) {
       message.error(`${errItems.length} ảnh upload thất bại`);
@@ -364,6 +398,85 @@ export default function StaffUpload() {
                 </Button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ảnh đã upload tại địa điểm này */}
+      {selectedLocation && (
+        <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${BORDER}`, overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{
+            padding: '16px 20px', borderBottom: `1px solid ${BORDER}`,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <h3 style={{ margin: 0 }}>Ảnh đã upload</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {locationPhotos.length > 0 && (
+                <Tag color="blue">{locationPhotos.length} ảnh</Tag>
+              )}
+              <Button
+                size="small"
+                icon={<ReloadOutlined />}
+                onClick={() => fetchLocationPhotos(selectedLocation.id)}
+                loading={photosLoading}
+              >
+                Làm mới
+              </Button>
+            </div>
+          </div>
+          <div style={{ padding: 20 }}>
+            {photosLoading ? (
+              <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+            ) : locationPhotos.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: TEXT_MUTED }}>
+                <FileImageOutlined style={{ fontSize: 32, marginBottom: 8 }} />
+                <div>Chưa có ảnh nào được upload tại địa điểm này</div>
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                gap: 10,
+              }}>
+                {locationPhotos.map((photo) => (
+                  <div key={photo.media_id} style={{ position: 'relative' }}>
+                    <div style={{
+                      width: '100%', paddingBottom: '100%', position: 'relative',
+                      borderRadius: 8, overflow: 'hidden',
+                      background: '#f0f0f0', border: `1px solid ${BORDER}`,
+                    }}>
+                      {photo.thumb_url ? (
+                        <img
+                          src={photo.thumb_url}
+                          alt=""
+                          style={{
+                            position: 'absolute', inset: 0,
+                            width: '100%', height: '100%', objectFit: 'cover',
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: TEXT_MUTED, fontSize: 24,
+                        }}>
+                          <FileImageOutlined />
+                        </div>
+                      )}
+                      {/* Status badge */}
+                      <div style={{
+                        position: 'absolute', bottom: 4, right: 4,
+                        background: photo.process_status === 'indexed' ? '#52c41a'
+                          : photo.process_status === 'derivatives_ready' ? '#1677ff'
+                          : photo.process_status === 'failed' ? '#ff4d4f'
+                          : '#8c8c8c',
+                        borderRadius: 4, width: 8, height: 8,
+                      }} title={photo.process_status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
