@@ -46,17 +46,17 @@ function fmtDate(iso: string): string {
 }
 
 function cycleLabel(c: CycleType): string {
-  return c === 'weekly' ? '7 ngay' : c === 'monthly' ? '1 thang' : '3 thang';
+  return c === 'weekly' ? '7 ngày' : c === 'monthly' ? '1 tháng' : '3 tháng';
 }
 
 function cycleName(c: CycleType, start: string): string {
   const [y, m] = start.split('-');
-  if (c === 'monthly') return `Thang ${parseInt(m)}/${y}`;
+  if (c === 'monthly') return `Tháng ${parseInt(m)}/${y}`;
   if (c === 'quarterly') {
     const q = Math.ceil(parseInt(m) / 3);
-    return `Quy ${q}/${y}`;
+    return `Quý ${q}/${y}`;
   }
-  return `Tuan ${fmtDate(start)}`;
+  return `Tuần ${fmtDate(start)}`;
 }
 
 function defaultRange(cycle: CycleType): [string, string] {
@@ -78,9 +78,9 @@ function defaultRange(cycle: CycleType): [string, string] {
 }
 
 const STATUS_TAG: Record<PayrollCycleStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  pending:    { label: 'Cho xu ly', color: 'warning',   icon: <ClockCircleOutlined /> },
-  processing: { label: 'Dang xu ly', color: 'processing', icon: <SyncOutlined spin /> },
-  paid:       { label: 'Da tra',    color: 'success',   icon: <CheckCircleOutlined /> },
+  pending:    { label: 'Chờ xử lý',  color: 'warning',   icon: <ClockCircleOutlined /> },
+  processing: { label: 'Đang xử lý', color: 'processing', icon: <SyncOutlined spin /> },
+  paid:       { label: 'Đã trả',     color: 'success',   icon: <CheckCircleOutlined /> },
 };
 
 // ── Create Cycle Modal ────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ function CreateCycleModal({ open, onClose, onCreated }: CreateModalProps) {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) { message.error('Vui long nhap ten chu ky'); return; }
+    if (!name.trim()) { message.error('Vui lòng nhập tên chu kỳ'); return; }
     setLoading(true);
     try {
       const created = await createPayrollCycle({
@@ -124,11 +124,11 @@ function CreateCycleModal({ open, onClose, onCreated }: CreateModalProps) {
         end_date: range[1],
         note: note || null,
       });
-      message.success(`Da tao chu ky "${created.name}" voi ${created.item_count} nhan vien`);
+      message.success(`Đã tạo chu kỳ "${created.name}" với ${created.item_count} nhân viên`);
       onCreated(created);
       onClose();
     } catch (e: any) {
-      message.error(e?.message ?? 'Khong the tao chu ky');
+      message.error(e?.message ?? 'Không thể tạo chu kỳ');
     } finally {
       setLoading(false);
     }
@@ -136,39 +136,39 @@ function CreateCycleModal({ open, onClose, onCreated }: CreateModalProps) {
 
   return (
     <Modal
-      title="Tao chu ky luong moi"
+      title="Tạo chu kỳ lương mới"
       open={open}
       onCancel={onClose}
       onOk={handleCreate}
-      okText="Tao chu ky"
+      okText="Tạo chu kỳ"
       confirmLoading={loading}
       afterOpenChange={(v) => v && handleOpen()}
     >
       <Space direction="vertical" style={{ width: '100%' }} size={12}>
         <div>
-          <Text type="secondary">Loai chu ky</Text>
+          <Text type="secondary">Loại chu kỳ</Text>
           <Select value={ctype} onChange={handleCycleChange} style={{ width: '100%', marginTop: 4 }}>
-            <Option value="weekly">Tuan (7 ngay)</Option>
-            <Option value="monthly">Thang (1 thang)</Option>
-            <Option value="quarterly">Quy (3 thang)</Option>
+            <Option value="weekly">Tuần (7 ngày)</Option>
+            <Option value="monthly">Tháng (1 tháng)</Option>
+            <Option value="quarterly">Quý (3 tháng)</Option>
           </Select>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1 }}>
-            <Text type="secondary">Tu ngay</Text>
+            <Text type="secondary">Từ ngày</Text>
             <Input type="date" value={range[0]} onChange={(e) => setRange([e.target.value, range[1]])} style={{ marginTop: 4 }} />
           </div>
           <div style={{ flex: 1 }}>
-            <Text type="secondary">Den ngay</Text>
+            <Text type="secondary">Đến ngày</Text>
             <Input type="date" value={range[1]} onChange={(e) => setRange([range[0], e.target.value])} style={{ marginTop: 4 }} />
           </div>
         </div>
         <div>
-          <Text type="secondary">Ten chu ky</Text>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vi du: Thang 3/2026" style={{ marginTop: 4 }} />
+          <Text type="secondary">Tên chu kỳ</Text>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ví dụ: Tháng 3/2026" style={{ marginTop: 4 }} />
         </div>
         <div>
-          <Text type="secondary">Ghi chu (tuy chon)</Text>
+          <Text type="secondary">Ghi chú (tùy chọn)</Text>
           <Input value={note} onChange={(e) => setNote(e.target.value)} style={{ marginTop: 4 }} />
         </div>
       </Space>
@@ -188,10 +188,10 @@ function CycleDetailDrawer({ cycleId, onClose }: { cycleId: string | null; onClo
     setConfirmingId(cycleId);
     try {
       await confirmPayrollCycle(cycleId);
-      message.success('Da xac nhan toan bo chu ky');
+      message.success('Đã xác nhận toàn bộ chu kỳ');
       refetch();
     } catch {
-      message.error('Loi xac nhan');
+      message.error('Lỗi xác nhận');
     } finally {
       setConfirmingId(null);
     }
@@ -202,27 +202,27 @@ function CycleDetailDrawer({ cycleId, onClose }: { cycleId: string | null; onClo
     setMarkingStaff(staffId);
     try {
       await markPayrollItemPaid(cycleId, staffId);
-      message.success('Da danh dau da tra');
+      message.success('Đã đánh dấu đã trả');
       refetch();
     } catch {
-      message.error('Loi danh dau');
+      message.error('Lỗi đánh dấu');
     } finally {
       setMarkingStaff(null);
     }
   };
 
   const itemCols: ColumnsType<PayrollItemOut> = [
-    { title: 'Ma NV', dataIndex: 'employee_code', key: 'code', render: (v) => <Text code>{v ?? '---'}</Text>, width: 90 },
-    { title: 'Ho ten', dataIndex: 'staff_name', key: 'name' },
+    { title: 'Mã NV', dataIndex: 'employee_code', key: 'code', render: (v) => <Text code>{v ?? '---'}</Text>, width: 90 },
+    { title: 'Họ tên', dataIndex: 'staff_name', key: 'name' },
     { title: '% HH', dataIndex: 'commission_rate', key: 'rate', align: 'right', render: (v) => `${v}%`, width: 70 },
-    { title: 'Doanh thu', dataIndex: 'gross_revenue', key: 'gross', align: 'right', render: (v) => `${fmt(v)} ` },
-    { title: 'Hoa hong', dataIndex: 'commission_amount', key: 'amt', align: 'right', render: (v) => <Text strong style={{ color: '#52c41a' }}>{fmt(v)} </Text> },
+    { title: 'Doanh thu', dataIndex: 'gross_revenue', key: 'gross', align: 'right', render: (v) => `${fmt(v)} ₫` },
+    { title: 'Hoa hồng', dataIndex: 'commission_amount', key: 'amt', align: 'right', render: (v) => <Text strong style={{ color: '#52c41a' }}>{fmt(v)} ₫</Text> },
     {
-      title: 'Trang thai', dataIndex: 'status', key: 'status', width: 130,
+      title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 130,
       render: (v: string, r) => v === 'paid'
-        ? <Tag color="success" icon={<CheckCircleOutlined />}>Da tra</Tag>
+        ? <Tag color="success" icon={<CheckCircleOutlined />}>Đã trả</Tag>
         : <Button size="small" type="primary" loading={markingStaff === r.staff_id}
-            onClick={() => handleMarkItem(r.staff_id)}>Danh dau da tra</Button>
+            onClick={() => handleMarkItem(r.staff_id)}>Đánh dấu đã trả</Button>
     },
   ];
 
@@ -231,7 +231,7 @@ function CycleDetailDrawer({ cycleId, onClose }: { cycleId: string | null; onClo
 
   return (
     <Drawer
-      title={cycle ? cycle.name : 'Chi tiet chu ky'}
+      title={cycle ? cycle.name : 'Chi tiết chu kỳ'}
       width={720}
       open={!!cycleId}
       onClose={onClose}
@@ -241,12 +241,12 @@ function CycleDetailDrawer({ cycleId, onClose }: { cycleId: string | null; onClo
             loading={confirmingId === cycleId}
             disabled={allPaid && isPaid}
             onClick={() => Modal.confirm({
-              title: 'Xac nhan da tra luong?',
-              content: 'Tat ca nhan vien trong chu ky nay se duoc danh dau da nhan.',
-              okText: 'Xac nhan', cancelText: 'Huy',
+              title: 'Xác nhận đã trả lương?',
+              content: 'Tất cả nhân viên trong chu kỳ này sẽ được đánh dấu đã nhận.',
+              okText: 'Xác nhận', cancelText: 'Hủy',
               onOk: handleConfirm,
             })}>
-            Xac nhan da tra
+            Xác nhận đã trả
           </Button>
         )
       }
@@ -254,16 +254,16 @@ function CycleDetailDrawer({ cycleId, onClose }: { cycleId: string | null; onClo
       {cycle && (
         <Space direction="vertical" style={{ width: '100%' }} size={16}>
           <Descriptions size="small" bordered column={2}>
-            <Descriptions.Item label="Khoang thoi gian">{fmtDate(cycle.start_date)} - {fmtDate(cycle.end_date)}</Descriptions.Item>
-            <Descriptions.Item label="Loai chu ky">{cycleLabel(cycle.cycle_type)}</Descriptions.Item>
-            <Descriptions.Item label="Tong tra">{fmt(cycle.total_amount)} </Descriptions.Item>
-            <Descriptions.Item label="Trang thai">
+            <Descriptions.Item label="Khoảng thời gian">{fmtDate(cycle.start_date)} – {fmtDate(cycle.end_date)}</Descriptions.Item>
+            <Descriptions.Item label="Loại chu kỳ">{cycleLabel(cycle.cycle_type)}</Descriptions.Item>
+            <Descriptions.Item label="Tổng trả">{fmt(cycle.total_amount)} ₫</Descriptions.Item>
+            <Descriptions.Item label="Trạng thái">
               <Tag color={STATUS_TAG[cycle.status].color} icon={STATUS_TAG[cycle.status].icon}>
                 {STATUS_TAG[cycle.status].label}
               </Tag>
             </Descriptions.Item>
-            <Descriptions.Item label="So NV">{cycle.item_count} ({cycle.paid_count} da tra)</Descriptions.Item>
-            {cycle.note && <Descriptions.Item label="Ghi chu" span={2}>{cycle.note}</Descriptions.Item>}
+            <Descriptions.Item label="Số NV">{cycle.item_count} ({cycle.paid_count} đã trả)</Descriptions.Item>
+            {cycle.note && <Descriptions.Item label="Ghi chú" span={2}>{cycle.note}</Descriptions.Item>}
           </Descriptions>
 
           <Table<PayrollItemOut>
@@ -293,41 +293,41 @@ export function CommissionDrawer({ staffId, staffName, onClose }: { staffId: str
   const handleSave = async () => {
     if (!staffId) return;
     const r = parseFloat(rate);
-    if (isNaN(r) || r < 0 || r > 100) { message.error('Ti le phai tu 0 den 100'); return; }
+    if (isNaN(r) || r < 0 || r > 100) { message.error('Tỉ lệ phải từ 0 đến 100'); return; }
     setSaving(true);
     try {
       await setCommission(staffId, { commission_rate: r, effective_from: effDate, note: note || null });
-      message.success('Da cap nhat ti le hoa hong');
+      message.success('Đã cập nhật tỉ lệ hoa hồng');
       setRate('');
       setNote('');
       refetchCurrent();
       refetchHistory();
     } catch {
-      message.error('Loi cap nhat');
+      message.error('Lỗi cập nhật');
     } finally {
       setSaving(false);
     }
   };
 
   const histCols: ColumnsType<any> = [
-    { title: 'Hieu luc', dataIndex: 'effective_from', key: 'eff', render: fmtDate, width: 110 },
+    { title: 'Hiệu lực', dataIndex: 'effective_from', key: 'eff', render: fmtDate, width: 110 },
     { title: '% HH', dataIndex: 'commission_rate', key: 'rate', render: (v: number) => <Tag color="blue">{v}%</Tag>, width: 80 },
-    { title: 'Ghi chu', dataIndex: 'note', key: 'note', render: (v: string | null) => v ?? '---' },
-    { title: 'Ngay tao', dataIndex: 'created_at', key: 'created', render: (v: string) => fmtDate(v.slice(0, 10)), width: 110 },
-    { title: 'Nguoi tao', dataIndex: 'created_by_name', key: 'by', render: (v: string | null) => v ?? '---' },
+    { title: 'Ghi chú', dataIndex: 'note', key: 'note', render: (v: string | null) => v ?? '---' },
+    { title: 'Ngày tạo', dataIndex: 'created_at', key: 'created', render: (v: string) => fmtDate(v.slice(0, 10)), width: 110 },
+    { title: 'Người tạo', dataIndex: 'created_by_name', key: 'by', render: (v: string | null) => v ?? '---' },
   ];
 
   return (
-    <Drawer title={`Hoa hong: ${staffName ?? ''}`} width={560} open={!!staffId} onClose={onClose}>
+    <Drawer title={`Hoa hồng: ${staffName ?? ''}`} width={560} open={!!staffId} onClose={onClose}>
       <Space direction="vertical" style={{ width: '100%' }} size={16}>
         {current && (
           <Card size="small">
-            <Text>Ti le hien tai: </Text>
+            <Text>Tỉ lệ hiện tại: </Text>
             <Tag color="blue" style={{ fontSize: 15 }}>{current.commission_rate}%</Tag>
-            {current.effective_from && <Text type="secondary" style={{ marginLeft: 8 }}>tu {fmtDate(current.effective_from)}</Text>}
+            {current.effective_from && <Text type="secondary" style={{ marginLeft: 8 }}>từ {fmtDate(current.effective_from)}</Text>}
           </Card>
         )}
-        <Card title="Cap nhat ti le" size="small">
+        <Card title="Cập nhật tỉ lệ" size="small">
           <Space direction="vertical" style={{ width: '100%' }} size={8}>
             <div style={{ display: 'flex', gap: 8 }}>
               <Input
@@ -337,8 +337,8 @@ export function CommissionDrawer({ staffId, staffName, onClose }: { staffId: str
               />
               <Input type="date" value={effDate} onChange={(e) => setEffDate(e.target.value)} style={{ flex: 1 }} />
             </div>
-            <Input placeholder="Ghi chu (tuy chon)" value={note} onChange={(e) => setNote(e.target.value)} />
-            <Button type="primary" loading={saving} onClick={handleSave}>Luu ti le moi</Button>
+            <Input placeholder="Ghi chú (tùy chọn)" value={note} onChange={(e) => setNote(e.target.value)} />
+            <Button type="primary" loading={saving} onClick={handleSave}>Lưu tỉ lệ mới</Button>
           </Space>
         </Card>
         <Table columns={histCols} dataSource={history ?? []} rowKey="id" size="small" pagination={false} />
@@ -364,23 +364,23 @@ export default function Payroll() {
 
   const cols: ColumnsType<PayrollCycleOut> = [
     {
-      title: 'Ten chu ky', dataIndex: 'name', key: 'name',
+      title: 'Tên chu kỳ', dataIndex: 'name', key: 'name',
       render: (v, r) => (
         <Button type="link" style={{ padding: 0 }} onClick={() => setSelectedCycleId(r.id)}>
           {v}
         </Button>
       ),
     },
-    { title: 'Loai', dataIndex: 'cycle_type', key: 'type', render: (v: CycleType) => cycleLabel(v), width: 90 },
+    { title: 'Loại', dataIndex: 'cycle_type', key: 'type', render: (v: CycleType) => cycleLabel(v), width: 90 },
     {
-      title: 'Khoang thoi gian', key: 'period',
-      render: (_, r) => `${fmtDate(r.start_date)} - ${fmtDate(r.end_date)}`,
+      title: 'Khoảng thời gian', key: 'period',
+      render: (_, r) => `${fmtDate(r.start_date)} – ${fmtDate(r.end_date)}`,
       width: 185,
     },
-    { title: 'So NV', key: 'count', render: (_, r) => `${r.paid_count}/${r.item_count}`, width: 80, align: 'center' },
-    { title: 'Tong tra', dataIndex: 'total_amount', key: 'total', align: 'right', render: (v) => `${fmt(v)} ` },
+    { title: 'Số NV', key: 'count', render: (_, r) => `${r.paid_count}/${r.item_count}`, width: 80, align: 'center' },
+    { title: 'Tổng trả', dataIndex: 'total_amount', key: 'total', align: 'right', render: (v) => `${fmt(v)} ₫` },
     {
-      title: 'Trang thai', dataIndex: 'status', key: 'status', width: 130,
+      title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 130,
       render: (v: PayrollCycleStatus) => (
         <Tag color={STATUS_TAG[v].color} icon={STATUS_TAG[v].icon}>
           {STATUS_TAG[v].label}
@@ -388,13 +388,13 @@ export default function Payroll() {
       ),
     },
     {
-      title: 'Ngay tra', dataIndex: 'paid_at', key: 'paid_at', width: 110,
+      title: 'Ngày trả', dataIndex: 'paid_at', key: 'paid_at', width: 110,
       render: (v: string | null) => v ? fmtDate(v.slice(0, 10)) : '---',
     },
     {
       title: '', key: 'action', width: 90,
       render: (_, r) => (
-        <Button size="small" onClick={() => setSelectedCycleId(r.id)}>Chi tiet</Button>
+        <Button size="small" onClick={() => setSelectedCycleId(r.id)}>Chi tiết</Button>
       ),
     },
   ];
@@ -403,19 +403,19 @@ export default function Payroll() {
     <div style={{ padding: '0 0 24px' }}>
       <Row align="middle" style={{ marginBottom: 16 }}>
         <Col flex="auto">
-          <Title level={4} style={{ margin: 0 }}>Bang Luong</Title>
+          <Title level={4} style={{ margin: 0 }}>Bảng Lương</Title>
         </Col>
         <Col>
           <Space>
             <Select value={statusFilter} onChange={(v) => setStatusFilter(v)} style={{ width: 140 }}>
-              <Option value="">Tat ca trang thai</Option>
-              <Option value="pending">Cho xu ly</Option>
-              <Option value="processing">Dang xu ly</Option>
-              <Option value="paid">Da tra</Option>
+              <Option value="">Tất cả trạng thái</Option>
+              <Option value="pending">Chờ xử lý</Option>
+              <Option value="processing">Đang xử lý</Option>
+              <Option value="paid">Đã trả</Option>
             </Select>
-            <Button icon={<ReloadOutlined />} onClick={refetch}>Lam moi</Button>
+            <Button icon={<ReloadOutlined />} onClick={refetch}>Làm mới</Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-              Tao chu ky moi
+              Tạo chu kỳ mới
             </Button>
           </Space>
         </Col>
@@ -426,7 +426,7 @@ export default function Payroll() {
         dataSource={cycles ?? []}
         rowKey="id"
         loading={loading}
-        pagination={{ pageSize: 20, showTotal: (t) => `Tong ${t} chu ky` }}
+        pagination={{ pageSize: 20, showTotal: (t) => `Tổng ${t} chu kỳ` }}
         size="middle"
       />
 

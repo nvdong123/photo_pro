@@ -6,6 +6,7 @@ from pydantic import model_validator
 class Settings(BaseSettings):
     ENV: str = "development"  # "development" | "production"
     APP_URL: str = "http://localhost:8000"
+    FRONTEND_URL: str = ""  # Override for prod when API and frontend are on separate domains
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql+asyncpg://photopro:photopro_dev@localhost:5432/photopro"
@@ -84,6 +85,11 @@ class Settings(BaseSettings):
         return self
 
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+    @property
+    def effective_frontend_url(self) -> str:
+        """Returns FRONTEND_URL if set, otherwise falls back to APP_URL."""
+        return self.FRONTEND_URL.rstrip("/") if self.FRONTEND_URL else self.APP_URL.rstrip("/")
 
 
 @lru_cache

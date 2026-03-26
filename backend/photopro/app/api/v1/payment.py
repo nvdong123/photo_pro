@@ -151,14 +151,14 @@ async def vnpay_return(
     params_copy = dict(params)
 
     if not payment_service.verify_signature(params_copy):
-        return RedirectResponse(f"{app_settings.APP_URL}/payment-failed", status_code=302)
+        return RedirectResponse(f"{app_settings.effective_frontend_url}/payment-failed", status_code=302)
 
     order_code = params.get("vnp_TxnRef", "")
     vnp_response_code = params.get("vnp_ResponseCode", "")
 
     if vnp_response_code != "00":
         return RedirectResponse(
-            f"{app_settings.APP_URL}/payment-failed?order={order_code}",
+            f"{app_settings.effective_frontend_url}/payment-failed?order={order_code}",
             status_code=302,
         )
 
@@ -173,13 +173,13 @@ async def vnpay_return(
         delivery = delivery_result.scalar_one_or_none()
         if delivery and delivery.is_active:
             return RedirectResponse(
-                f"{app_settings.APP_URL}/d/{delivery.download_token}",
+                f"{app_settings.effective_frontend_url}/d/{delivery.download_token}",
                 status_code=302,
             )
 
     # Webhook not yet synchronised — show generic success page
     return RedirectResponse(
-        f"{app_settings.APP_URL}/success?order={order_code}",
+        f"{app_settings.effective_frontend_url}/success?order={order_code}",
         status_code=302,
     )
 

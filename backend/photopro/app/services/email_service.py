@@ -19,7 +19,7 @@ def send_download_email(
     max_downloads: int,
     preview_urls: list[str],
 ) -> None:
-    download_url = f"{settings.APP_URL}/d/{download_token}"
+    download_url = f"{settings.effective_frontend_url}/d/{download_token}"
     previews_html = "".join(
         f'<img src="{url}" style="width:120px;margin:4px;" />'
         for url in preview_urls[:3]

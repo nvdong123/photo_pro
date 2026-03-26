@@ -117,12 +117,25 @@ async def get_order(
     delivery_out: DeliveryOut | None = None
     if delivery:
         delivery_out = DeliveryOut.model_validate(delivery)
-        delivery_out.download_url = f"{app_settings.APP_URL}/d/{delivery.download_token}"
+        delivery_out.download_url = f"{app_settings.effective_frontend_url}/d/{delivery.download_token}"
 
-    out = OrderOut.model_validate(order)
-    out.items = items_out
-    out.photos = photos_out
-    out.delivery = delivery_out
+    out = OrderOut(
+        id=order.id,
+        order_code=order.order_code,
+        customer_phone=order.customer_phone,
+        customer_email=order.customer_email,
+        bundle_id=order.bundle_id,
+        photo_count=order.photo_count,
+        amount=order.amount,
+        status=order.status,
+        payment_ref=order.payment_ref,
+        payment_method=order.payment_method,
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+        items=items_out,
+        photos=photos_out,
+        delivery=delivery_out,
+    )
     return APIResponse.ok(out)
 
 
