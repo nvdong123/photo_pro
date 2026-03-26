@@ -71,5 +71,14 @@ class StorageService:
             Key=dest_key,
         )
 
+    def ensure_folder(self, prefix: str) -> None:
+        """Create a zero-byte S3 object to represent a folder.
+
+        S3 is flat, but a trailing-slash key shows up as a folder
+        in the AWS console and MinIO browser.  Idempotent.
+        """
+        key = prefix if prefix.endswith("/") else prefix + "/"
+        self._s3.put_object(Bucket=self._bucket, Key=key, Body=b"")
+
 
 storage_service = StorageService()
