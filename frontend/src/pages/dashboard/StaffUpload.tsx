@@ -115,7 +115,7 @@ export default function StaffUpload() {
     setUploading(true);
     setUploadDone(false);
 
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('admin_token');
 
     for (const item of fileItems) {
       setFileItems((prev) =>
