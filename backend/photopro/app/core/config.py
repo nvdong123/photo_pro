@@ -32,10 +32,6 @@ class Settings(BaseSettings):
     VNPAY_HASH_SECRET: str = ""
     VNPAY_URL: str = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
     VNPAY_RETURN_URL: str = "http://localhost:8000/api/v1/payment/vnpay/return"
-    VENO_BASE_URL: str = "http://localhost:8080"  # Veno File Manager URL
-
-    # Veno File Manager sync API
-    VENO_SYNC_SECRET: str = ""  # shared secret with vfm-admin/api/sync.php
 
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "noreply@photopro.vn"
@@ -75,11 +71,6 @@ class Settings(BaseSettings):
             errors.append("RESEND_API_KEY is required in production")
         if self.DEBUG:
             errors.append("DEBUG must be False in production")
-        if not self.VENO_SYNC_SECRET:
-            import logging as _log
-            _log.getLogger(__name__).warning(
-                "VENO_SYNC_SECRET is empty in production — Veno user sync will fail."
-            )
         if errors:
             raise ValueError("Production config errors:\n  - " + "\n  - ".join(errors))
         return self
