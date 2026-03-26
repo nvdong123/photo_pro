@@ -51,6 +51,10 @@ export default function Settings() {
   const [bankName, setBankName] = useState('');
   const [bankAccount, setBankAccount] = useState('');
   const [bankOwner, setBankOwner] = useState('');
+  const [payosEnabled, setPayosEnabled] = useState(false);
+  const [payosClientId, setPayosClientId] = useState('');
+  const [payosApiKey, setPayosApiKey] = useState('');
+  const [payosChecksumKey, setPayosChecksumKey] = useState('');
 
   // --- Appearance state ---
   const [selectedColor, setSelectedColor] = useState('green');
@@ -74,16 +78,44 @@ export default function Settings() {
     if (apiSettings.bank_name)    setBankName(apiSettings.bank_name);
     if (apiSettings.bank_account) setBankAccount(apiSettings.bank_account);
     if (apiSettings.bank_owner)   setBankOwner(apiSettings.bank_owner);
+    if (apiSettings.vnpay_enabled !== undefined) setVnpayEnabled(apiSettings.vnpay_enabled === 'true');
+    if (apiSettings.momo_enabled !== undefined)  setMomoEnabled(apiSettings.momo_enabled === 'true');
+    if (apiSettings.bank_enabled !== undefined)  setBankEnabled(apiSettings.bank_enabled === 'true');
+    if (apiSettings.payos_enabled !== undefined) setPayosEnabled(apiSettings.payos_enabled === 'true');
+    if (apiSettings.payos_client_id)    setPayosClientId(apiSettings.payos_client_id);
+    if (apiSettings.payos_api_key)      setPayosApiKey(apiSettings.payos_api_key);
+    if (apiSettings.payos_checksum_key) setPayosChecksumKey(apiSettings.payos_checksum_key);
   }, [apiSettings]);
 
   const saveAllSettings = async () => {
     try {
+      // Retention
       await update('media_ttl_days', String(photoRetention));
       await update('link_ttl_days', String(linkTTL));
       await update('max_downloads_per_link', maxDownloads);
+      await update('watermark_opacity', String(watermarkOpacity));
+      // Appearance
       await update('primary_color', customPrimary);
       await update('accent_color', customAccent);
-      await update('watermark_opacity', String(watermarkOpacity));
+      // Domain
+      await update('subdomain', subdomain);
+      await update('custom_domain', customDomain);
+      // Payment
+      await update('vnpay_enabled', String(vnpayEnabled));
+      await update('vnpay_tmn_code', vnpayTmnCode);
+      await update('vnpay_hash_secret', vnpayHashSecret);
+      await update('momo_enabled', String(momoEnabled));
+      await update('momo_partner_code', momoPartnerCode);
+      await update('momo_access_key', momoAccessKey);
+      await update('bank_enabled', String(bankEnabled));
+      await update('bank_name', bankName);
+      await update('bank_account', bankAccount);
+      await update('bank_owner', bankOwner);
+      // PayOS
+      await update('payos_enabled', String(payosEnabled));
+      await update('payos_client_id', payosClientId);
+      await update('payos_api_key', payosApiKey);
+      await update('payos_checksum_key', payosChecksumKey);
       message.success('Đã lưu cài đặt thành công!');
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Lưu thất bại, vui lòng thử lại');
@@ -249,6 +281,25 @@ export default function Settings() {
         <div style={formGroupStyle}>
           <label style={labelStyle}>MoMo Access Key</label>
           <Input.Password style={fieldStyle} placeholder="••••••••" value={momoAccessKey} onChange={e => setMomoAccessKey(e.target.value)} disabled={!canEdit} />
+        </div>
+
+        <Divider style={{ margin: '8px 0' }} />
+
+        {/* PayOS */}
+        <div style={formGroupStyle}>
+          <Checkbox checked={payosEnabled} onChange={e => setPayosEnabled(e.target.checked)} disabled={!canEdit} style={{ fontWeight: 600, fontSize: 14 }}>PayOS</Checkbox>
+        </div>
+        <div style={formGroupStyle}>
+          <label style={labelStyle}>PayOS Client ID</label>
+          <Input style={fieldStyle} type="text" placeholder="Client ID từ payos.vn" value={payosClientId} onChange={e => setPayosClientId(e.target.value)} disabled={!canEdit} />
+        </div>
+        <div style={formGroupStyle}>
+          <label style={labelStyle}>PayOS API Key</label>
+          <Input.Password style={fieldStyle} placeholder="••••••••" value={payosApiKey} onChange={e => setPayosApiKey(e.target.value)} disabled={!canEdit} />
+        </div>
+        <div style={formGroupStyle}>
+          <label style={labelStyle}>PayOS Checksum Key</label>
+          <Input.Password style={fieldStyle} placeholder="••••••••" value={payosChecksumKey} onChange={e => setPayosChecksumKey(e.target.value)} disabled={!canEdit} />
         </div>
 
         <Divider style={{ margin: '8px 0' }} />

@@ -1,32 +1,50 @@
 """Admin notification settings — GET / POST /api/v1/admin/notifications/settings.
 
-Phase 1: in-memory per-staff store. Replace with a DB-backed table in a later sprint.
+Persists notification preferences per-staff in the system_settings table
+using key pattern: notification_prefs_{staff_id}.
 """
-from fastapi import APIRouter, Depends
+import json
 
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 from app.core.deps import get_current_admin
 from app.models.staff import Staff
+from app.models.system_setting import SystemSetting
 from app.schemas.common import APIResponse
 
 router = APIRouter()
 
-# In-memory store keyed by str(staff_id).
-# This intentionally resets on restart — acceptable for a preference store until
-# a proper DB migration is added.
-_notif_store: dict[str, dict] = {}
+
+def _key(staff_id: str) -> str:
+    return f"notification_prefs_{staff_id}"
 
 
 @router.get("/settings", response_model=APIResponse[dict])
 async def get_notif_settings(
     admin: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
 ):
-    return APIResponse.ok(_notif_store.get(str(admin.id), {}))
+    setting = await db.get(SystemSetting, _key(str(admin.id)))
+    if setting:
+        return APIResponse.ok(json.loads(setting.value))
+    return APIResponse.ok({})
 
 
 @router.post("/settings", response_model=APIResponse[dict])
 async def save_notif_settings(
     body: dict,
     admin: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
 ):
-    _notif_store[str(admin.id)] = body
+    key = _key(str(admin.id))
+    setting = await db.get(SystemSetting, key)
+    if not setting:
+        setting = SystemSetting(key=key, value=json.dumps(body), updated_by=admin.email)
+        db.add(setting)
+    else:
+        setting.value = json.dumps(body)
+        setting.updated_by = admin.email
+    await db.commit()
     return APIResponse.ok({"saved": True})

@@ -118,8 +118,8 @@ export default function Profile() {
   interface ActivityItem { ip: string; device: string; created_at: string; }
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   useEffect(() => {
-    apiClient.get<{ data: ActivityItem[] }>('/api/v1/admin/auth/activity')
-      .then(r => setActivities(r.data ?? []))
+    apiClient.get<ActivityItem[]>('/api/v1/admin/auth/activity')
+      .then(r => setActivities(r ?? []))
       .catch(() => setActivities([]));
   }, []);
 
@@ -319,7 +319,7 @@ export default function Profile() {
           ))}
         </div>
         <div style={{ paddingTop: 20 }}>
-          <Button type="primary" icon={<SaveOutlined />} onClick={() => message.success('Đã lưu cài đặt thông báo!')}>Lưu cài đặt</Button>
+          <Button type="primary" icon={<SaveOutlined />} onClick={saveNotifSettings}>Lưu cài đặt</Button>
         </div>
       </div>
     </div>

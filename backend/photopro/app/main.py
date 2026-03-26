@@ -21,10 +21,19 @@ from app.models import (  # noqa: F401 – ensure all models are registered
     StaffLocationAssignment, SystemSetting, Tag
 )
 from app.services.face_client import face_client
+from app.services.payos_service import payos_service
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: configure PayOS if credentials are present
+    if app_settings.PAYOS_CLIENT_ID and app_settings.PAYOS_API_KEY and app_settings.PAYOS_CHECKSUM_KEY:
+        payos_service.configure(
+            client_id=app_settings.PAYOS_CLIENT_ID,
+            api_key=app_settings.PAYOS_API_KEY,
+            checksum_key=app_settings.PAYOS_CHECKSUM_KEY,
+        )
+        logger.info("PayOS configured successfully")
     yield
     # Shutdown
     await face_client.aclose()

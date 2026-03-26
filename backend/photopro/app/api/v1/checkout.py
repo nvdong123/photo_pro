@@ -16,6 +16,7 @@ from app.schemas.checkout import CheckoutRequest, CheckoutResponse
 from app.schemas.common import APIResponse
 from app.services.bundle_service import suggest_pack
 from app.services.payment_service import payment_service
+from app.services.payos_service import payos_service
 
 router = APIRouter()
 
@@ -104,7 +105,15 @@ async def checkout(
     # Generate payment URL (may raise)
     try:
         client_ip = request.client.host if request.client else "127.0.0.1"
-        payment_url = payment_service.create_payment_url(order, client_ip)
+        if body.payment_method == "payos":
+            if not payos_service.is_configured:
+                await db.rollback()
+                raise HTTPException(400, "PayOS is not configured")
+            payment_url = await payos_service.create_payment_url(order)
+        else:
+            payment_url = payment_service.create_payment_url(order, client_ip)
+    except HTTPException:
+        raise
     except Exception as exc:
         await db.rollback()
         raise HTTPException(500, f"Payment URL generation failed: {exc}")

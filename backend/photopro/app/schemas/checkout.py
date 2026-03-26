@@ -9,7 +9,7 @@ class CheckoutRequest(BaseModel):
     customer_phone: str
     customer_email: str | None = None
     bundle_id: uuid.UUID
-    payment_method: Literal["vnpay", "momo"] = "vnpay"
+    payment_method: Literal["vnpay", "momo", "payos"] = "vnpay"
 
     @field_validator("customer_phone")
     @classmethod

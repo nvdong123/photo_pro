@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     VNPAY_URL: str = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
     VNPAY_RETURN_URL: str = "http://localhost:8000/api/v1/payment/vnpay/return"
 
+    PAYOS_CLIENT_ID: str = ""
+    PAYOS_API_KEY: str = ""
+    PAYOS_CHECKSUM_KEY: str = ""
+
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "noreply@photopro.vn"
 

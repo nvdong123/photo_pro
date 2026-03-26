@@ -14,6 +14,7 @@ from app.models.order import Order, OrderItem, OrderPhoto, OrderStatus
 from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.services.payment_service import payment_service
+from app.services.payos_service import payos_service
 from app.services.settings_service import get_setting_int
 from app.services.cache_service import get_cached_presigned_url
 from app.services.email_service import send_download_email
@@ -57,7 +58,17 @@ async def vnpay_webhook(
         return {"RspCode": "00", "Message": "Payment failed recorded"}
 
     order.payment_ref = params.get("vnp_TransactionNo")
+    await _process_paid_order(order, db, background_tasks)
 
+    return {"RspCode": "00", "Message": "Confirm Success"}
+
+
+async def _process_paid_order(
+    order: Order,
+    db: AsyncSession,
+    background_tasks: BackgroundTasks,
+) -> None:
+    """Shared post-payment logic: create order tag, move photos, create delivery, send email."""
     # ── a) Create order album tag ─────────────────────────────────────
     order_tag = Tag(
         name=order.order_code,
@@ -137,8 +148,6 @@ async def vnpay_webhook(
             max_dl=max_dl,
         )
 
-    return {"RspCode": "00", "Message": "Confirm Success"}
-
 
 @router.get("/vnpay/return")
 @router.get("/vnpay-return")
@@ -214,3 +223,91 @@ async def _send_order_email(order: Order, token: str, link_ttl: int, max_dl: int
     except Exception:
         import logging
         logging.getLogger(__name__).exception("Failed to send order email for %s", order.order_code)
+
+
+# ════════════════════════════════════════════════════════════════════════
+# PayOS endpoints
+# ════════════════════════════════════════════════════════════════════════
+
+@router.post("/webhook/payos")
+async def payos_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Receive payment notification from PayOS."""
+    body = await request.json()
+
+    # Verify signature
+    data = body.get("data", {})
+    signature = body.get("signature", "")
+    if not payos_service.verify_webhook_signature(data, signature):
+        raise HTTPException(400, detail={"code": "PAYMENT_VERIFY_FAILED"})
+
+    # PayOS sends code "00" for success
+    if body.get("code") != "00" or not body.get("success"):
+        return {"code": "00"}  # acknowledge but don't process
+
+    order_code_int = data.get("orderCode")
+    description = data.get("description", "")
+
+    # description contains our order_code (e.g. PP20240101ABCDEF)
+    # Also try finding by matching the integer hash
+    order = None
+    if description:
+        result = await db.execute(
+            select(Order).where(Order.order_code == description)
+        )
+        order = result.scalar_one_or_none()
+
+    if not order:
+        # Try to find by iterating — unlikely path
+        return {"code": "01", "message": "Order not found"}
+
+    # Idempotent
+    if order.status == OrderStatus.PAID:
+        return {"code": "00"}
+
+    order.payment_ref = data.get("paymentLinkId", "")
+
+    # Reuse the same post-payment logic as VNPay
+    await _process_paid_order(order, db, background_tasks)
+
+    return {"code": "00"}
+
+
+@router.get("/payos/return")
+async def payos_return(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Browser redirect from PayOS after payment."""
+    params = dict(request.query_params)
+    order_code = params.get("orderCode", "")
+
+    # PayOS returns status=PAID or status=CANCELLED in query params
+    status = params.get("status", "")
+    if status == "CANCELLED":
+        return RedirectResponse(
+            f"{app_settings.effective_frontend_url}/payment-failed?order={order_code}",
+            status_code=302,
+        )
+
+    result = await db.execute(select(Order).where(Order.order_code == order_code))
+    order = result.scalar_one_or_none()
+
+    if order and order.status == OrderStatus.PAID:
+        delivery_result = await db.execute(
+            select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+        )
+        delivery = delivery_result.scalar_one_or_none()
+        if delivery and delivery.is_active:
+            return RedirectResponse(
+                f"{app_settings.effective_frontend_url}/d/{delivery.download_token}",
+                status_code=302,
+            )
+
+    return RedirectResponse(
+        f"{app_settings.effective_frontend_url}/success?order={order_code}",
+        status_code=302,
+    )

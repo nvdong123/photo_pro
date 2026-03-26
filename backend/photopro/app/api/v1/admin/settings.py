@@ -23,6 +23,24 @@ _VALIDATORS: dict[str, tuple] = {
     "watermark_opacity":      ("float", 0.1,  0.9),
     "primary_color":          ("hex",   None, None),
     "accent_color":           ("hex",   None, None),
+    # Payment
+    "vnpay_tmn_code":         ("str",   None, None),
+    "vnpay_hash_secret":      ("str",   None, None),
+    "vnpay_enabled":          ("bool",  None, None),
+    "momo_partner_code":      ("str",   None, None),
+    "momo_access_key":        ("str",   None, None),
+    "momo_enabled":           ("bool",  None, None),
+    "bank_name":              ("str",   None, None),
+    "bank_account":           ("str",   None, None),
+    "bank_owner":             ("str",   None, None),
+    "bank_enabled":           ("bool",  None, None),
+    "payos_client_id":        ("str",   None, None),
+    "payos_api_key":          ("str",   None, None),
+    "payos_checksum_key":     ("str",   None, None),
+    "payos_enabled":          ("bool",  None, None),
+    # Domain
+    "subdomain":              ("str",   None, None),
+    "custom_domain":          ("str",   None, None),
 }
 
 _HEX_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
@@ -32,6 +50,12 @@ def _validate_setting(key: str, value: str) -> None:
     if key not in _VALIDATORS:
         raise HTTPException(422, f"Key '{key}' is not allowed")
     vtype, vmin, vmax = _VALIDATORS[key]
+    if vtype == "str":
+        return  # accept any string
+    if vtype == "bool":
+        if value.lower() not in ("true", "false", "1", "0"):
+            raise HTTPException(422, "Value must be true or false")
+        return
     if vtype == "hex":
         if not _HEX_RE.match(value):
             raise HTTPException(422, "Value must be a valid hex color (#RRGGBB)")
