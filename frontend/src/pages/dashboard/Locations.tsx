@@ -79,7 +79,7 @@ export default function Locations() {
   // Build a map of locationId → staff list with upload_count from backend
   const locationStaffWithCount: Record<string, Staff[]> = {};
   apiLocations.forEach((a, _) => {
-    locationStaffWithCount[a.id] = (a.assigned_staff ?? []).map((s: LocationStaffAssignment, i: number) => ({
+    locationStaffWithCount[a.id] = (a.assigned_staff ?? []).map((s, i: number) => ({
       id: s.id,
       initials: (s.full_name ?? '').split(' ').map((w: string) => w[0]).slice(-2).join('').toUpperCase(),
       name: s.full_name ?? s.employee_code ?? '',
