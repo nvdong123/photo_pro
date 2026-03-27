@@ -1,7 +1,7 @@
 import random
 import string
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from sqlalchemy import select
@@ -42,6 +42,21 @@ async def checkout(
     media_ids = _load_cart(pp_cart)
     if not media_ids:
         raise HTTPException(400, "Cart is empty")
+
+    # ── Idempotency: reject if same phone has a CREATED order in last 60 seconds ──
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
+    existing = await db.execute(
+        select(Order).where(
+            Order.customer_phone == body.customer_phone,
+            Order.status == OrderStatus.CREATED,
+            Order.created_at >= recent_cutoff,
+        )
+    )
+    if existing.scalars().first():
+        raise HTTPException(
+            429,
+            "Đơn hàng đang được xử lý, vui lòng đợi 1 phút trước khi thử lại",
+        )
 
     # Load bundle — validate it still exists and is active
     bundle = await db.get(BundlePricing, body.bundle_id)

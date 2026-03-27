@@ -7,6 +7,7 @@ Signature: HMAC_SHA256 with checksum_key over sorted data string.
 """
 import hashlib
 import hmac
+import zlib
 
 import httpx
 
@@ -34,23 +35,34 @@ class PayOSService:
     def is_configured(self) -> bool:
         return bool(self._client_id and self._api_key and self._checksum_key)
 
+    @staticmethod
+    def _order_code_to_int(order_code: str) -> int:
+        """Deterministic conversion of order_code string to PayOS integer orderCode.
+
+        Uses CRC32 (deterministic, unlike Python's hash() which is randomized).
+        Masked to 31-bit positive integer as PayOS requires.
+        """
+        return zlib.crc32(order_code.encode("utf-8")) & 0x7FFFFFFF
+
     async def create_payment_url(self, order: Order) -> str:
         """Create a PayOS payment link and return the checkoutUrl."""
         cancel_url = f"{settings.effective_frontend_url}/payment-failed?order={order.order_code}"
-        return_url = f"{settings.APP_URL}/api/v1/payment/payos/return?orderCode={order.order_code}"
+        # Use ppOrder param (not orderCode) to avoid PayOS overwriting it
+        return_url = f"{settings.APP_URL}/api/v1/payment/payos/return?ppOrder={order.order_code}"
+        payos_int_code = self._order_code_to_int(order.order_code)
 
         # Build signature data: sorted alphabetically by key
         signature_data = (
             f"amount={order.amount}"
             f"&cancelUrl={cancel_url}"
             f"&description={order.order_code}"
-            f"&orderCode={abs(hash(order.order_code)) % (2**31)}"
+            f"&orderCode={payos_int_code}"
             f"&returnUrl={return_url}"
         )
         signature = self._hmac_sha256(self._checksum_key, signature_data)
 
         payload = {
-            "orderCode": abs(hash(order.order_code)) % (2**31),
+            "orderCode": payos_int_code,
             "amount": order.amount,
             "description": order.order_code,
             "cancelUrl": cancel_url,

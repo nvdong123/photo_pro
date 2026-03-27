@@ -295,11 +295,13 @@ async def payos_webhook(
 @router.get("/payos/return")
 async def payos_return(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Browser redirect from PayOS after payment."""
     params = dict(request.query_params)
-    order_code = params.get("orderCode", "")
+    # We use ppOrder (not orderCode) to avoid PayOS overwriting our param
+    order_code = params.get("ppOrder", params.get("orderCode", ""))
 
     # PayOS returns status=PAID or status=CANCELLED in query params
     status = params.get("status", "")
@@ -312,16 +314,27 @@ async def payos_return(
     result = await db.execute(select(Order).where(Order.order_code == order_code))
     order = result.scalar_one_or_none()
 
-    if order and order.status == OrderStatus.PAID:
-        delivery_result = await db.execute(
-            select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+    if not order:
+        return RedirectResponse(
+            f"{app_settings.effective_frontend_url}/payment-failed?order={order_code}",
+            status_code=302,
         )
-        delivery = delivery_result.scalar_one_or_none()
-        if delivery and delivery.is_active:
-            return RedirectResponse(
-                f"{app_settings.effective_frontend_url}/d/{delivery.download_token}",
-                status_code=302,
-            )
+
+    # If webhook hasn't fired yet, process the payment here (idempotent)
+    if order.status != OrderStatus.PAID:
+        order.payment_ref = params.get("id", "")
+        await _process_paid_order(order, db, background_tasks)
+
+    # Fetch delivery token
+    delivery_result = await db.execute(
+        select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+    )
+    delivery = delivery_result.scalar_one_or_none()
+    if delivery and delivery.is_active:
+        return RedirectResponse(
+            f"{app_settings.effective_frontend_url}/d/{delivery.download_token}",
+            status_code=302,
+        )
 
     return RedirectResponse(
         f"{app_settings.effective_frontend_url}/success?order={order_code}",
