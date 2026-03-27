@@ -10,6 +10,7 @@ export interface AdminUser {
   is_active: boolean;
   created_at: string;
   total_photos: number;
+  commission_rate: number;
 }
 
 const STAFF_PATH = "/api/v1/admin/auth/users";
@@ -32,7 +33,7 @@ export function useAdminStaff() {
 
   const updateStaff = async (
     id: string,
-    updates: { full_name?: string; role?: string; is_active?: boolean; employee_code?: string },
+    updates: { full_name?: string; role?: string; is_active?: boolean; employee_code?: string; commission_rate?: number },
   ) => {
     await apiClient.patch(`${STAFF_PATH}/${id}`, updates);
     invalidateApiCache(STAFF_PATH);

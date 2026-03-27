@@ -17,6 +17,7 @@ interface StaffMember {
   id: string; name: string; email: string; phone: string; role: StaffRole;
   uploads: string; joinDate: string; status: StaffStatus;
   employeeCode: string | null;
+  commissionRate: number;
 }
 
 const ROLE_REMAP: Record<string, StaffRole> = {
@@ -38,7 +39,7 @@ const AVATAR_COLORS = [
 ];
 
 interface ModalState { open: boolean; item: StaffMember | null; }
-interface StaffFormData { name: string; email: string; phone: string; role: string; password: string; employeeCode: string; }
+interface StaffFormData { name: string; email: string; phone: string; role: string; password: string; employeeCode: string; commissionRate: string; }
 
 export default function Staff() {
   const { staff: apiStaff, loading, createStaff, updateStaff, deleteStaff } = useAdminStaff();
@@ -52,12 +53,13 @@ export default function Staff() {
     joinDate: new Date(u.created_at).toLocaleDateString('vi-VN'),
     status: u.is_active ? 'active' : 'locked' as StaffStatus,
     employeeCode: u.employee_code ?? null,
+    commissionRate: u.commission_rate ?? 100,
   }));
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modal, setModal] = useState<ModalState>({ open: false, item: null });
-  const [form, setForm] = useState<StaffFormData>({ name: '', email: '', phone: '', role: '', password: '', employeeCode: '' });
+  const [form, setForm] = useState<StaffFormData>({ name: '', email: '', phone: '', role: '', password: '', employeeCode: '', commissionRate: '100' });
   const [formErr, setFormErr] = useState<Partial<StaffFormData>>({});
 
   const canManage = hasRole(['admin-system']);
@@ -77,8 +79,8 @@ export default function Staff() {
   const openModal = (item: StaffMember | null) => {
     setModal({ open: true, item });
     setFormErr({});
-    if (item) setForm({ name: item.name, email: item.email, phone: item.phone, role: item.role, password: '', employeeCode: item.employeeCode ?? '' });
-    else setForm({ name: '', email: '', phone: '', role: '', password: '', employeeCode: '' });
+    if (item) setForm({ name: item.name, email: item.email, phone: item.phone, role: item.role, password: '', employeeCode: item.employeeCode ?? '', commissionRate: String(item.commissionRate ?? 100) });
+    else setForm({ name: '', email: '', phone: '', role: '', password: '', employeeCode: '', commissionRate: '100' });
   };
 
   const closeModal = () => { setModal({ open: false, item: null }); setFormErr({}); };
@@ -98,10 +100,12 @@ export default function Staff() {
     if (!validate()) return;
     try {
       if (modal.item) {
+        const commRate = parseFloat(form.commissionRate);
         await updateStaff(modal.item.id, {
           full_name: form.name,
           role: ROLE_TO_BACKEND[form.role] || form.role,
           ...(form.employeeCode.trim() && form.employeeCode.trim() !== modal.item.employeeCode ? { employee_code: form.employeeCode.trim() } : {}),
+          ...(!isNaN(commRate) && commRate !== modal.item.commissionRate ? { commission_rate: commRate } : {}),
         });
         message.success('Đã cập nhật nhân viên thành công!');
       } else {
@@ -211,6 +215,19 @@ export default function Staff() {
               <Input value={form.employeeCode} onChange={e => setForm(f => ({ ...f, employeeCode: e.target.value }))} placeholder="VD: abcxyz" />
             </div>
           )}
+          {/* Hoa hồng - hiển thị khi edit nhân viên role STAFF */}
+          {isEdit && (form.role === 'staff') && (
+            <div>
+              <label style={labelStyle}>% Hoa hồng <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(% doanh thu trả cho nhân viên, mặc định 100%)</small></label>
+              <Input
+                type="number" min={0} max={100} step={0.5}
+                value={form.commissionRate}
+                onChange={e => setForm(f => ({ ...f, commissionRate: e.target.value }))}
+                suffix="%"
+                placeholder="0 – 100"
+              />
+            </div>
+          )}
           {/* Mật khẩu */}
           <div>
             <label style={labelStyle}>Mật khẩu {!isEdit && <span style={{ color: DANGER }}>*</span>}{isEdit && <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(Để trống = không thay đổi)</small>}</label>
@@ -300,6 +317,7 @@ export default function Staff() {
             },
           },
           { title: 'Vai trò', key: 'role', render: (s: StaffMember) => <Tag color={ROLE_MAP[s.role].color}>{ROLE_MAP[s.role].label}</Tag> },
+          { title: '% Hoa hồng', key: 'commissionRate', render: (s: StaffMember) => s.role === 'staff' ? <Tag color="purple">{s.commissionRate}%</Tag> : <span style={{ color: TEXT_MUTED }}>—</span> },
           { title: 'Số ảnh upload', key: 'uploads', render: (s: StaffMember) => <strong>{s.uploads}</strong> },
           { title: 'Ngày tham gia', key: 'joinDate', render: (s: StaffMember) => <span style={{ color: '#5a6170' }}>{s.joinDate}</span> },
           { title: 'Trạng thái', key: 'status', render: (s: StaffMember) => <Tag color={s.status === 'active' ? 'green' : 'default'}>{s.status === 'active' ? 'Hoạt động' : 'Đã khóa'}</Tag> },
