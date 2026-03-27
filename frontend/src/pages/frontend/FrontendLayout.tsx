@@ -71,7 +71,7 @@ export default function FrontendLayout() {
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
         >
           <img
-            src={isHome ? '/images/Logo_PhotoPro_no_bg.png' : '/images/Logo_photopro_official.png'}
+            src={isHome ? '/images/Logo_PhotoPro_no_bg.png' : '/images/Logo_photopro_official.jpg'}
             alt="PhotoPro"
             style={{ height: 48, objectFit: 'contain' }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
