@@ -107,6 +107,7 @@ export default function Staff() {
           role: ROLE_TO_BACKEND[form.role] || form.role,
           ...(form.employeeCode.trim() && form.employeeCode.trim() !== modal.item.employeeCode ? { employee_code: form.employeeCode.trim() } : {}),
           ...(!isNaN(commRate) && commRate !== modal.item.commissionRate ? { commission_rate: commRate } : {}),
+          ...(form.password.trim().length >= 8 ? { password: form.password.trim() } : {}),
         });
         message.success('Đã cập nhật nhân viên thành công!');
       } else {

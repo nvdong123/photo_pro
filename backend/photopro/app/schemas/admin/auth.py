@@ -70,6 +70,7 @@ class PatchAdminUserRequest(BaseModel):
     is_active: bool | None = None
     employee_code: str | None = None
     commission_rate: float | None = None  # % of revenue paid to the staff member
+    password: str | None = None  # admin reset password; None = no change
 
 
 class PatchProfileRequest(BaseModel):

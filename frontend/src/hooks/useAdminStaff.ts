@@ -34,7 +34,7 @@ export function useAdminStaff() {
 
   const updateStaff = async (
     id: string,
-    updates: { full_name?: string; role?: string; is_active?: boolean; employee_code?: string; commission_rate?: number },
+    updates: { full_name?: string; role?: string; is_active?: boolean; employee_code?: string; commission_rate?: number; password?: string },
   ) => {
     await apiClient.patch(`${STAFF_PATH}/${id}`, updates);
     invalidateApiCache(STAFF_PATH);

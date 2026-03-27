@@ -208,6 +208,10 @@ async def patch_admin(
         user.is_active = body.is_active
     if body.commission_rate is not None:
         user.commission_rate = Decimal(str(max(0.0, min(100.0, body.commission_rate))))
+    if body.password is not None:
+        if len(body.password) < 8:
+            raise HTTPException(422, "Mật khẩu mới phải có ít nhất 8 ký tự")
+        user.hashed_password = hash_password(body.password)
     await db.commit()
     await db.refresh(user)
     return APIResponse.ok(AdminUserOut.model_validate(user))
