@@ -58,3 +58,13 @@ export function useSettings() {
 
   return { settings, loading, error, update, batchUpdate, refetch, applyColorToDOM };
 }
+
+export function usePublicSettings() {
+  const { data } = useAsync(() =>
+    apiClient.get<Record<string, string>>('/api/v1/admin/settings/public', TTL.LONG),
+  );
+  return {
+    hotline: data?.contact_hotline ?? '',
+    zaloLink: data?.contact_zalo ?? '',
+  };
+}

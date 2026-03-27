@@ -531,6 +531,25 @@ h3 {
   cursor: pointer;
 }
 
+@media (max-width: 768px) {
+  .photo-check {
+    width: 38px;
+    height: 38px;
+    top: 6px;
+    left: 6px;
+    border-width: 3px;
+  }
+  /* Larger Ant Design checkbox inside photo-check on mobile */
+  .photo-check .ant-checkbox-inner {
+    width: 22px;
+    height: 22px;
+  }
+  .photo-check .ant-checkbox-inner::after {
+    width: 7px;
+    height: 11px;
+  }
+}
+
 .photo-check:hover {
   transform: scale(1.1);
   background: rgba(0,0,0,.6);
@@ -543,7 +562,14 @@ h3 {
 
 @media (max-width: 768px) {
   .photo-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 400px) {
+  .photo-grid {
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
 }
@@ -590,16 +616,34 @@ h3 {
     padding: 10px 12px;
   }
   .sticky-cart-content {
-    gap: 8px;
+    gap: 6px;
   }
   .sticky-price-action {
     gap: 8px;
+    flex-shrink: 0;
+  }
+  .sticky-info {
+    flex-shrink: 0;
+  }
+  /* Bundle hint on mobile: single line, truncated */
+  .sticky-bundle-hint {
+    font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 0;
+    min-width: 0;
+    flex: 1;
   }
 }
 
 @media (max-width: 480px) {
   .sticky-bottom-bar {
     padding: 8px 10px;
+  }
+  /* Hide bundle hint completely on very small screens */
+  .sticky-bundle-hint {
+    display: none;
   }
 }
 

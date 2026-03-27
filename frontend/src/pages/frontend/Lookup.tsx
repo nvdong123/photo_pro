@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Radio, message } from 'antd';
 import { SearchOutlined, BulbOutlined, ProfileOutlined, QuestionCircleOutlined, PhoneOutlined, MessageOutlined, MailOutlined } from '@ant-design/icons';
 import { apiClient } from '../../lib/api-client';
+import { usePublicSettings } from '../../hooks/useSettings';
 import '../styles/frontend.css';
 
 export default function Lookup() {
   const navigate = useNavigate();
   const [searchType, setSearchType] = useState<'code' | 'phone'>('code');
   const [isSearching, setIsSearching] = useState(false);
+  const { hotline, zaloLink } = usePublicSettings();
 
   const handleSearch = async (values: { searchInput: string }) => {
     const input = values.searchInput?.trim();
@@ -104,8 +106,10 @@ export default function Lookup() {
             Không tìm thấy đơn hàng hoặc gặp vấn đề?
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button href="tel:0987654321" icon={<PhoneOutlined />}>0987 654 321</Button>
-            <Button href="https://zalo.me/wonderlandphoto" target="_blank" rel="noopener noreferrer" icon={<MessageOutlined />}>Chat Zalo</Button>
+            {hotline && <Button href={`tel:${hotline}`} icon={<PhoneOutlined />}>{hotline}</Button>}
+            {zaloLink && <Button href={zaloLink.startsWith('http') ? zaloLink : `https://zalo.me/${zaloLink}`} target="_blank" rel="noopener noreferrer" icon={<MessageOutlined />}>Chat Zalo</Button>}
+            {!hotline && <Button href="tel:0987654321" icon={<PhoneOutlined />}>0987 654 321</Button>}
+            {!zaloLink && <Button href="https://zalo.me/wonderlandphoto" target="_blank" rel="noopener noreferrer" icon={<MessageOutlined />}>Chat Zalo</Button>}
             <Button href="mailto:support@wonderlandphoto.vn" icon={<MailOutlined />}>Email</Button>
           </div>
         </div>

@@ -37,6 +37,7 @@ export default function FrontendLayout() {
   const navLinks = [
     { label: 'Tìm Ảnh',  href: '/face-search' },
     { label: 'Albums',       href: '/albums' },
+    { label: 'Tra Đơn',  href: '/lookup' },
     { label: 'Bảng Giá', href: '#pricing' },
   ];
 

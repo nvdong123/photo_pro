@@ -4,6 +4,7 @@ import { Button, Tag, Alert, message, Spin } from 'antd';
 import { CheckCircleOutlined, InboxOutlined, LinkOutlined, MobileOutlined, CopyOutlined, DownloadOutlined, ClockCircleOutlined, MessageOutlined, PhoneOutlined, SendOutlined, SearchOutlined, HomeOutlined, ReloadOutlined } from '@ant-design/icons';
 import { AlertTriangle } from 'lucide-react';
 import { apiClient } from '../../lib/api-client';
+import { usePublicSettings } from '../../hooks/useSettings';
 import '../styles/frontend.css';
 
 interface PublicOrderStatus {
@@ -30,6 +31,7 @@ export default function Success() {
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  const { hotline, zaloLink } = usePublicSettings();
 
   const fetchOrder = async () => {
     if (!orderCode) { setLoading(false); return; }
@@ -206,10 +208,19 @@ export default function Success() {
         <div style={{ maxWidth: '600px', margin: '20px auto 0', background: '#fff', borderRadius: '8px', border: '1px solid #e0e0e0', padding: '16px', textAlign: 'center' }}>
           <h3 style={{ marginBottom: '12px', fontSize: '1rem', fontWeight: 700 }}><MessageOutlined /> Cáº§n Há»— Trá»£?</h3>
           <p style={{ color: '#999', marginBottom: '16px', fontSize: '14px' }}>Link Ä‘Ã£ Ä‘Æ°á»£c gá»­i qua SMS. Náº¿u khÃ´ng nháº­n Ä‘Æ°á»£c, vui lÃ²ng liÃªn há»‡:</p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button href="tel:0987654321" icon={<PhoneOutlined />}>0987 654 321</Button>
-            <Button icon={<MessageOutlined />}>Chat Zalo</Button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+            {hotline && <Button href={`tel:${hotline}`} icon={<PhoneOutlined />}>{hotline}</Button>}
+            {zaloLink && <Button href={zaloLink.startsWith('http') ? zaloLink : `https://zalo.me/${zaloLink}`} target="_blank" rel="noopener noreferrer" icon={<MessageOutlined />}>Chat Zalo</Button>}
+            {!hotline && <Button href="tel:0987654321" icon={<PhoneOutlined />}>0987 654 321</Button>}
             <Button icon={<SendOutlined />}>Messenger</Button>
+          </div>
+          {/* 3 action buttons at bottom */}
+          <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16, display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {order?.status === 'PAID' && order.download_url && (
+              <Button type="primary" icon={<DownloadOutlined />} onClick={() => navigate(new URL(order.download_url!).pathname)}>Tải Ảnh Ngay</Button>
+            )}
+            <Button icon={<SearchOutlined />} onClick={() => navigate('/lookup')}>Tra Cứu Đơn Hàng</Button>
+            <Button icon={<HomeOutlined />} onClick={() => navigate('/')}>Về Trang Chủ</Button>
           </div>
         </div>
       </div>

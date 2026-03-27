@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDownloadInfo } from '../../hooks/useDownloadInfo';
+import { usePublicSettings } from '../../hooks/useSettings';
 import { API_BASE } from '../../lib/api-client';
 import { Button, Alert, Spin, message } from 'antd';
 import { DownloadOutlined, InboxOutlined, BulbOutlined, QuestionCircleOutlined, PhoneOutlined, MessageOutlined, AlertOutlined } from '@ant-design/icons';
@@ -10,6 +11,7 @@ export default function Download() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { data: info, loading, error } = useDownloadInfo(token ?? '');
+  const { hotline, zaloLink } = usePublicSettings();
   const [timeLeft, setTimeLeft] = useState('--:--:--');
 
   // Detect mobile device
@@ -37,6 +39,24 @@ export default function Download() {
   const handleDownloadAll = () => {
     if (!token) return;
     window.location.href = `${API_BASE}/api/v1/download/${token}/zip`;
+  };
+
+  const handleDownloadAllMobile = async () => {
+    const photoList = info?.photo_previews ?? [];
+    if (!photoList.length || !token) return;
+    message.info(`Bắt đầu tải ${photoList.length} ảnh...`);
+    for (let i = 0; i < photoList.length; i++) {
+      const url = `${API_BASE}/api/v1/download/${token}/single/${photoList[i].media_id}`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `photo_${i + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Small delay between downloads to avoid browser blocking
+      await new Promise(r => setTimeout(r, 800));
+    }
+    message.success('Đã bắt đầu tải tất cả ảnh!');
   };
 
   const handleDownloadPhoto = (mediaId: string) => {
@@ -143,10 +163,17 @@ export default function Download() {
             </p>
           </div>
         ) : (
-          /* ── Mobile: individual per-photo download ── */
+          /* ── Mobile: show both individual info + download all button ── */
           <div style={{ background: '#1a6b4e', color: 'white', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' }}>
             <h3 style={{ color: 'white', marginBottom: '6px', fontSize: '1rem', fontWeight: 700 }}><InboxOutlined /> Tải Lần Lượt Từng Ảnh</h3>
-            <p style={{ opacity: 0.85, marginBottom: 0, fontSize: '0.88rem' }}>Nhấn nút Tải trên mỗi ảnh bên dưới để lưu về thiết bị</p>
+            <p style={{ opacity: 0.85, marginBottom: '12px', fontSize: '0.88rem' }}>Nhấn nút Tải trên mỗi ảnh bên dưới để lưu về thiết bị</p>
+            <Button
+              onClick={handleDownloadAllMobile}
+              icon={<DownloadOutlined />}
+              style={{ background: 'white', color: '#1a6b4e', fontWeight: 600, height: 40, padding: '0 20px' }}
+            >
+              Tải Tất Cả ({photos.length} ảnh)
+            </Button>
           </div>
         )}
 
@@ -226,8 +253,9 @@ export default function Download() {
           <h3 style={{ marginBottom: '12px', fontSize: '1rem', fontWeight: 700 }}><QuestionCircleOutlined /> Cần Hỗ Trợ?</h3>
           <p style={{ color: '#666', marginBottom: '16px' }}>Gặp vấn đề khi tải ảnh? Liên hệ ngay:</p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button href="tel:0987654321" icon={<PhoneOutlined />}>Hotline</Button>
-            <Button href="https://zalo.me/wonderlandphoto" target="_blank" rel="noopener noreferrer" icon={<MessageOutlined />}>Zalo</Button>
+            {hotline && <Button href={`tel:${hotline}`} icon={<PhoneOutlined />}>Hotline</Button>}
+            {zaloLink && <Button href={zaloLink.startsWith('http') ? zaloLink : `https://zalo.me/${zaloLink}`} target="_blank" rel="noopener noreferrer" icon={<MessageOutlined />}>Zalo</Button>}
+            {!hotline && !zaloLink && <Button href="tel:0987654321" icon={<PhoneOutlined />}>Hotline</Button>}
           </div>
         </div>
       </div>
@@ -235,6 +263,9 @@ export default function Download() {
       <style>{`
         .dl-overlay { opacity: 0; transition: opacity 0.2s; }
         .dl-overlay:hover { opacity: 1; }
+        @media (max-width: 768px) {
+          .dl-overlay { opacity: 1 !important; }
+        }
       `}</style>
     </div>
   );

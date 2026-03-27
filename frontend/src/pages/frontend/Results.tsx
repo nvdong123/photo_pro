@@ -406,7 +406,7 @@ export default function Results() {
             </div>
 
             {/* Middle: bundle hint */}
-            <div style={{ flex: 1, minWidth: 0, padding: '0 16px' }}>
+            <div className="sticky-bundle-hint" style={{ flex: 1, minWidth: 0, padding: '0 8px' }}>
               {selectedPhotos.length > 0 && suggestion ? (
                 suggestion.exactMatch ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontWeight: 600, fontSize: 13 }}>

@@ -61,6 +61,10 @@ export default function Settings() {
   const [customPrimary, setCustomPrimary] = useState('#1a6b4e');
   const [customAccent, setCustomAccent] = useState('#d4870e');
 
+  // --- Contact state ---
+  const [contactHotline, setContactHotline] = useState('');
+  const [contactZalo, setContactZalo] = useState('');
+
   useEffect(() => {
     if (!apiSettings) return;
     if (apiSettings.media_ttl_days)          setPhotoRetention(parseInt(apiSettings.media_ttl_days));
@@ -85,6 +89,8 @@ export default function Settings() {
     if (apiSettings.payos_client_id)    setPayosClientId(apiSettings.payos_client_id);
     if (apiSettings.payos_api_key)      setPayosApiKey(apiSettings.payos_api_key);
     if (apiSettings.payos_checksum_key) setPayosChecksumKey(apiSettings.payos_checksum_key);
+    if (apiSettings.contact_hotline !== undefined) setContactHotline(apiSettings.contact_hotline || '');
+    if (apiSettings.contact_zalo !== undefined)    setContactZalo(apiSettings.contact_zalo || '');
   }, [apiSettings]);
 
   const saveAllSettings = async () => {
@@ -119,6 +125,9 @@ export default function Settings() {
         bank_name: bankName,
         bank_account: bankAccount,
         bank_owner: bankOwner,
+        // Contact
+        contact_hotline: contactHotline,
+        contact_zalo: contactZalo,
       });
       message.success('Đã lưu cài đặt thành công!');
     } catch (err) {
@@ -186,6 +195,47 @@ export default function Settings() {
       {canEdit && (
         <Button type="primary" icon={<SaveOutlined />} onClick={saveAllSettings}>Lưu tất cả</Button>
       )}
+    </div>
+  );
+
+  // ===== TAB: CONTACT =====
+  const contactTab = (
+    <div>
+      <div style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <h3 style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>Thông tin liên hệ hỗ trợ</h3>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: TEXT_MUTED }}>Hiển thị ở trang Tải Ảnh, Tra Cứu Đơn Hàng và trang Thành Công</p>
+        </div>
+        <div style={cardBodyStyle}>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>Số Hotline</label>
+            <Input
+              style={fieldStyle}
+              value={contactHotline}
+              onChange={e => setContactHotline(e.target.value)}
+              placeholder="VD: 0987654321"
+              disabled={!canEdit}
+            />
+            <div style={hintStyle}>Khách hàng sẽ gọi số này khi cần hỗ trợ</div>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>Link Zalo (số điện thoại hoặc URL)</label>
+            <Input
+              style={fieldStyle}
+              value={contactZalo}
+              onChange={e => setContactZalo(e.target.value)}
+              placeholder="VD: 0987654321 hoặc https://zalo.me/0987654321"
+              disabled={!canEdit}
+            />
+            <div style={hintStyle}>Nhập số điện thoại Zalo hoặc link zalo.me</div>
+          </div>
+          {canEdit && (
+            <div>
+              <Button type="primary" icon={<SaveOutlined />} onClick={saveAllSettings}>Lưu liên hệ</Button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -520,6 +570,7 @@ export default function Settings() {
 
       <Tabs items={[
         { key: 'retention', label: '⏱ Thời hạn', children: retentionTab },
+        { key: 'contact', label: '📞 Liên hệ', children: contactTab },
         { key: 'domain', label: ' Domain', children: domainTab },
         { key: 'payment', label: ' Thanh toán', children: paymentTab },
         { key: 'appearance', label: ' Giao diện', children: appearanceTab },

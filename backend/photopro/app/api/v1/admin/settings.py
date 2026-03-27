@@ -41,6 +41,9 @@ _VALIDATORS: dict[str, tuple] = {
     # Domain
     "subdomain":              ("str",   None, None),
     "custom_domain":          ("str",   None, None),
+    # Contact
+    "contact_hotline":        ("str",   None, None),
+    "contact_zalo":           ("str",   None, None),
 }
 
 _HEX_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
@@ -66,6 +69,14 @@ def _validate_setting(key: str, value: str) -> None:
         raise HTTPException(422, f"Value must be a {vtype}")
     if not (vmin <= num <= vmax):
         raise HTTPException(422, f"Value must be between {vmin} and {vmax}")
+
+
+@router.get("/public", response_model=APIResponse[dict])
+async def get_public_settings(db: AsyncSession = Depends(get_db)):
+    """Return safe public settings (contact info, branding) without auth."""
+    PUBLIC_KEYS = {"contact_hotline", "contact_zalo", "primary_color", "accent_color"}
+    result = await db.execute(select(SystemSetting).where(SystemSetting.key.in_(list(PUBLIC_KEYS))))
+    return APIResponse.ok({s.key: s.value for s in result.scalars().all()})
 
 
 @router.get("", response_model=APIResponse[list[SettingOut]])
