@@ -11,7 +11,7 @@ import '../styles/frontend.css';
 export default function Checkout() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ phone: '', email: '', name: '' });
-  const [paymentMethod, setPaymentMethod] = useState('vnpay');
+  const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo' | 'payos' | 'bank'>('vnpay');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -23,11 +23,11 @@ export default function Checkout() {
 
   // Build list of active gateways in priority order
   const activeGateways = [
-    vnpayEnabled  && { key: 'vnpay',  label: 'VNPay',  desc: 'Thanh toán qua cổng VNPay - ATM, Visa, QR Code' },
-    payosEnabled  && { key: 'payos',  label: 'PayOS',  desc: 'Thanh toán qua PayOS - Chuyển khoản nhanh QR' },
-    momoEnabled   && { key: 'momo',   label: 'MoMo',   desc: 'Thanh toán ví MoMo' },
-    bankEnabled   && { key: 'bank',   label: 'Chuyển khoản ngân hàng', desc: 'Chuyển khoản trực tiếp qua ngân hàng' },
-  ].filter(Boolean) as { key: string; label: string; desc: string }[];
+    vnpayEnabled  && { key: 'vnpay' as const,  label: 'VNPay',  desc: 'Thanh toán qua cổng VNPay - ATM, Visa, QR Code' },
+    payosEnabled  && { key: 'payos' as const,  label: 'PayOS',  desc: 'Thanh toán qua PayOS - Chuyển khoản nhanh QR' },
+    momoEnabled   && { key: 'momo' as const,   label: 'MoMo',   desc: 'Thanh toán ví MoMo' },
+    bankEnabled   && { key: 'bank' as const,   label: 'Chuyển khoản ngân hàng', desc: 'Chuyển khoản trực tiếp qua ngân hàng' },
+  ].filter(Boolean) as { key: 'vnpay' | 'momo' | 'payos' | 'bank'; label: string; desc: string }[];
 
   // Auto-select first active gateway when list loads
   useEffect(() => {
