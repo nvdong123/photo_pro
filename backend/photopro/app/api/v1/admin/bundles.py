@@ -122,7 +122,7 @@ async def delete_bundle(
             Order.status == OrderStatus.CREATED,
         )
     )
-    if result.scalar_one_or_none():
+    if result.scalars().first():
         raise HTTPException(409, "Bundle has pending orders, cannot delete")
 
     from datetime import datetime, timezone
