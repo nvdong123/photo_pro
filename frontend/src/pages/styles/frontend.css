@@ -1258,6 +1258,11 @@ h3 {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  height: 100vh;
+  min-height: 600px;
+  background-image: url('/images/hero-banner.jpg');
+  background-size: cover;
+  background-position: center top;
 }
 
 .hero-overlay {
@@ -1304,12 +1309,14 @@ h3 {
 
 @media (max-width: 640px) {
   .hero-cinematic {
-    height: 70vh !important;
-    min-height: 480px !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    background-image: url('/images/hero-banner-mobile.jpg') !important;
     background-position: center center !important;
+    background-size: cover !important;
   }
   .hero-actions-corner {
-    bottom: 24px;
+    bottom: 32px;
     right: 16px;
     left: 16px;
     justify-content: center;

@@ -11,9 +11,6 @@ import {
 import { Camera, Users, MapPin, Sparkles } from 'lucide-react';
 import '../styles/frontend.css';
 
-// Hero background - Hải Đăng Vũng Tàu
-const HERO_BG = '/images/hero-banner.jpg';
-
 const GALLERY_SAMPLES = [
   { id: 1, src: '/images/hai-dang-1.jpg', label: 'Hải Đăng Vũng Tàu' },
   { id: 2, src: '/images/hai-dang-2.jpg', label: 'Đường lên Hải Đăng' },
@@ -87,13 +84,6 @@ export default function Landing() {
       {/* HERO - full-screen cinematic */}
       <section
         className="hero-cinematic"
-        style={{
-          height: '100vh',
-          minHeight: 600,
-          backgroundImage: `url(${HERO_BG})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center top',
-        }}
       >
         <div className="hero-overlay" />
         <div className="hero-actions-corner">
