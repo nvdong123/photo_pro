@@ -555,9 +555,9 @@ export default function FaceSearch() {
                 AI sẽ tìm tất cả ảnh có khuôn mặt của bạn
               </p>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px', width: '100%' }}>
-                <Button type="primary" onClick={startCamera} icon={<VideoCameraOutlined />} style={{ minWidth: 140, flex: '1 1 140px', maxWidth: 200 }}>Mở Camera</Button>
-                <Button onClick={() => fileInputRef.current?.click()} icon={<PictureOutlined />} style={{ minWidth: 140, flex: '1 1 140px', maxWidth: 200 }}>Chọn Ảnh</Button>
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px', width: '100%' }}>
+                <Button type="primary" size="large" onClick={startCamera} icon={<VideoCameraOutlined />} style={{ minWidth: 180, flex: '1 1 180px', maxWidth: 260, height: 48, fontSize: 16, fontWeight: 600 }}>Mở Camera</Button>
+                <Button size="large" onClick={() => fileInputRef.current?.click()} icon={<PictureOutlined />} style={{ minWidth: 180, flex: '1 1 180px', maxWidth: 260, height: 48, fontSize: 16, fontWeight: 600 }}>Chọn Ảnh</Button>
               </div>
 
               <input
