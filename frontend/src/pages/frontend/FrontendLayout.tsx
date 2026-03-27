@@ -198,7 +198,8 @@ export default function FrontendLayout() {
             </div>
           </div>
           <div className="footer-bottom">
-            © 2026 PhotoPro · Hồ Chí Minh, Việt Nam
+            © 2026 PhotoPro. Bản quyền thuộc về Công Ty Cổ Phần Kết Nối Thương Mại Dịch Vụ và Du Lịch LINK.
+TP. Hồ Chí Minh, Việt Nam.
           </div>
         </div>
       </footer>

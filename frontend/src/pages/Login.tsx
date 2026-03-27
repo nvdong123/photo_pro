@@ -129,7 +129,8 @@ export default function Login() {
 
           {/* Footer */}
           <div style={{ paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-            <p style={{ margin: 0, fontSize: 13, opacity: 0.45 }}>© 2026 PhotoPro · Hồ Chí Minh, Việt Nam</p>
+            <p style={{ margin: 0, fontSize: 13, opacity: 0.45 }}>© 2026 PhotoPro. Bản quyền thuộc về Công Ty Cổ Phần Kết Nối Thương Mại Dịch Vụ và Du Lịch LINK.
+TP. Hồ Chí Minh, Việt Nam.</p>
           </div>
         </div>
       </div>
