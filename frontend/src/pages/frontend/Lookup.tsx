@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Radio, message, Card, Tag, Empty } from 'antd';
-import { SearchOutlined, BulbOutlined, QuestionCircleOutlined, PhoneOutlined, MessageOutlined, MailOutlined, DownloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Form, Input, Button, message, Card, Tag, Empty } from 'antd';
+import { SearchOutlined, QuestionCircleOutlined, PhoneOutlined, MessageOutlined, MailOutlined, DownloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { apiClient } from '../../lib/api-client';
 import { usePublicSettings } from '../../hooks/useSettings';
 import '../styles/frontend.css';
@@ -19,7 +19,6 @@ interface OrderResult {
 
 export default function Lookup() {
   const navigate = useNavigate();
-  const [searchType, setSearchType] = useState<'code' | 'phone'>('code');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<OrderResult[]>([]);
   const [searched, setSearched] = useState(false);
@@ -32,19 +31,12 @@ export default function Lookup() {
     setResults([]);
     setSearched(false);
     try {
-      if (searchType === 'code') {
-        const data: any = await apiClient.get(`/api/v1/checkout/status/${encodeURIComponent(input)}`);
-        if (data) {
-          setResults([data]);
-        }
-      } else {
-        const data: any = await apiClient.get(`/api/v1/checkout/by-phone/${encodeURIComponent(input)}`);
-        const orders: OrderResult[] = Array.isArray(data) ? data : [];
-        setResults(orders);
-      }
+      const data: any = await apiClient.get(`/api/v1/checkout/by-phone/${encodeURIComponent(input)}`);
+      const orders: OrderResult[] = Array.isArray(data) ? data : [];
+      setResults(orders);
       setSearched(true);
     } catch (err: any) {
-      if (err?.code === 'ORDER_NOT_FOUND' || err?.code === 'INVALID_PHONE' || err?.status === 404) {
+      if (err?.code === 'INVALID_PHONE' || err?.status === 404) {
         setSearched(true);
         setResults([]);
       } else {
@@ -74,34 +66,24 @@ export default function Lookup() {
         {/* Page Header */}
         <div style={{ marginBottom: '32px' }}>
           <h1 style={{ fontSize: '1.8rem', fontWeight: 700, marginBottom: '8px' }}><SearchOutlined /> Tra Cứu Đơn Hàng</h1>
-          <p style={{ color: '#666', margin: 0 }}>Tìm kiếm đơn hàng bằng mã đơn hoặc số điện thoại</p>
+          <p style={{ color: '#666', margin: 0 }}>Nhập số điện thoại đã dùng khi mua ảnh để tra cứu đơn hàng</p>
         </div>
 
         {/* Search Form */}
         <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', marginBottom: '24px' }}>
           <Form layout="vertical" onFinish={handleSearch} requiredMark={false}>
 
-            {/* Radio Buttons */}
-            <Form.Item label={<span style={{ fontWeight: 600 }}>Tìm kiếm bằng:</span>}>
-              <Radio.Group
-                value={searchType}
-                onChange={(e) => setSearchType(e.target.value)}
-              >
-                <Radio value="code">Mã đơn hàng</Radio>
-                <Radio value="phone">Số điện thoại</Radio>
-              </Radio.Group>
-            </Form.Item>
-
             {/* Search Input */}
             <Form.Item
               name="searchInput"
-              extra={<span style={{ color: '#999' }}><BulbOutlined /> Mã demo: <strong>WL2024ABC</strong> | SĐT: <strong>0901234567</strong></span>}
-              rules={[{ required: true, message: 'Vui lòng nhập thông tin tìm kiếm' }]}
+              label={<span style={{ fontWeight: 600 }}>Số điện thoại</span>}
+              rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}
             >
               <Input
-                type={searchType === 'phone' ? 'tel' : 'text'}
-                placeholder={searchType === 'code' ? 'Nhập mã đơn hàng (VD: WL2024ABC)...' : 'Nhập số điện thoại (VD: 0901234567)...'}
+                type="tel"
+                placeholder="Nhập số điện thoại (VD: 0901234567)..."
                 size="large"
+                autoFocus
               />
             </Form.Item>
 
