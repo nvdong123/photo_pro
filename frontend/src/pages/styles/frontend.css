@@ -1258,7 +1258,7 @@ h3 {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  height: 100vh;
+  height: 120vh;
   min-height: 600px;
   background-image: url('/images/hero-banner.jpg');
   background-size: cover;
