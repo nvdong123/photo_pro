@@ -10,9 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.cart import _load_cart
 from app.core.database import get_db
 from app.models.bundle import BundlePricing
+from app.models.delivery import DigitalDelivery
 from app.models.media import Media
 from app.models.order import Order, OrderItem, OrderStatus
-from app.schemas.checkout import CheckoutRequest, CheckoutResponse
+from app.schemas.checkout import CheckoutRequest, CheckoutResponse, PublicOrderStatus
 from app.schemas.common import APIResponse
 from app.services.bundle_service import suggest_pack
 from app.services.payment_service import payment_service
@@ -123,4 +124,39 @@ async def checkout(
         order_id=order.id,
         order_code=order.order_code,
         payment_url=payment_url,
+    ))
+
+
+@router.get("/status/{order_code}", response_model=APIResponse[PublicOrderStatus])
+async def get_order_status(
+    order_code: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint: get basic order status + download token by order_code."""
+    result = await db.execute(select(Order).where(Order.order_code == order_code))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(404, detail={"code": "ORDER_NOT_FOUND"})
+
+    download_url: str | None = None
+    expires_at: str | None = None
+    if order.status == OrderStatus.PAID:
+        delivery_result = await db.execute(
+            select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+        )
+        delivery = delivery_result.scalar_one_or_none()
+        if delivery and delivery.is_active:
+            from app.core.config import settings as cfg
+            download_url = f"{cfg.effective_frontend_url}/d/{delivery.download_token}"
+            expires_at = delivery.expires_at.isoformat()
+
+    return APIResponse.ok(PublicOrderStatus(
+        order_code=order.order_code,
+        customer_phone=order.customer_phone,
+        photo_count=order.photo_count,
+        amount=order.amount,
+        payment_method=order.payment_method,
+        status=order.status.value,
+        download_url=download_url,
+        expires_at=expires_at,
     ))

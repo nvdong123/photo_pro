@@ -138,3 +138,29 @@ async def download_zip(token: str, db: AsyncSession = Depends(get_db)):
             "Content-Disposition": f'attachment; filename="photopro_{order.order_code}.zip"'
         },
     )
+
+
+@router.get("/{token}/single/{media_id}")
+async def download_single(token: str, media_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Stream a single original photo for the given token."""
+    delivery = await _get_delivery(token, db)
+    _validate_delivery(delivery)
+
+    # Verify media belongs to this order
+    items_result = await db.execute(
+        select(OrderItem).where(
+            OrderItem.order_id == delivery.order_id,
+            OrderItem.media_id == media_id,
+        )
+    )
+    item = items_result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(404, detail={"code": "MEDIA_NOT_FOUND"})
+
+    media = await db.get(Media, media_id)
+    if not media:
+        raise HTTPException(404, detail={"code": "MEDIA_NOT_FOUND"})
+
+    # Redirect to a short-lived presigned URL — avoids streaming bytes through the API
+    presigned = storage_service.get_presigned_url(media.original_s3_key, ttl_seconds=60)
+    return RedirectResponse(presigned, status_code=302)

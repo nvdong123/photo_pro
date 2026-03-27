@@ -46,8 +46,9 @@ export default function Orders() {
   const { data: orderDetail, loading: detailLoading } = useOrderDetail(detailOrderId ?? '');
 
   const STATUS_BACKEND_MAP: Record<string, OrderStatus> = {
-    PAID: 'completed', PENDING: 'processing', REFUNDED: 'refunded', EXPIRED: 'expired',
-    paid: 'completed', pending: 'processing', refunded: 'refunded', expired: 'expired',
+    PAID: 'completed', CREATED: 'processing', FAILED: 'processing', REFUNDED: 'refunded',
+    paid: 'completed', created: 'processing', failed: 'processing', refunded: 'refunded',
+    PENDING: 'processing', EXPIRED: 'expired', pending: 'processing', expired: 'expired',
   };
 
   const orders: Order[] = (ordersData?.items ?? []).map((o: any) => ({
@@ -57,7 +58,7 @@ export default function Orders() {
     email: o.customer_email ?? '-',
     album: '-',
     photoCount: o.photo_count ?? 0,
-    price: (o.total_price ?? 0).toLocaleString('vi-VN') + 'đ',
+    price: (o.amount ?? 0).toLocaleString('vi-VN') + 'đ',
     status: STATUS_BACKEND_MAP[o.status] ?? 'processing',
     date: o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '-',
     expiry: o.download_expires_at ? new Date(o.download_expires_at).toLocaleString('vi-VN') : '-',

@@ -26,6 +26,17 @@ class CheckoutResponse(BaseModel):
     payment_url: str
 
 
+class PublicOrderStatus(BaseModel):
+    order_code: str
+    customer_phone: str
+    photo_count: int
+    amount: int
+    payment_method: str | None
+    status: str  # "CREATED" | "PAID" | "FAILED" | "REFUNDED"
+    download_url: str | None = None
+    expires_at: str | None = None
+
+
 class PackLine(BaseModel):
     bundle_id: uuid.UUID
     bundle_name: str

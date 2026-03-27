@@ -153,6 +153,7 @@ async def _process_paid_order(
 @router.get("/vnpay-return")
 async def vnpay_return(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """Browser redirect from VNPay after payment. Verifies signature and redirects to download or error page."""
@@ -171,22 +172,31 @@ async def vnpay_return(
             status_code=302,
         )
 
-    # Look up delivery token (webhook may have already processed this)
     result = await db.execute(select(Order).where(Order.order_code == order_code))
     order = result.scalar_one_or_none()
 
-    if order and order.status == OrderStatus.PAID:
-        delivery_result = await db.execute(
-            select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+    if not order:
+        return RedirectResponse(
+            f"{app_settings.effective_frontend_url}/payment-failed?order={order_code}",
+            status_code=302,
         )
-        delivery = delivery_result.scalar_one_or_none()
-        if delivery and delivery.is_active:
-            return RedirectResponse(
-                f"{app_settings.effective_frontend_url}/d/{delivery.download_token}",
-                status_code=302,
-            )
 
-    # Webhook not yet synchronised — show generic success page
+    # If webhook hasn't fired yet, process the payment here (idempotent)
+    if order.status != OrderStatus.PAID:
+        order.payment_ref = params.get("vnp_TransactionNo")
+        await _process_paid_order(order, db, background_tasks)
+
+    # Fetch delivery token
+    delivery_result = await db.execute(
+        select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+    )
+    delivery = delivery_result.scalar_one_or_none()
+    if delivery and delivery.is_active:
+        return RedirectResponse(
+            f"{app_settings.effective_frontend_url}/d/{delivery.download_token}",
+            status_code=302,
+        )
+
     return RedirectResponse(
         f"{app_settings.effective_frontend_url}/success?order={order_code}",
         status_code=302,
