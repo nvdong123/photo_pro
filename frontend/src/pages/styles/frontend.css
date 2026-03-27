@@ -1248,6 +1248,20 @@ h3 {
   color: #fff !important;
 }
 
+@media (max-width: 640px) {
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 0 16px;
+  }
+  .hero-btn-primary.ant-btn,
+  .hero-btn-outline.ant-btn {
+    width: 100% !important;
+    max-width: 300px !important;
+  }
+}
+
 .hero-btn-outline.ant-btn:hover {
   background: rgba(255, 255, 255, 0.1) !important;
   border-color: #fff !important;
