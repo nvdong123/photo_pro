@@ -81,8 +81,8 @@ export default function Results() {
           return {
             id: idx + 1,
             albumId: album.id,
-            similarity: Math.round(r.similarity * 100),
-            warning: r.similarity < 0.8 ? 'Độ khớp thấp' : '',
+            similarity: Math.round(r.similarity),
+            warning: r.similarity < 80 ? 'Độ khớp thấp' : '',
             uploadDate: r.shoot_date,
             url: r.thumb_url,
             // Store original media_id for cart operations
