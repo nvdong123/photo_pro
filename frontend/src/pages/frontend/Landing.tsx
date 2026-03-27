@@ -96,15 +96,6 @@ export default function Landing() {
         }}
       >
         <div className="hero-overlay" />
-        <div className="hero-content">
-          <img
-            src="/images/Logo_PhotoPro_no_bg.png"
-            alt="PhotoPro"
-            className="hero-logo"
-            style={{ height: 120 }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-        </div>
         <div className="hero-actions-corner">
           <Button
             type="primary"
