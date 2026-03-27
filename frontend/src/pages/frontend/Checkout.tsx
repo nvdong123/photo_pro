@@ -30,11 +30,12 @@ export default function Checkout() {
   ].filter(Boolean) as { key: 'vnpay' | 'momo' | 'payos' | 'bank'; label: string; desc: string }[];
 
   // Auto-select first active gateway when list loads
+  const gatewayKeys = activeGateways.map(g => g.key).join(',');
   useEffect(() => {
     if (activeGateways.length > 0 && !activeGateways.find(g => g.key === paymentMethod)) {
       setPaymentMethod(activeGateways[0].key);
     }
-  }, [activeGateways.length]);
+  }, [gatewayKeys]);
 
   useEffect(() => {
     const saved = localStorage.getItem('photopro_selected_photos');

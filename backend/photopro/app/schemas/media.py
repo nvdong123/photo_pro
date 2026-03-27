@@ -44,6 +44,7 @@ class AlbumOut(BaseModel):
     description: str | None
     media_count: int = 0
     thumbnail_url: str | None = None
+    cover_url: str | None = None
 
 
 class LocationOut(BaseModel):

@@ -69,7 +69,7 @@ export function usePublicSettings() {
   return {
     hotline: data?.contact_hotline ?? '',
     zaloLink: data?.contact_zalo ?? '',
-    vnpayEnabled: data?.vnpay_enabled !== 'false',
+    vnpayEnabled: data?.vnpay_enabled === 'true',
     payosEnabled: data?.payos_enabled === 'true',
     momoEnabled: data?.momo_enabled === 'true',
     bankEnabled: data?.bank_enabled === 'true',

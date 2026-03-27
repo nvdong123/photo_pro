@@ -19,7 +19,7 @@ export default function Albums() {
     id: a.id,
     name: a.name,
     photoCount: a.media_count,
-    thumbnailUrl: a.thumbnail_url,
+    thumbnailUrl: a.cover_url ?? a.thumbnail_url,
   }));
 
   return (

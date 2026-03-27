@@ -215,5 +215,6 @@ async def list_albums(db: AsyncSession = Depends(get_db)):
             description=tag.description,
             media_count=len(count_result.all()),
             thumbnail_url=thumbnail_url,
+            cover_url=tag.cover_url,
         ))
     return APIResponse.ok(albums)

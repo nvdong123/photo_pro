@@ -39,7 +39,7 @@ function useCountUp(target: number, duration = 1800, active = false) {
   return count;
 }
 
-interface Album { id: string; name: string; photoCount: number; thumbnailUrl: string | null; }
+interface Album { id: string; name: string; photoCount: number; thumbnailUrl: string | null; coverUrl: string | null; }
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -73,11 +73,12 @@ export default function Landing() {
   const clients = useCountUp(500,   1600, statsActive);
   const locs    = useCountUp(20,    1200, statsActive);
 
-  const albums: Album[] = (apiAlbums ?? []).slice(0, 4).map(a => ({
+  const albums: Album[] = (apiAlbums ?? []).map(a => ({
     id: a.id,
     name: a.name,
     photoCount: a.media_count,
-    thumbnailUrl: a.thumbnail_url,
+    thumbnailUrl: a.cover_url ?? a.thumbnail_url,
+    coverUrl: a.cover_url,
   }));
 
   return (
