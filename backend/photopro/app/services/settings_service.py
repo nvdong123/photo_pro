@@ -31,3 +31,12 @@ async def get_vnpay_config(db: AsyncSession) -> tuple[str, str]:
     tmn_code = await get_setting(db, "vnpay_tmn_code", env_cfg.VNPAY_TMN_CODE)
     hash_secret = await get_setting(db, "vnpay_hash_secret", env_cfg.VNPAY_HASH_SECRET)
     return tmn_code, hash_secret
+
+
+async def get_payos_config(db: AsyncSession) -> tuple[str, str, str]:
+    """Return (client_id, api_key, checksum_key) from DB, falling back to env vars."""
+    from app.core.config import settings as env_cfg
+    client_id = await get_setting(db, "payos_client_id", env_cfg.PAYOS_CLIENT_ID)
+    api_key = await get_setting(db, "payos_api_key", env_cfg.PAYOS_API_KEY)
+    checksum_key = await get_setting(db, "payos_checksum_key", env_cfg.PAYOS_CHECKSUM_KEY)
+    return client_id, api_key, checksum_key

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.cart import _load_cart, _save_cart
 from app.core.database import get_db
-from app.services.settings_service import get_vnpay_config
+from app.services.settings_service import get_payos_config, get_vnpay_config
 from app.models.bundle import BundlePricing
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media
@@ -108,6 +108,8 @@ async def checkout(
     try:
         client_ip = request.client.host if request.client else "127.0.0.1"
         if body.payment_method == "payos":
+            payos_client_id, payos_api_key, payos_checksum = await get_payos_config(db)
+            payos_service.configure(payos_client_id, payos_api_key, payos_checksum)
             if not payos_service.is_configured:
                 await db.rollback()
                 raise HTTPException(400, "PayOS is not configured")

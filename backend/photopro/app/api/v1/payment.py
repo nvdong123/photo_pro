@@ -15,7 +15,7 @@ from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.services.payment_service import payment_service
 from app.services.payos_service import payos_service
-from app.services.settings_service import get_setting_int, get_vnpay_config
+from app.services.settings_service import get_setting_int, get_vnpay_config, get_payos_config
 from app.services.cache_service import get_cached_presigned_url
 from app.services.email_service import send_download_email
 from app.services.storage_service import storage_service
@@ -249,6 +249,10 @@ async def payos_webhook(
 ):
     """Receive payment notification from PayOS."""
     body = await request.json()
+
+    # Configure payos_service from DB credentials
+    payos_client_id, payos_api_key, payos_checksum = await get_payos_config(db)
+    payos_service.configure(payos_client_id, payos_api_key, payos_checksum)
 
     # Verify signature
     data = body.get("data", {})
