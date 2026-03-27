@@ -5,6 +5,7 @@ import { CreditCardOutlined, UserOutlined, DollarOutlined, MobileOutlined, BankO
 import { useCart } from '../../hooks/useCart';
 import { useCheckout } from '../../hooks/useCheckout';
 import { usePublicBundles } from '../../hooks/usePublicBundles';
+import { usePublicSettings } from '../../hooks/useSettings';
 import '../styles/frontend.css';
 
 export default function Checkout() {
@@ -18,6 +19,22 @@ export default function Checkout() {
   const { refetch, addItem, clearCart, cart } = useCart();
   const { checkout } = useCheckout();
   const { bundles: publicBundles } = usePublicBundles();
+  const { vnpayEnabled, payosEnabled, momoEnabled, bankEnabled } = usePublicSettings();
+
+  // Build list of active gateways in priority order
+  const activeGateways = [
+    vnpayEnabled  && { key: 'vnpay',  label: 'VNPay',  desc: 'Thanh toán qua cổng VNPay - ATM, Visa, QR Code' },
+    payosEnabled  && { key: 'payos',  label: 'PayOS',  desc: 'Thanh toán qua PayOS - Chuyển khoản nhanh QR' },
+    momoEnabled   && { key: 'momo',   label: 'MoMo',   desc: 'Thanh toán ví MoMo' },
+    bankEnabled   && { key: 'bank',   label: 'Chuyển khoản ngân hàng', desc: 'Chuyển khoản trực tiếp qua ngân hàng' },
+  ].filter(Boolean) as { key: string; label: string; desc: string }[];
+
+  // Auto-select first active gateway when list loads
+  useEffect(() => {
+    if (activeGateways.length > 0 && !activeGateways.find(g => g.key === paymentMethod)) {
+      setPaymentMethod(activeGateways[0].key);
+    }
+  }, [activeGateways.length]);
 
   useEffect(() => {
     const saved = localStorage.getItem('photopro_selected_photos');
@@ -74,9 +91,9 @@ export default function Checkout() {
         customer_phone: formData.phone,
         customer_email: formData.email || undefined,
         bundle_id: bundleId,
-        payment_method: 'vnpay',
+        payment_method: paymentMethod,
       });
-      // checkout() redirects browser to VNPay; code below won't execute
+      // checkout() redirects browser to payment gateway; code below won't execute
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Đặt hàng thất bại, vui lòng thử lại');
       setProcessingPayment(false);
@@ -191,29 +208,34 @@ export default function Checkout() {
               </h3>
 
               <Radio.Group value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ display: 'block' }}>
-              {/* VNPay */}
-              <label
-                style={{
-                  display: 'block',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  border: `2px solid ${paymentMethod === 'vnpay' ? 'var(--primary)' : 'var(--border)'}`,
-                  backgroundColor: paymentMethod === 'vnpay' ? 'rgba(26, 107, 78, 0.05)' : 'transparent',
-                  cursor: 'pointer',
-                  marginBottom: '12px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Radio value="vnpay" />
-                  <div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700 }}><BankOutlined /> VNPay</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      Thanh toán qua cổng VNPay - ATM, Visa, QR Code
+              {activeGateways.length === 0 && (
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '12px 0' }}>
+                  Chưa có cổng thanh toán nào được kích hoạt. Vui lòng liên hệ admin.
+                </div>
+              )}
+              {activeGateways.map(gw => (
+                <label
+                  key={gw.key}
+                  style={{
+                    display: 'block',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    border: `2px solid ${paymentMethod === gw.key ? 'var(--primary)' : 'var(--border)'}`,
+                    backgroundColor: paymentMethod === gw.key ? 'rgba(26, 107, 78, 0.05)' : 'transparent',
+                    cursor: 'pointer',
+                    marginBottom: '12px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Radio value={gw.key} />
+                    <div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 700 }}><BankOutlined /> {gw.label}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{gw.desc}</div>
                     </div>
                   </div>
-                </div>
-              </label>
+                </label>
+              ))}
               </Radio.Group>
             </div>
           </div>
@@ -338,7 +360,7 @@ export default function Checkout() {
       {processingPayment && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
           <div style={{ width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', animation: 'co-spin 1s linear infinite' }} />
-          <p style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600, margin: 0 }}>Đang chuyển đến cổng thanh toán VNPay...</p>
+          <p style={{ color: 'white', fontSize: '1.1rem', fontWeight: 600, margin: 0 }}>Đang chuyển đến cổng thanh toán...</p>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem', margin: 0 }}>Vui lòng đợi</p>
         </div>
       )}

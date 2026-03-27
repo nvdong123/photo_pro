@@ -74,7 +74,8 @@ def _validate_setting(key: str, value: str) -> None:
 @router.get("/public", response_model=APIResponse[dict])
 async def get_public_settings(db: AsyncSession = Depends(get_db)):
     """Return safe public settings (contact info, branding) without auth."""
-    PUBLIC_KEYS = {"contact_hotline", "contact_zalo", "primary_color", "accent_color"}
+    PUBLIC_KEYS = {"contact_hotline", "contact_zalo", "primary_color", "accent_color",
+                    "vnpay_enabled", "payos_enabled", "momo_enabled", "bank_enabled"}
     result = await db.execute(select(SystemSetting).where(SystemSetting.key.in_(list(PUBLIC_KEYS))))
     return APIResponse.ok({s.key: s.value for s in result.scalars().all()})
 
