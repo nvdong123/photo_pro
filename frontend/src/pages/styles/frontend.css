@@ -1270,10 +1270,10 @@ h3 {
   inset: 0;
   background: linear-gradient(
     135deg,
-    rgba(0, 0, 0, 0.55) 0%,
-    rgba(0, 0, 0, 0.25) 45%,
-    rgba(0, 0, 0, 0.05) 70%,
-    rgba(0, 0, 0, 0.3) 100%
+    rgba(0, 0, 0, 0.6) 0%,
+    rgba(0, 0, 0, 0.3) 40%,
+    rgba(0, 0, 0, 0.02) 65%,
+    rgba(0, 0, 0, 0.15) 100%
   );
   pointer-events: none;
   z-index: 1;
@@ -1281,96 +1281,78 @@ h3 {
 
 .hero-text-overlay {
   position: absolute;
-  top: 80px;
-  left: 40px;
+  bottom: 80px;
+  left: 48px;
   z-index: 2;
-  max-width: 520px;
+  max-width: 480px;
 }
 
 .hero-main-title {
-  font-family: 'Be Vietnam Pro', 'Impact', sans-serif;
-  font-size: 3rem;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 2.2rem;
   font-weight: 900;
   color: #fff;
-  line-height: 1.1;
-  margin: 0 0 24px;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+  line-height: 1.15;
+  margin: 0 0 16px;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.7);
   font-style: italic;
-  letter-spacing: 0.02em;
-}
-
-.hero-sub-info {
-  margin-bottom: 28px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .hero-event-name {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1.05rem;
-  line-height: 1.6;
-  margin: 0;
-  font-style: italic;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
 }
 
 .hero-event-name strong {
   color: #fff;
-  font-weight: 800;
-  font-size: 1.15rem;
+  font-weight: 700;
 }
 
 .hero-quote {
-  position: relative;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
-  border-radius: 12px;
-  padding: 16px 20px 16px 36px;
-  border-left: 3px solid rgba(255, 255, 255, 0.3);
-}
-
-.hero-quote-mark {
-  position: absolute;
-  top: 6px;
-  left: 10px;
-  font-size: 2.4rem;
-  color: rgba(255, 255, 255, 0.25);
-  font-family: Georgia, serif;
-  line-height: 1;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border-radius: 10px;
+  padding: 14px 18px;
+  border-left: 3px solid rgba(255, 255, 255, 0.25);
+  margin-bottom: 20px;
 }
 
 .hero-quote p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.92rem;
-  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.85rem;
+  line-height: 1.55;
   font-style: italic;
 }
 
-.hero-actions-corner {
-  position: absolute;
-  bottom: 80px;
-  right: 32px;
-  z-index: 2;
+.hero-actions {
   display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 12px;
 }
 
 .hero-btn-primary.ant-btn {
-  height: 52px !important;
-  padding-inline: 32px !important;
-  font-size: 1rem !important;
+  height: 48px !important;
+  padding-inline: 28px !important;
+  font-size: 0.95rem !important;
   font-weight: 700 !important;
-  box-shadow: 0 4px 24px rgba(26, 107, 78, 0.5) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 20px rgba(26, 107, 78, 0.5) !important;
 }
 
 .hero-btn-outline.ant-btn {
-  height: 52px !important;
-  padding-inline: 32px !important;
-  font-size: 1rem !important;
+  height: 48px !important;
+  padding-inline: 28px !important;
+  font-size: 0.95rem !important;
   font-weight: 700 !important;
-  background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.6) !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(8px) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
   color: #fff !important;
 }
 
@@ -1382,13 +1364,19 @@ h3 {
     background-position: center center !important;
     background-size: cover !important;
   }
-  .hero-actions-corner {
-    bottom: 32px;
-    right: 16px;
+  .hero-text-overlay {
+    bottom: 24px;
     left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+  .hero-main-title,
+  .hero-event-name,
+  .hero-quote {
+    display: none;
+  }
+  .hero-actions {
     flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
   }
   .hero-btn-primary.ant-btn,
   .hero-btn-outline.ant-btn {
@@ -1397,9 +1385,6 @@ h3 {
     font-size: 0.9rem !important;
     width: 100% !important;
     max-width: none !important;
-  }
-  .hero-text-overlay {
-    display: none;
   }
 }
 

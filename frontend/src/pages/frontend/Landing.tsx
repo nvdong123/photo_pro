@@ -91,39 +91,35 @@ export default function Landing() {
             CHINH PHỤC ĐỈNH CAO –<br />
             BẮT TRỌN MỌI KHOẢNH KHẮC!
           </h1>
-          <div className="hero-sub-info">
-            <p className="hero-event-name">
-              <MapPin size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-              Ngày hội leo núi <strong>Hải Đăng 2026</strong> –<br />
-              Sự kiện thể thao bùng nổ với sự đồng hành<br />
-              của công nghệ AI Photo.
-            </p>
-          </div>
+          <p className="hero-event-name">
+            <MapPin size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4, color: '#f5a623' }} />
+            Ngày hội leo núi <strong>Hải Đăng 2026</strong><br />
+            AI Photo nhận diện &amp; lưu ảnh tự động
+          </p>
           <div className="hero-quote">
-            <span className="hero-quote-mark">"</span>
             <p>
               🔥 Bạn cứ thỏa sức leo núi, phần <strong>hình ảnh</strong> đã có <strong>Team Media</strong> từ Ban Tổ Chức lo cho bạn từng khoảnh khắc!
             </p>
           </div>
-        </div>
-        <div className="hero-actions-corner">
-          <Button
-            type="primary"
-            size="large"
-            icon={<SearchOutlined />}
-            onClick={() => navigate('/face-search')}
-            className="hero-btn-primary"
-          >
-            Tìm Ảnh Của Tôi
-          </Button>
-          <Button
-            size="large"
-            icon={<PictureOutlined />}
-            onClick={() => navigate('/albums')}
-            className="hero-btn-outline"
-          >
-            Xem Albums
-          </Button>
+          <div className="hero-actions">
+            <Button
+              type="primary"
+              size="large"
+              icon={<SearchOutlined />}
+              onClick={() => navigate('/face-search')}
+              className="hero-btn-primary"
+            >
+              Tìm Ảnh Của Tôi
+            </Button>
+            <Button
+              size="large"
+              icon={<PictureOutlined />}
+              onClick={() => navigate('/albums')}
+              className="hero-btn-outline"
+            >
+              Xem Albums
+            </Button>
+          </div>
         </div>
         <button
           className="hero-scroll-indicator"
