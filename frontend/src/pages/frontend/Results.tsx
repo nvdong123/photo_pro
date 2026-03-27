@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Select, Checkbox, Modal, message } from 'antd';
-import { StarOutlined, ReloadOutlined, SearchOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { StarOutlined, ReloadOutlined, SearchOutlined, ArrowLeftOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { AlertTriangle, CheckCircle2, Lightbulb, Image as ImageIcon } from 'lucide-react';
 import { usePublicBundles } from '../../hooks/useBundles';
 import '../styles/frontend.css';
@@ -39,6 +39,7 @@ export default function Results() {
   const [similarityFilter, setSimilarityFilter] = useState<number | null>(null); // null, 90, 70
   const [selectAll, setSelectAll] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     loadData();
@@ -75,7 +76,7 @@ export default function Results() {
         setAlbums(albumsList);
 
         // Map to Photo interface
-        const photos: Photo[] = apiResults.map((r, idx) => {
+        const photos: Photo[] = apiResults.slice(0, 10).map((r, idx) => {
           const key = r.album_code ?? r.photographer_code ?? 'default';
           const album = albumMap.get(key)!;
           return {
@@ -233,7 +234,34 @@ export default function Results() {
               />
             </div>
 
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* View mode toggle */}
+              <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 36, height: 32, border: 'none', cursor: 'pointer',
+                    background: viewMode === 'grid' ? 'var(--primary)' : 'var(--surface)',
+                    color: viewMode === 'grid' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <AppstoreOutlined />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 36, height: 32, border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
+                    background: viewMode === 'list' ? 'var(--primary)' : 'var(--surface)',
+                    color: viewMode === 'list' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <UnorderedListOutlined />
+                </button>
+              </div>
               <Button
                 size="small"
                 type={similarityFilter === 90 ? 'primary' : 'default'}
@@ -300,8 +328,47 @@ export default function Results() {
                     <ImageIcon className="w-5 h-5" style={{ color: 'var(--primary)', flexShrink: 0 }} />
                     {group.album.name}
                   </h3>
-                  <div className="photo-grid">
-                    {group.photos.map((photo) => (
+                  <div className={viewMode === 'grid' ? 'photo-grid' : 'photo-list'}>
+                    {group.photos.map((photo) => viewMode === 'list' ? (
+                      /* ─── LIST VIEW: vertical large photos ─── */
+                      <div
+                        key={photo.id}
+                        className={`photo-list-item ${selectedPhotos.includes(photo.id) ? 'selected' : ''}`}
+                      >
+                        <div
+                          className="photo-list-image"
+                          onClick={() => openPhotoPreview(photo)}
+                          onContextMenu={(e) => e.preventDefault()}
+                        >
+                          <img
+                            src={photo.url}
+                            alt={`Photo ${photo.id}`}
+                            draggable={false}
+                            style={{ width: '100%', display: 'block', borderRadius: '8px', userSelect: 'none' }}
+                          />
+                          <div className="photo-list-watermark">
+                            <span>DEMO WATERMARK</span>
+                          </div>
+                        </div>
+                        <div className="photo-list-footer">
+                          <div className="photo-list-meta">
+                            <span className="photo-list-similarity">{photo.similarity}%</span>
+                            {photo.warning && (
+                              <span className="photo-list-warning">
+                                <AlertTriangle className="w-3 h-3" /> {photo.warning}
+                              </span>
+                            )}
+                          </div>
+                          <Checkbox
+                            checked={selectedPhotos.includes(photo.id)}
+                            onChange={() => handleTogglePhoto(photo.id)}
+                          >
+                            Chọn ảnh
+                          </Checkbox>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ─── GRID VIEW: original ─── */
                       <div
                         key={photo.id}
                         className={`photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''}`}
