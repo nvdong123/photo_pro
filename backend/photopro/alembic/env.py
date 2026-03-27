@@ -58,8 +58,11 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     # Build engine directly from settings to avoid configparser % interpolation issues
+    # Normalize postgres:// to postgresql+asyncpg:// (Coolify/Heroku style)
+    from app.core.database import _fix_database_url
+    db_url = _fix_database_url(settings.DATABASE_URL)
     connectable = create_async_engine(
-        settings.DATABASE_URL,
+        db_url,
         poolclass=pool.NullPool,
     )
     async with connectable.connect() as connection:
