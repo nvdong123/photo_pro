@@ -6,8 +6,20 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
+
+def _fix_database_url(url: str) -> str:
+    """Normalize Coolify/Heroku-style postgres:// URLs to postgresql+asyncpg://."""
+    if url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+    return url
+
+
+_DATABASE_URL = _fix_database_url(settings.DATABASE_URL)
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    _DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=10,
@@ -27,7 +39,7 @@ AsyncSessionLocal = async_sessionmaker(
 #   RuntimeError: Future attached to a different loop
 # NullPool disables connection reuse, giving each task a fresh connection.
 worker_engine = create_async_engine(
-    settings.DATABASE_URL,
+    _DATABASE_URL,
     echo=False,
     poolclass=NullPool,
 )
