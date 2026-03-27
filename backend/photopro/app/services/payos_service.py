@@ -92,10 +92,19 @@ class PayOSService:
         return body["data"]["checkoutUrl"]
 
     def verify_webhook_signature(self, data: dict, signature: str) -> bool:
-        """Verify webhook payload signature."""
-        # PayOS webhook data fields sorted alphabetically
+        """Verify webhook payload signature.
+
+        Per PayOS docs: sort data keys alphabetically, join as key=value,
+        null/undefined values treated as empty string.
+        """
         sorted_keys = sorted(data.keys())
-        data_str = "&".join(f"{k}={data[k]}" for k in sorted_keys)
+        parts = []
+        for k in sorted_keys:
+            v = data[k]
+            if v is None:
+                v = ""
+            parts.append(f"{k}={v}")
+        data_str = "&".join(parts)
         expected = self._hmac_sha256(self._checksum_key, data_str)
         return hmac.compare_digest(expected.lower(), signature.lower())
 

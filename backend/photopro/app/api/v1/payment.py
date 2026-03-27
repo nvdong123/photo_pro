@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,8 @@ from app.services.settings_service import get_setting_int, get_vnpay_config, get
 from app.services.cache_service import get_cached_presigned_url
 from app.services.email_service import send_download_email
 from app.services.storage_service import storage_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -69,7 +72,24 @@ async def _process_paid_order(
     db: AsyncSession,
     background_tasks: BackgroundTasks,
 ) -> None:
-    """Shared post-payment logic: create order tag, move photos, create delivery, send email."""
+    """Shared post-payment logic: create order tag, move photos, create delivery, send email.
+
+    Uses SELECT ... FOR UPDATE to prevent race conditions when webhook and
+    browser return hit this function concurrently.
+    """
+    # ── Row-level lock: re-fetch order with FOR UPDATE ────────────────
+    locked = await db.execute(
+        select(Order)
+        .where(Order.id == order.id)
+        .with_for_update()
+    )
+    order = locked.scalar_one()
+
+    # Double-check after acquiring lock (another process may have finished first)
+    if order.status == OrderStatus.PAID:
+        logger.info("Order %s already PAID (race resolved by lock)", order.order_code)
+        return
+
     # ── a) Create order album tag ─────────────────────────────────────
     order_tag = Tag(
         name=order.order_code,
@@ -92,9 +112,17 @@ async def _process_paid_order(
         filename = media.original_s3_key.split("/")[-1]
         new_s3_key = f"orders/{order.id}/{filename}"
 
-        # Server-side S3 copy then remove source
-        await storage_service.copy_object(media.original_s3_key, new_s3_key)
-        storage_service.delete_objects([media.original_s3_key])
+        # S3 copy + delete: best-effort, don't block payment on S3 errors
+        try:
+            await storage_service.copy_object(media.original_s3_key, new_s3_key)
+            storage_service.delete_objects([media.original_s3_key])
+        except Exception:
+            logger.exception(
+                "S3 move failed for media %s (order %s), skipping file move",
+                media.id, order.order_code,
+            )
+            # Keep original key — photo still accessible; admin can move later
+            new_s3_key = media.original_s3_key
 
         # Detach from all location tags
         await db.execute(
@@ -138,6 +166,8 @@ async def _process_paid_order(
     )
     db.add(delivery)
     await db.commit()
+
+    logger.info("Order %s marked PAID, delivery token created", order.order_code)
 
     # Send email in background
     if order.customer_email:
@@ -186,7 +216,14 @@ async def vnpay_return(
     # If webhook hasn't fired yet, process the payment here (idempotent)
     if order.status != OrderStatus.PAID:
         order.payment_ref = params.get("vnp_TransactionNo")
-        await _process_paid_order(order, db, background_tasks)
+        try:
+            await _process_paid_order(order, db, background_tasks)
+        except Exception:
+            logger.exception("VNPay return: _process_paid_order failed for %s", order.order_code)
+            return RedirectResponse(
+                f"{app_settings.effective_frontend_url}/success?order={order_code}",
+                status_code=302,
+            )
 
     # Fetch delivery token
     delivery_result = await db.execute(
@@ -249,6 +286,7 @@ async def payos_webhook(
 ):
     """Receive payment notification from PayOS."""
     body = await request.json()
+    logger.info("PayOS webhook received: code=%s, success=%s", body.get("code"), body.get("success"))
 
     # Configure payos_service from DB credentials
     payos_client_id, payos_api_key, payos_checksum = await get_payos_config(db)
@@ -258,17 +296,19 @@ async def payos_webhook(
     data = body.get("data", {})
     signature = body.get("signature", "")
     if not payos_service.verify_webhook_signature(data, signature):
+        logger.warning("PayOS webhook signature mismatch: data=%s", data)
         raise HTTPException(400, detail={"code": "PAYMENT_VERIFY_FAILED"})
 
     # PayOS sends code "00" for success
     if body.get("code") != "00" or not body.get("success"):
+        logger.info("PayOS webhook non-success, acknowledging: code=%s", body.get("code"))
         return {"code": "00"}  # acknowledge but don't process
 
     order_code_int = data.get("orderCode")
     description = data.get("description", "")
+    logger.info("PayOS webhook for orderCode=%s, description=%s", order_code_int, description)
 
     # description contains our order_code (e.g. PP20240101ABCDEF)
-    # Also try finding by matching the integer hash
     order = None
     if description:
         result = await db.execute(
@@ -277,17 +317,21 @@ async def payos_webhook(
         order = result.scalar_one_or_none()
 
     if not order:
-        # Try to find by iterating — unlikely path
+        logger.error("PayOS webhook: order not found for description=%s", description)
         return {"code": "01", "message": "Order not found"}
 
     # Idempotent
     if order.status == OrderStatus.PAID:
+        logger.info("PayOS webhook: order %s already PAID", order.order_code)
         return {"code": "00"}
 
     order.payment_ref = data.get("paymentLinkId", "")
 
-    # Reuse the same post-payment logic as VNPay
-    await _process_paid_order(order, db, background_tasks)
+    try:
+        await _process_paid_order(order, db, background_tasks)
+    except Exception:
+        logger.exception("PayOS webhook: _process_paid_order failed for %s", order.order_code)
+        raise
 
     return {"code": "00"}
 
@@ -302,6 +346,7 @@ async def payos_return(
     params = dict(request.query_params)
     # We use ppOrder (not orderCode) to avoid PayOS overwriting our param
     order_code = params.get("ppOrder", params.get("orderCode", ""))
+    logger.info("PayOS return: order_code=%s, status=%s", order_code, params.get("status"))
 
     # PayOS returns status=PAID or status=CANCELLED in query params
     status = params.get("status", "")
@@ -315,15 +360,24 @@ async def payos_return(
     order = result.scalar_one_or_none()
 
     if not order:
+        logger.error("PayOS return: order not found for code=%s", order_code)
         return RedirectResponse(
             f"{app_settings.effective_frontend_url}/payment-failed?order={order_code}",
             status_code=302,
         )
 
-    # If webhook hasn't fired yet, process the payment here (idempotent)
+    # If webhook hasn't fired yet, process the payment here (idempotent via FOR UPDATE lock)
     if order.status != OrderStatus.PAID:
         order.payment_ref = params.get("id", "")
-        await _process_paid_order(order, db, background_tasks)
+        try:
+            await _process_paid_order(order, db, background_tasks)
+        except Exception:
+            logger.exception("PayOS return: _process_paid_order failed for %s", order.order_code)
+            # Still redirect to success page; webhook will retry later
+            return RedirectResponse(
+                f"{app_settings.effective_frontend_url}/success?order={order_code}",
+                status_code=302,
+            )
 
     # Fetch delivery token
     delivery_result = await db.execute(

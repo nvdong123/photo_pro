@@ -43,8 +43,9 @@ async def checkout(
     if not media_ids:
         raise HTTPException(400, "Cart is empty")
 
-    # ── Idempotency: reject if same phone has a CREATED order in last 60 seconds ──
-    recent_cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
+    # ── Idempotency: reject if same cart session has a CREATED order in last 2 minutes ──
+    # This prevents double-submit from button mashing or network retries.
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(seconds=120)
     existing = await db.execute(
         select(Order).where(
             Order.customer_phone == body.customer_phone,
@@ -55,7 +56,7 @@ async def checkout(
     if existing.scalars().first():
         raise HTTPException(
             429,
-            "Đơn hàng đang được xử lý, vui lòng đợi 1 phút trước khi thử lại",
+            "Đơn hàng đang được xử lý, vui lòng đợi 2 phút trước khi thử lại",
         )
 
     # Load bundle — validate it still exists and is active

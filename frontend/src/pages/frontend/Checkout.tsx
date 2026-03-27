@@ -336,7 +336,8 @@ export default function Checkout() {
                 type="primary"
                 block
                 onClick={handleSubmit}
-                disabled={!agreeTerms}
+                disabled={!agreeTerms || processingPayment}
+                loading={processingPayment}
                 icon={<CheckCircleOutlined />}
                 style={{ marginBottom: '12px' }}
               >
