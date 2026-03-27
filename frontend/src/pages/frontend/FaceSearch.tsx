@@ -3,13 +3,10 @@ import { flushSync } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAlbums } from '../../hooks/useAlbums';
 import { apiClient } from '../../lib/api-client';
-import { Button, Radio, Checkbox, Alert, DatePicker, message } from 'antd';
+import { Button, Radio, Checkbox, Alert, message } from 'antd';
 import {
   ScanOutlined,
   EnvironmentOutlined,
-  CalendarOutlined,
-  ClockCircleOutlined,
-  InfoCircleOutlined,
   CameraOutlined,
   VideoCameraOutlined,
   PictureOutlined,
@@ -17,7 +14,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { Check } from 'lucide-react';
-import dayjs from 'dayjs';
+
 import '../styles/frontend.css';
 
 interface Album {
@@ -43,9 +40,7 @@ export default function FaceSearch() {
   const albums: Album[] = (albumsData ?? []).map((a) => ({ id: a.id, name: a.name, icon: '', media_count: a.media_count }));
   const [searchScope, setSearchScope] = useState(() => urlAlbumId ? 'specific' : 'all');
   const [selectedAlbums, setSelectedAlbums] = useState<string[]>(() => urlAlbumId ? [urlAlbumId] : []);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [activeDateQuick, setActiveDateQuick] = useState<string | null>(null);
+
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -74,7 +69,6 @@ export default function FaceSearch() {
 
     const form = new FormData();
     form.append('image', imageToSearch, 'selfie.jpg');
-    if (dateFrom) form.append('shoot_date', dateFrom);
     if (selectedAlbums.length > 0) form.append('album_id', selectedAlbums[0]);
 
     try {
@@ -134,30 +128,7 @@ export default function FaceSearch() {
     };
   }, []);
 
-  const setQuickDate = (range: string) => {
-    setActiveDateQuick(range);
-    const today = new Date();
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
-    const newTo = fmt(today);
-    if (range === 'all') {
-      setDateFrom('');
-      setDateTo('');
-      return;
-    }
-    setDateTo(newTo);
-    switch (range) {
-      case 'today': setDateFrom(fmt(today)); break;
-      case '3days': { const d = new Date(today); d.setDate(d.getDate() - 2); setDateFrom(fmt(d)); break; }
-      case '7days': { const d = new Date(today); d.setDate(d.getDate() - 6); setDateFrom(fmt(d)); break; }
-      case '30days': { const d = new Date(today); d.setDate(d.getDate() - 29); setDateFrom(fmt(d)); break; }
-    }
-  };
 
-  const clearDateFilter = () => {
-    setDateFrom('');
-    setDateTo('');
-    setActiveDateQuick(null);
-  };
 
   const handleAlbumToggle = (albumId: string) => {
     setSelectedAlbums((prev) =>
@@ -421,77 +392,6 @@ export default function FaceSearch() {
                   </Checkbox>
                 ))}
               </Checkbox.Group>
-            </div>
-          )}
-        </div>
-
-        {/* Date Filter — B1 */}
-        <div className="card card-padded mb-3">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '8px' }}><CalendarOutlined /> Khoảng Thời Gian</h3>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            Thu hẹp phạm vi tìm kiếm theo ngày chụp
-          </p>
-
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
-            <div style={{ flex: 1, minWidth: '180px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>Từ ngày</label>
-              <DatePicker
-                value={dateFrom ? dayjs(dateFrom) : null}
-                onChange={(val) => { setDateFrom(val ? val.format('YYYY-MM-DD') : ''); setActiveDateQuick(null); }}
-                style={{ width: '100%' }}
-                size="large"
-                placeholder="Từ ngày"
-                format="DD/MM/YYYY"
-              />
-            </div>
-            <div style={{ flex: 1, minWidth: '180px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}>Đến ngày</label>
-              <DatePicker
-                value={dateTo ? dayjs(dateTo) : null}
-                onChange={(val) => { setDateTo(val ? val.format('YYYY-MM-DD') : ''); setActiveDateQuick(null); }}
-                style={{ width: '100%' }}
-                size="large"
-                placeholder="Đến ngày"
-                format="DD/MM/YYYY"
-              />
-            </div>
-          </div>
-
-          {/* Quick select buttons */}
-          <div style={{ display: 'flex', gap: '10px', rowGap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {([{ key: 'today', label: 'Hôm nay' }, { key: '3days', label: '3 ngày' }, { key: '7days', label: '7 ngày' }, { key: '30days', label: '30 ngày' }, { key: 'all', label: 'Tất cả' }] as const).map(q => (
-              <Button
-                key={q.key}
-                size="small"
-                type={activeDateQuick === q.key ? 'primary' : 'default'}
-                shape="round"
-                icon={q.key === 'today' ? <ClockCircleOutlined /> : undefined}
-                onClick={() => setQuickDate(q.key)}
-                style={{
-                  height: 34,
-                  paddingInline: 14,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  lineHeight: 1,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >{q.label}</Button>
-            ))}
-          </div>
-
-          {/* Active filter info */}
-          {(dateFrom || dateTo) && (
-            <div style={{
-              marginTop: '12px', padding: '8px 12px',
-              background: 'rgba(26,107,78,0.08)', borderRadius: '8px',
-              fontSize: '13px', color: 'var(--primary, #1a6b4e)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-              <span>
-                <InfoCircleOutlined /> Tìm ảnh từ {dateFrom ? new Date(dateFrom).toLocaleDateString('vi-VN') : '...'} đến {dateTo ? new Date(dateTo).toLocaleDateString('vi-VN') : '...'}
-              </span>
-              <Button type="link" size="small" onClick={clearDateFilter} style={{ padding: 0 }}>Xóa bộ lọc</Button>
             </div>
           )}
         </div>

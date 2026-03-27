@@ -124,12 +124,12 @@ async def download_zip(token: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     def _zip_stream():
-        import zipstream
-        zf = zipstream.ZipFile(mode="w", compression=zipstream.ZIP_STORED)
+        from zipstream import ZipStream
+        zs = ZipStream()
         for s3_key, filename in media_list:
             body = storage_service.stream_object(s3_key)
-            zf.write_iter(filename, body)
-        yield from zf
+            zs.add(body, filename)
+        yield from zs
 
     return StreamingResponse(
         _zip_stream(),
