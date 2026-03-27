@@ -131,6 +131,14 @@ async def add_cart_item(
     return APIResponse.ok({"count": len(media_ids)})
 
 
+@router.delete("", response_model=APIResponse[dict])
+async def clear_cart(pp_cart: str | None = Cookie(None)):
+    if not pp_cart:
+        raise HTTPException(400, "No cart session")
+    _save_cart(pp_cart, [])
+    return APIResponse.ok({"count": 0})
+
+
 @router.delete("/items/{media_id}", response_model=APIResponse[dict])
 async def remove_cart_item(
     media_id: uuid.UUID,

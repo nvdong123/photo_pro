@@ -7,8 +7,9 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.cart import _load_cart
+from app.api.v1.cart import _load_cart, _save_cart
 from app.core.database import get_db
+from app.services.settings_service import get_vnpay_config
 from app.models.bundle import BundlePricing
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media
@@ -112,7 +113,10 @@ async def checkout(
                 raise HTTPException(400, "PayOS is not configured")
             payment_url = await payos_service.create_payment_url(order)
         else:
-            payment_url = payment_service.create_payment_url(order, client_ip)
+            vnpay_tmn, vnpay_secret = await get_vnpay_config(db)
+            payment_url = payment_service.create_payment_url(
+                order, client_ip, tmn_code=vnpay_tmn, hash_secret=vnpay_secret
+            )
     except HTTPException:
         raise
     except Exception as exc:
@@ -120,6 +124,8 @@ async def checkout(
         raise HTTPException(500, f"Payment URL generation failed: {exc}")
 
     await db.commit()
+    # Clear the Redis cart so old items don't bleed into future orders
+    _save_cart(pp_cart, [])
     return APIResponse.ok(CheckoutResponse(
         order_id=order.id,
         order_code=order.order_code,

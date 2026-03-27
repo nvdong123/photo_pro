@@ -23,3 +23,11 @@ async def get_setting_float(db: AsyncSession, key: str, default: float = 0.0) ->
         return float(val)
     except (ValueError, TypeError):
         return default
+
+
+async def get_vnpay_config(db: AsyncSession) -> tuple[str, str]:
+    """Return (tmn_code, hash_secret) from DB, falling back to env vars if not set."""
+    from app.core.config import settings as env_cfg
+    tmn_code = await get_setting(db, "vnpay_tmn_code", env_cfg.VNPAY_TMN_CODE)
+    hash_secret = await get_setting(db, "vnpay_hash_secret", env_cfg.VNPAY_HASH_SECRET)
+    return tmn_code, hash_secret

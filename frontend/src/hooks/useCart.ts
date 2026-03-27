@@ -88,9 +88,16 @@ export function useCart() {
     }
   }, []);
 
+  const clearCart = useCallback(async () => {
+    try {
+      await apiClient.delete('/api/v1/cart');
+      setCart(null);
+    } catch { /* non-fatal */ }
+  }, []);
+
   useEffect(() => {
     initAndFetch();
   }, [initAndFetch]);
 
-  return { cart, loading, error, addItem, removeItem, refetch: fetchCart };
+  return { cart, loading, error, addItem, removeItem, clearCart, refetch: fetchCart };
 }

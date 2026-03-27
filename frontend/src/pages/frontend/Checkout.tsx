@@ -15,7 +15,7 @@ export default function Checkout() {
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  const { refetch, addItem, cart } = useCart();
+  const { refetch, addItem, clearCart, cart } = useCart();
   const { checkout } = useCheckout();
   const { bundles: publicBundles } = usePublicBundles();
 
@@ -32,6 +32,8 @@ export default function Checkout() {
 
   const syncToCart = async (photos: any[]) => {
     try {
+      // Clear any stale items first so this selection is exactly what gets ordered
+      await clearCart();
       await refetch();
       for (const p of photos) {
         if (p.media_id) await addItem(p.media_id);

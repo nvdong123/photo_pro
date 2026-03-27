@@ -10,12 +10,20 @@ from app.models.order import Order
 class VNPayService:
     """Minimal VNPay integration for v1."""
 
-    def create_payment_url(self, order: Order, client_ip: str = "127.0.0.1") -> str:
+    def create_payment_url(
+        self,
+        order: Order,
+        client_ip: str = "127.0.0.1",
+        tmn_code: str | None = None,
+        hash_secret: str | None = None,
+    ) -> str:
+        _tmn_code = tmn_code or settings.VNPAY_TMN_CODE
+        _hash_secret = hash_secret or settings.VNPAY_HASH_SECRET
         now = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         params: dict[str, str] = {
             "vnp_Version": "2.1.0",
             "vnp_Command": "pay",
-            "vnp_TmnCode": settings.VNPAY_TMN_CODE,
+            "vnp_TmnCode": _tmn_code,
             "vnp_Amount": str(order.amount * 100),  # VNPay expects amount * 100
             "vnp_CurrCode": "VND",
             "vnp_TxnRef": order.order_code,
@@ -28,10 +36,11 @@ class VNPayService:
         }
         sorted_params = sorted(params.items())
         query_string = "&".join(f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in sorted_params)
-        signature = self._hmac_sha512(settings.VNPAY_HASH_SECRET, query_string)
+        signature = self._hmac_sha512(_hash_secret, query_string)
         return f"{settings.VNPAY_URL}?{query_string}&vnp_SecureHash={signature}"
 
-    def verify_signature(self, params: dict) -> bool:
+    def verify_signature(self, params: dict, hash_secret: str | None = None) -> bool:
+        _hash_secret = hash_secret or settings.VNPAY_HASH_SECRET
         params = dict(params)  # avoid mutating caller's dict
         received_hash = params.pop("vnp_SecureHash", None)
         params.pop("vnp_SecureHashType", None)
@@ -41,14 +50,14 @@ class VNPayService:
         query_string = "&".join(
             f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in sorted_params
         )
-        expected = self._hmac_sha512(settings.VNPAY_HASH_SECRET, query_string)
+        expected = self._hmac_sha512(_hash_secret, query_string)
         return hmac.compare_digest(expected.lower(), (received_hash or "").lower())
 
-    def verify_webhook(self, params: dict) -> bool:
+    def verify_webhook(self, params: dict, hash_secret: str | None = None) -> bool:
         """Return True only if signature is valid AND payment succeeded (code 00)."""
         if params.get("vnp_ResponseCode", "") != "00":
             return False
-        return self.verify_signature(params)
+        return self.verify_signature(params, hash_secret=hash_secret)
 
     def _build_test_params(self, order_code: str, amount: int, response_code: str = "00") -> dict:
         """Build VNPay params with a valid HMAC signature — for testing only."""

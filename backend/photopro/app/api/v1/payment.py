@@ -15,7 +15,7 @@ from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.common import APIResponse
 from app.services.payment_service import payment_service
 from app.services.payos_service import payos_service
-from app.services.settings_service import get_setting_int
+from app.services.settings_service import get_setting_int, get_vnpay_config
 from app.services.cache_service import get_cached_presigned_url
 from app.services.email_service import send_download_email
 from app.services.storage_service import storage_service
@@ -33,9 +33,10 @@ async def vnpay_webhook(
     if not params:
         params = dict(await request.form())
 
-    # Verify signature (pops vnp_SecureHash from the dict copy)
+    # Verify signature using DB credentials (falls back to env vars)
+    _, vnpay_secret = await get_vnpay_config(db)
     params_copy = dict(params)
-    if not payment_service.verify_signature(params_copy):
+    if not payment_service.verify_signature(params_copy, hash_secret=vnpay_secret):
         raise HTTPException(400, detail={"code": "PAYMENT_VERIFY_FAILED"})
 
     order_code = params.get("vnp_TxnRef")
@@ -160,7 +161,8 @@ async def vnpay_return(
     params = dict(request.query_params)
     params_copy = dict(params)
 
-    if not payment_service.verify_signature(params_copy):
+    _, vnpay_secret = await get_vnpay_config(db)
+    if not payment_service.verify_signature(params_copy, hash_secret=vnpay_secret):
         return RedirectResponse(f"{app_settings.effective_frontend_url}/payment-failed", status_code=302)
 
     order_code = params.get("vnp_TxnRef", "")
