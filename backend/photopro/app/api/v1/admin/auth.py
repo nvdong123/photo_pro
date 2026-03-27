@@ -221,6 +221,12 @@ async def delete_admin(
     user = await db.get(Staff, user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    if user.id == admin.id:
+        raise HTTPException(400, "Cannot delete your own account")
+    # Eagerly delete location assignments to avoid NOT NULL violation on cascade
+    from sqlalchemy import delete as sa_delete
+    from app.models.staff_location import StaffLocationAssignment
+    await db.execute(sa_delete(StaffLocationAssignment).where(StaffLocationAssignment.staff_id == user.id))
     await db.delete(user)
     await db.commit()
     return APIResponse.ok({"message": "User deleted"})

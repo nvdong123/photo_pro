@@ -48,6 +48,7 @@ class Staff(Base):
         "StaffLocationAssignment",
         back_populates="staff",
         foreign_keys="StaffLocationAssignment.staff_id",
+        cascade="all, delete-orphan",
     )
     uploaded_photos: Mapped[list["Media"]] = relationship(  # noqa: F821
         "Media",
