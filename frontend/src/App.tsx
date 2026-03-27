@@ -18,7 +18,6 @@ import FrontendLayout from './pages/frontend/FrontendLayout';
 // Dashboard Pages
 import DashboardLayout from './pages/dashboard/DashboardLayout';
 import DashboardHome from './pages/dashboard/DashboardHome';
-import DashboardAlbums from './pages/dashboard/DashboardAlbums';
 import Locations from './pages/dashboard/Locations';
 import Orders from './pages/dashboard/Orders';
 import Revenue from './pages/dashboard/Revenue';
@@ -64,7 +63,6 @@ function App() {
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={<ErrorBoundary><DashboardLayout /></ErrorBoundary>}>
           <Route index element={<DashboardHome />} />
-          <Route path="albums" element={<DashboardAlbums />} />
           <Route path="locations" element={<Locations />} />
           <Route path="orders" element={<Orders />} />
           <Route path="revenue" element={<Revenue />} />

@@ -76,6 +76,20 @@ export default function Locations() {
     assignedStaff: (a.assigned_staff ?? []).map(s => s.id),
   }));
 
+  // Build a map of locationId → staff list with upload_count from backend
+  const locationStaffWithCount: Record<string, Staff[]> = {};
+  apiLocations.forEach((a, _) => {
+    locationStaffWithCount[a.id] = (a.assigned_staff ?? []).map((s: LocationStaffAssignment, i: number) => ({
+      id: s.id,
+      initials: (s.full_name ?? '').split(' ').map((w: string) => w[0]).slice(-2).join('').toUpperCase(),
+      name: s.full_name ?? s.employee_code ?? '',
+      code: s.employee_code ?? '',
+      bgColor: COLORS[i % COLORS.length].bg,
+      textColor: COLORS[i % COLORS.length].text,
+      uploadCount: (s as any).upload_count ?? 0,
+    }));
+  });
+
   const allStaff: Staff[] = apiUsers.map((u, i) => ({
     id: u.id,
     initials: (u.full_name ?? u.email).split(' ').map((w: string) => w[0]).slice(-2).join('').toUpperCase(),
@@ -345,6 +359,13 @@ export default function Locations() {
 
               {/* Card body */}
               <div style={{ padding: 16 }}>
+                {/* Date + description */}
+                {(loc.date || loc.description) && (
+                  <div style={{ marginBottom: 12, fontSize: 13, color: '#5a6170' }}>
+                    {loc.date && <div style={{ marginBottom: 2 }}> {new Date(loc.date).toLocaleDateString('vi-VN')}</div>}
+                    {loc.description && <div style={{ fontSize: 12, color: '#8b91a0', lineHeight: 1.5 }}>{loc.description}</div>}
+                  </div>
+                )}
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', marginBottom: 12,
                   fontSize: 13, color: '#5a6170',
@@ -529,7 +550,7 @@ export default function Locations() {
               <div style={{ marginBottom: 20 }}>
                 <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight: 600 }}> Nhân viên được phân công</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {allStaff.filter(s => selectedLoc.assignedStaff.includes(s.id)).map(s => (
+                  {(locationStaffWithCount[selectedLoc.id] ?? allStaff.filter(s => selectedLoc.assignedStaff.includes(s.id))).map(s => (
                     <div key={s.id} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       padding: 12, background: '#f6f7f9', borderRadius: 8,

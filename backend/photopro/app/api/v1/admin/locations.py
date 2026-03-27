@@ -113,11 +113,23 @@ async def list_locations(
     staff_by_location: dict = defaultdict(list)
     if staff_rows:
         for sla, staff_member in staff_rows.all():
+            # Count photos uploaded by this staff member for this location
+            upload_count_row = await db.execute(
+                select(func.count(Media.id))
+                .join(MediaTag, MediaTag.media_id == Media.id)
+                .where(
+                    MediaTag.tag_id == sla.tag_id,
+                    Media.uploader_id == staff_member.id,
+                    Media.deleted_at.is_(None),
+                )
+            )
+            upload_count = upload_count_row.scalar_one()
             staff_by_location[sla.tag_id].append({
                 "id": str(staff_member.id),
                 "full_name": staff_member.full_name,
                 "employee_code": staff_member.employee_code,
                 "can_upload": sla.can_upload,
+                "upload_count": upload_count,
             })
 
     locations = []

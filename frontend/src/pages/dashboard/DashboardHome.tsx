@@ -134,8 +134,8 @@ export default function DashboardHome() {
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Album bán chạy" style={statStyle.card}
-            extra={<Button size="small" onClick={() => navigate('/dashboard/albums')}>Xem tất cả</Button>}>
+          <Card title="Địa điểm bán chạy" style={statStyle.card}
+            extra={<Button size="small" onClick={() => navigate('/dashboard/locations')}>Xem tất cả</Button>}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {topAlbums.map((a, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: SURFACE_ALT, borderRadius: 8 }}>

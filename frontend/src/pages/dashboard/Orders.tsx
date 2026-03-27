@@ -56,7 +56,7 @@ export default function Orders() {
     code: o.order_code,
     phone: o.customer_phone ?? '-',
     email: o.customer_email ?? '-',
-    album: '-',
+    album: o.location_name ?? '-',
     photoCount: o.photo_count ?? 0,
     price: (o.amount ?? 0).toLocaleString('vi-VN') + 'đ',
     status: STATUS_BACKEND_MAP[o.status] ?? 'processing',
@@ -311,7 +311,7 @@ export default function Orders() {
         columns={[
           { title: 'Mã đơn', dataIndex: 'code', key: 'code', render: (v: string) => <span style={{ fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{v}</span> },
           { title: 'Khách hàng', key: 'customer', render: (o: Order) => <div><div>{o.phone}</div><div style={{ fontSize: 12, color: TEXT_MUTED }}>{o.email}</div></div> },
-          { title: 'Album', dataIndex: 'album', key: 'album', render: (v: string) => <span style={{ color: '#5a6170' }}>{v}</span> },
+          { title: 'Địa điểm', dataIndex: 'album', key: 'album', render: (v: string) => <span style={{ color: '#5a6170' }}>{v}</span> },
           { title: 'Số ảnh', dataIndex: 'photoCount', key: 'photoCount', render: (v: number) => `${v} ảnh` },
           { title: 'Tổng tiền', dataIndex: 'price', key: 'price', render: (v: string) => <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{v}</span> },
           { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (v: OrderStatus) => <Tag color={STATUS_MAP[v].color}>{STATUS_MAP[v].label}</Tag> },

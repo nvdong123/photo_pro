@@ -19,7 +19,7 @@ const GALLERY_SAMPLES = [
   { id: 1, src: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=600&q=80', label: 'Hội An' },
   { id: 2, src: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=600&q=80', label: 'Hạ Long Bay' },
   { id: 3, src: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=600&q=80', label: 'Đà Nẵng' },
-  { id: 4, src: 'https://images.unsplash.com/photo-1598493869462-d9d6a4b7b59b?auto=format&fit=crop&w=600&q=80', label: 'Đà Lạt' },
+  { id: 4, src: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&q=80', label: 'Đà Lạt' },
   { id: 5, src: 'https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=600&q=80', label: 'Phú Quốc' },
   { id: 6, src: 'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=600&q=80', label: 'Sa Pa' },
 ];
@@ -200,8 +200,8 @@ export default function Landing() {
             {GALLERY_SAMPLES.map(item => (
               <div key={item.id} className="gallery-dark-thumb" onClick={() => navigate('/albums')}>
                 <img src={item.src} alt={item.label} loading="lazy" />
-                <div className="gallery-dark-overlay">
-                  <MapPin size={14} color="#5dffb0" style={{ marginRight: 4 }} />
+                <div className="gallery-dark-overlay" style={{ display: 'flex', alignItems: 'center', padding: '14px', opacity: 0 }}>
+                  <MapPin size={14} color="#5dffb0" style={{ marginRight: 4, flexShrink: 0 }} />
                   <span>{item.label}</span>
                 </div>
               </div>

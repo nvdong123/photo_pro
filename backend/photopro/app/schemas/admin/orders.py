@@ -61,6 +61,7 @@ class OrderListItem(BaseModel):
     amount: int
     status: OrderStatus
     created_at: datetime
+    location_name: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -12,7 +12,7 @@ from app.models.admin_user import AdminUser
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media
 from app.models.order import Order, OrderItem, OrderPhoto, OrderStatus
-from app.models.tag import MediaTag, Tag
+from app.models.tag import MediaTag, Tag, TagType
 from app.schemas.admin.orders import (
     DeliveryOut,
     OrderItemOut,
@@ -59,8 +59,32 @@ async def list_orders(
     q = q.order_by(Order.created_at.desc()).offset((page - 1) * limit).limit(limit)
     rows = (await db.execute(q)).scalars().all()
 
+    # Fetch location name for each order (first item → media → tag LOCATION)
+    order_ids = [r.id for r in rows]
+    location_map: dict = {}
+    if order_ids:
+        loc_q = await db.execute(
+            select(OrderItem.order_id, Tag.name)
+            .join(Media, Media.id == OrderItem.media_id)
+            .join(MediaTag, MediaTag.media_id == Media.id)
+            .join(Tag, Tag.id == MediaTag.tag_id)
+            .where(
+                OrderItem.order_id.in_(order_ids),
+                Tag.tag_type == TagType.LOCATION,
+            )
+            .distinct(OrderItem.order_id)
+        )
+        for order_id, tag_name in loc_q.all():
+            location_map[order_id] = tag_name
+
+    items_out = []
+    for r in rows:
+        item = OrderListItem.model_validate(r)
+        item.location_name = location_map.get(r.id)
+        items_out.append(item)
+
     return APIResponse.ok(PaginatedOrders(
-        items=[OrderListItem.model_validate(r) for r in rows],
+        items=items_out,
         total=total,
         page=page,
         limit=limit,

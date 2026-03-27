@@ -12,6 +12,10 @@ export default function Download() {
   const { data: info, loading, error } = useDownloadInfo(token ?? '');
   const [timeLeft, setTimeLeft] = useState('--:--:--');
 
+  // Detect mobile device
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+    (typeof window !== 'undefined' && window.innerWidth < 768);
+
   useEffect(() => {
     if (!info?.expires_at) return;
     const expiresAt = new Date(info.expires_at).getTime();
@@ -37,8 +41,14 @@ export default function Download() {
 
   const handleDownloadPhoto = (mediaId: string) => {
     if (!token) return;
-    message.loading({ content: 'Đang tải ảnh...', key: 'dl-single', duration: 1 });
-    window.open(`${API_BASE}/api/v1/download/${token}/single/${mediaId}`, '_blank');
+    // Use direct redirect to presigned URL — avoids popup blocking on mobile
+    const url = `${API_BASE}/api/v1/download/${token}/single/${mediaId}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   if (loading) {
@@ -114,27 +124,38 @@ export default function Download() {
           message={<><strong>Lưu ý:</strong> Link này sẽ hết hạn vào <strong>{new Date(info.expires_at).toLocaleString('vi-VN')}</strong>. Vui lòng tải tất cả ảnh về máy trước khi hết hạn.</>}
         />
 
-        {/* Download All Button */}
-        <div style={{ background: '#1a6b4e', color: 'white', padding: '20px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' }}>
-          <h3 style={{ color: 'white', marginBottom: '8px', fontSize: '1.1rem', fontWeight: 700 }}><InboxOutlined /> Tải Tất Cả Ảnh</h3>
-          <p style={{ opacity: 0.9, marginBottom: '16px' }}>File ZIP chứa toàn bộ ảnh chất lượng cao</p>
-          <Button
-            size="large"
-            onClick={handleDownloadAll}
-            icon={<DownloadOutlined />}
-            style={{ background: 'white', color: '#1a6b4e', fontWeight: 600, height: 'auto', padding: '12px 32px', fontSize: '18px' }}
-          >
-            Tải Tất Cả (ZIP)
-          </Button>
-          <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '16px', marginBottom: 0 }}>
-            Dung lượng: <strong>~{(photos.length * 3).toFixed(1)} MB</strong>
-          </p>
-        </div>
+        {/* Download section — ZIP on desktop, individual on mobile */}
+        {!isMobile ? (
+          /* ── Desktop: ZIP download ── */
+          <div style={{ background: '#1a6b4e', color: 'white', padding: '20px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' }}>
+            <h3 style={{ color: 'white', marginBottom: '8px', fontSize: '1.1rem', fontWeight: 700 }}><InboxOutlined /> Tải Tất Cả Ảnh</h3>
+            <p style={{ opacity: 0.9, marginBottom: '16px' }}>File ZIP chứa toàn bộ ảnh gốc chất lượng cao</p>
+            <Button
+              size="large"
+              onClick={handleDownloadAll}
+              icon={<DownloadOutlined />}
+              style={{ background: 'white', color: '#1a6b4e', fontWeight: 600, height: 'auto', padding: '12px 32px', fontSize: '18px' }}
+            >
+              Tải Tất Cả (ZIP)
+            </Button>
+            <p style={{ fontSize: '14px', opacity: 0.8, marginTop: '16px', marginBottom: 0 }}>
+              Dung lượng: <strong>~{(photos.length * 3).toFixed(1)} MB</strong>
+            </p>
+          </div>
+        ) : (
+          /* ── Mobile: individual per-photo download ── */
+          <div style={{ background: '#1a6b4e', color: 'white', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center' }}>
+            <h3 style={{ color: 'white', marginBottom: '6px', fontSize: '1rem', fontWeight: 700 }}><InboxOutlined /> Tải Lần Lượt Từng Ảnh</h3>
+            <p style={{ opacity: 0.85, marginBottom: 0, fontSize: '0.88rem' }}>Nhấn nút Tải trên mỗi ảnh bên dưới để lưu về thiết bị</p>
+          </div>
+        )}
 
         {/* Individual Photo Download */}
         <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', marginBottom: '24px' }}>
           <div style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid #e0e0e0' }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Hoặc Tải Từng Ảnh</h3>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>
+              {isMobile ? 'Tải Từng Ảnh' : 'Hoặc Tải Từng Ảnh'}
+            </h3>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
