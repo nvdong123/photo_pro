@@ -9,7 +9,7 @@ export function useCheckout() {
     customer_phone: string;
     customer_email?: string;
     bundle_id: string;
-    payment_method: "vnpay" | "momo";
+    payment_method: "vnpay" | "momo" | "payos" | "bank";
   }) => {
     setLoading(true);
     setError(null);
