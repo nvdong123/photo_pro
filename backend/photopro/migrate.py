@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import settings
-from app.core.database import Base
+from app.core.database import Base, _fix_database_url
 from app.core.security import hash_password
 
 # Import all models so Base.metadata is fully populated
@@ -271,7 +271,7 @@ async def backfill_order_item_prices(engine) -> None:
 async def run() -> None:
     print("=== migrate.py starting ===", flush=True)
 
-    engine = create_async_engine(settings.DATABASE_URL)
+    engine = create_async_engine(_fix_database_url(settings.DATABASE_URL))
     try:
         await ensure_enums(engine)
         await ensure_tables(engine)
