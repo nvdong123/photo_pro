@@ -569,11 +569,11 @@ export default function Settings() {
       </div>
 
       <Tabs items={[
-        { key: 'retention', label: '⏱ Thời hạn', children: retentionTab },
-        { key: 'contact', label: '📞 Liên hệ', children: contactTab },
-        { key: 'domain', label: ' Domain', children: domainTab },
-        { key: 'payment', label: ' Thanh toán', children: paymentTab },
-        { key: 'appearance', label: ' Giao diện', children: appearanceTab },
+        { key: 'retention', label: 'Thời hạn', children: retentionTab },
+        { key: 'contact', label: 'Liên hệ', children: contactTab },
+        { key: 'domain', label: 'Domain', children: domainTab },
+        { key: 'payment', label: 'Thanh toán', children: paymentTab },
+        { key: 'appearance', label: 'Giao diện', children: appearanceTab },
       ]} />
     </div>
   );
