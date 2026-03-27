@@ -34,6 +34,7 @@ interface Location {
   revenue: string;
   gradient: string;
   thumbnailUrl: string | null;
+  coverUrl: string | null;
   assignedStaff: string[];
 }
 
@@ -73,6 +74,7 @@ export default function Locations() {
     revenue: '-',
     gradient: 'linear-gradient(135deg, #1a6b4e 0%, #0f5840 100%)',
     thumbnailUrl: a.thumbnail_url ?? null,
+    coverUrl: a.cover_url ?? null,
     assignedStaff: (a.assigned_staff ?? []).map(s => s.id),
   }));
 
@@ -113,6 +115,7 @@ export default function Locations() {
   const [formAddress, setFormAddress] = useState('');
   const [formDate, setFormDate] = useState('2026-03-04');
   const [formDescription, setFormDescription] = useState('');
+  const [formCoverUrl, setFormCoverUrl] = useState('');
   const [formStaff, setFormStaff] = useState<string[]>([]);
   const [originalStaff, setOriginalStaff] = useState<string[]>([]);
 
@@ -135,7 +138,7 @@ export default function Locations() {
 
   function openCreate() {
     setFormName(''); setFormAddress(''); setFormDate('2026-03-04');
-    setFormDescription(''); setFormStaff([]);
+    setFormDescription(''); setFormCoverUrl(''); setFormStaff([]);
     setModalMode('create');
   }
 
@@ -144,6 +147,7 @@ export default function Locations() {
     setFormName(loc.name); setFormAddress(loc.address);
     setFormDate(loc.date.split('/').reverse().join('-'));
     setFormDescription(loc.description);
+    setFormCoverUrl(loc.coverUrl ?? '');
     setFormStaff([]);
     setOriginalStaff([]);
     setModalMode('edit');
@@ -168,7 +172,7 @@ export default function Locations() {
   async function handleCreate() {
     if (!formName) { message.error('Vui lòng nhập tên địa điểm'); return; }
     try {
-      const newLoc = await createLocation({ name: formName, description: formDescription || undefined, address: formAddress || undefined, shoot_date: formDate || undefined });
+      const newLoc = await createLocation({ name: formName, description: formDescription || undefined, address: formAddress || undefined, shoot_date: formDate || undefined, cover_url: formCoverUrl || undefined });
       // Show success and close immediately — staff sync runs in background
       message.success('Địa điểm đã được tạo thành công!');
       closeModal();
@@ -182,7 +186,7 @@ export default function Locations() {
     if (!formName) { message.error('Vui lòng nhập tên địa điểm'); return; }
     try {
       if (selectedLoc) {
-        await patchLocation(selectedLoc.id, { name: formName, description: formDescription || undefined, address: formAddress || undefined });
+        await patchLocation(selectedLoc.id, { name: formName, description: formDescription || undefined, address: formAddress || undefined, cover_url: formCoverUrl || undefined });
         const toAdd = formStaff.filter(id => !originalStaff.includes(id));
         const toRemove = originalStaff.filter(id => !formStaff.includes(id));
         // Show success and close immediately — staff sync runs in background
@@ -338,9 +342,9 @@ export default function Locations() {
             >
               {/* Card header image */}
               <div style={{ height: 200, background: loc.gradient, position: 'relative', overflow: 'hidden' }}>
-                {loc.thumbnailUrl && (
+                {(loc.coverUrl || loc.thumbnailUrl) && (
                   <img
-                    src={loc.thumbnailUrl}
+                    src={loc.coverUrl ?? loc.thumbnailUrl!}
                     alt={loc.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
                     onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -446,6 +450,11 @@ export default function Locations() {
           <label style={labelStyle}>Mô tả</label>
           <Input.TextArea style={{ minHeight: 80, resize: 'vertical' }} placeholder="Mô tả về địa điểm chụp..." value={formDescription} onChange={e => setFormDescription(e.target.value)} />
         </div>
+        <div style={formGroupStyle}>
+          <label style={labelStyle}>Ảnh bìa (URL)</label>
+          <Input placeholder="https://example.com/cover.jpg" value={formCoverUrl} onChange={e => setFormCoverUrl(e.target.value)} />
+          <div style={{ fontSize: 12, color: '#8b91a0', marginTop: 4 }}>Để trống để dùng ảnh tự động từ thư viện.</div>
+        </div>
         <Divider style={{ margin: '20px 0' }} />
         <div style={formGroupStyle}>
           <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -490,6 +499,11 @@ export default function Locations() {
         <div style={formGroupStyle}>
           <label style={labelStyle}>Mô tả</label>
           <Input.TextArea style={{ minHeight: 80, resize: 'vertical' }} value={formDescription} onChange={e => setFormDescription(e.target.value)} />
+        </div>
+        <div style={formGroupStyle}>
+          <label style={labelStyle}>Ảnh bìa (URL)</label>
+          <Input placeholder="https://example.com/cover.jpg" value={formCoverUrl} onChange={e => setFormCoverUrl(e.target.value)} />
+          <div style={{ fontSize: 12, color: '#8b91a0', marginTop: 4 }}>Để trống để dùng ảnh tự động từ thư viện.</div>
         </div>
         <Divider style={{ margin: '20px 0' }} />
         <div style={formGroupStyle}>

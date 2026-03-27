@@ -9,6 +9,7 @@ export interface AdminLocation {
   description: string | null;
   media_count: number;
   thumbnail_url: string | null;
+  cover_url: string | null;
   assigned_staff: { id: string; full_name: string | null; employee_code: string | null; can_upload: boolean }[];
 }
 
@@ -26,6 +27,7 @@ export interface CreateLocationPayload {
   address?: string;
   shoot_date?: string;
   description?: string;
+  cover_url?: string;
 }
 
 const LOCATIONS_PATH = "/api/v1/admin/locations";

@@ -32,6 +32,7 @@ class Tag(Base):
     description: Mapped[str | None] = mapped_column(Text)
     address: Mapped[str | None] = mapped_column(String(500))      # location only
     shoot_date: Mapped[str | None] = mapped_column(String(10))    # YYYY-MM-DD
+    cover_url: Mapped[str | None] = mapped_column(String(2048))   # custom background image URL
 
     # Order-album fields
     is_permanent: Mapped[bool] = mapped_column(Boolean, default=False)

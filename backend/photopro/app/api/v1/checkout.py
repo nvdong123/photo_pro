@@ -184,3 +184,55 @@ async def get_order_status(
         download_url=download_url,
         expires_at=expires_at,
     ))
+
+
+@router.get("/by-phone/{phone}", response_model=APIResponse[list[PublicOrderStatus]])
+async def get_orders_by_phone(
+    phone: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint: list paid orders for a phone number."""
+    # Normalize: keep digits and leading +
+    normalized = "".join(c for c in phone if c.isdigit() or c == "+")
+    if len(normalized) < 8 or len(normalized) > 15:
+        raise HTTPException(400, detail={"code": "INVALID_PHONE"})
+
+    rows_result = await db.execute(
+        select(Order)
+        .where(Order.customer_phone == normalized)
+        .order_by(Order.created_at.desc())
+        .limit(10)
+    )
+    orders = rows_result.scalars().all()
+
+    # Batch-fetch deliveries
+    order_ids = [o.id for o in orders]
+    delivery_map: dict = {}
+    if order_ids:
+        del_result = await db.execute(
+            select(DigitalDelivery).where(DigitalDelivery.order_id.in_(order_ids))
+        )
+        for d in del_result.scalars().all():
+            delivery_map[d.order_id] = d
+
+    from app.core.config import settings as cfg
+    out = []
+    for order in orders:
+        delivery = delivery_map.get(order.id)
+        download_url: str | None = None
+        expires_at: str | None = None
+        if order.status == OrderStatus.PAID and delivery and delivery.is_active:
+            download_url = f"{cfg.effective_frontend_url}/d/{delivery.download_token}"
+            expires_at = delivery.expires_at.isoformat()
+        out.append(PublicOrderStatus(
+            order_code=order.order_code,
+            customer_phone=order.customer_phone,
+            photo_count=order.photo_count,
+            amount=order.amount,
+            payment_method=order.payment_method,
+            status=order.status.value,
+            download_url=download_url,
+            expires_at=expires_at,
+        ))
+
+    return APIResponse.ok(out)

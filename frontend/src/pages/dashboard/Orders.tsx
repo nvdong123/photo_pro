@@ -61,8 +61,8 @@ export default function Orders() {
     price: (o.amount ?? 0).toLocaleString('vi-VN') + 'đ',
     status: STATUS_BACKEND_MAP[o.status] ?? 'processing',
     date: o.created_at ? new Date(o.created_at).toLocaleString('vi-VN') : '-',
-    expiry: o.download_expires_at ? new Date(o.download_expires_at).toLocaleString('vi-VN') : '-',
-    lookupLink: o.download_token ? `${window.location.origin}/d/${o.download_token}` : '',
+    expiry: o.delivery_expires_at ? new Date(o.delivery_expires_at).toLocaleString('vi-VN') : '-',
+    lookupLink: o.delivery_token ? `${window.location.origin}/d/${o.delivery_token}` : '',
   }));
 
   const totalCount = ordersData?.total ?? 0;

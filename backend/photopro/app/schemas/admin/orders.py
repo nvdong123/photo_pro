@@ -57,11 +57,14 @@ class OrderListItem(BaseModel):
     id: uuid.UUID
     order_code: str
     customer_phone: str
+    customer_email: str | None = None
     photo_count: int
     amount: int
     status: OrderStatus
     created_at: datetime
     location_name: str | None = None
+    delivery_token: str | None = None
+    delivery_expires_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

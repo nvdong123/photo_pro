@@ -11,8 +11,8 @@ import '../styles/frontend.css';
 export default function Checkout() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ phone: '', email: '', name: '' });
-  const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo' | 'payos' | 'bank'>('vnpay');
-  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo' | 'payos' | 'bank'>('payos');
+  const [agreeTerms, setAgreeTerms] = useState(true);
   const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
   const [processingPayment, setProcessingPayment] = useState(false);
 
@@ -163,6 +163,7 @@ export default function Checkout() {
                   onChange={handleInputChange}
                   placeholder="0912345678"
                   size="large"
+                  autoFocus
                   style={{ marginBottom: '8px' }}
                 />
                 <small style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>

@@ -29,6 +29,7 @@ class LocationCreate(BaseModel):
     address: str | None = None
     shoot_date: str | None = None
     description: str | None = None
+    cover_url: str | None = None
 
 
 class LocationPatch(BaseModel):
@@ -36,6 +37,7 @@ class LocationPatch(BaseModel):
     address: str | None = None
     shoot_date: str | None = None
     description: str | None = None
+    cover_url: str | None = None
 
 
 class LocationOut(BaseModel):
@@ -46,6 +48,7 @@ class LocationOut(BaseModel):
     description: str | None = None
     media_count: int = 0
     thumbnail_url: str | None = None
+    cover_url: str | None = None
     assigned_staff: list[dict] = []
 
 
@@ -153,6 +156,7 @@ async def list_locations(
             id=tag.id, name=tag.name, address=tag.address,
             shoot_date=tag.shoot_date, description=tag.description,
             media_count=cnt, thumbnail_url=thumbnail_url,
+            cover_url=tag.cover_url,
             assigned_staff=staff_by_location.get(tag.id, []),
         ))
     return APIResponse.ok(locations)
@@ -175,6 +179,7 @@ async def create_location(
         address=body.address,
         shoot_date=body.shoot_date,
         description=body.description,
+        cover_url=body.cover_url,
     )
     db.add(tag)
     await db.commit()
@@ -182,7 +187,7 @@ async def create_location(
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
-        media_count=0, assigned_staff=[],
+        cover_url=tag.cover_url, media_count=0, assigned_staff=[],
     ))
 
 
@@ -203,7 +208,7 @@ async def get_location(
     return APIResponse.ok(LocationDetailOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
-        media_count=cnt,
+        cover_url=tag.cover_url, media_count=cnt,
         assigned_staff=assigned_staff,
     ))
 
@@ -224,6 +229,8 @@ async def update_location(
         tag.shoot_date = body.shoot_date
     if body.description is not None:
         tag.description = body.description
+    if body.cover_url is not None:
+        tag.cover_url = body.cover_url
     await db.commit()
     cnt = await _available_media_count(db, tag.id)
     staff_rows = await db.execute(
@@ -238,7 +245,7 @@ async def update_location(
     return APIResponse.ok(LocationOut(
         id=tag.id, name=tag.name, address=tag.address,
         shoot_date=tag.shoot_date, description=tag.description,
-        media_count=cnt, assigned_staff=assigned_staff,
+        cover_url=tag.cover_url, media_count=cnt, assigned_staff=assigned_staff,
     ))
 
 

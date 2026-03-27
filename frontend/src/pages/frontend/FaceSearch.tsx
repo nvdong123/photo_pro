@@ -38,8 +38,11 @@ export default function FaceSearch() {
 
   const { data: albumsData } = useAlbums();
   const albums: Album[] = (albumsData ?? []).map((a) => ({ id: a.id, name: a.name, icon: '', media_count: a.media_count }));
-  const [searchScope, setSearchScope] = useState(() => urlAlbumId ? 'specific' : 'all');
-  const [selectedAlbums, setSelectedAlbums] = useState<string[]>(() => urlAlbumId ? [urlAlbumId] : []);
+  const [searchScope, setSearchScope] = useState('all');
+  const [selectedAlbums, setSelectedAlbums] = useState<string[]>([]);
+  // Auto-select album from URL disabled — always search all albums
+  // const [searchScope, setSearchScope] = useState(() => urlAlbumId ? 'specific' : 'all');
+  // const [selectedAlbums, setSelectedAlbums] = useState<string[]>(() => urlAlbumId ? [urlAlbumId] : []);
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);

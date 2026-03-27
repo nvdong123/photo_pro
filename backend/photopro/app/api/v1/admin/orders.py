@@ -77,10 +77,22 @@ async def list_orders(
         for order_id, tag_name in loc_q.all():
             location_map[order_id] = tag_name
 
+    # Fetch delivery info for each order
+    delivery_map: dict = {}
+    if order_ids:
+        del_q = await db.execute(
+            select(DigitalDelivery.order_id, DigitalDelivery.download_token, DigitalDelivery.expires_at)
+            .where(DigitalDelivery.order_id.in_(order_ids))
+        )
+        for order_id, token, expires in del_q.all():
+            delivery_map[order_id] = (token, expires)
+
     items_out = []
     for r in rows:
         item = OrderListItem.model_validate(r)
         item.location_name = location_map.get(r.id)
+        if r.id in delivery_map:
+            item.delivery_token, item.delivery_expires_at = delivery_map[r.id]
         items_out.append(item)
 
     return APIResponse.ok(PaginatedOrders(
