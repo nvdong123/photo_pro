@@ -1269,13 +1269,80 @@ h3 {
   position: absolute;
   inset: 0;
   background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.05) 0%,
-    rgba(0, 0, 0, 0.02) 50%,
-    rgba(0, 0, 0, 0.4) 100%
+    135deg,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.25) 45%,
+    rgba(0, 0, 0, 0.05) 70%,
+    rgba(0, 0, 0, 0.3) 100%
   );
   pointer-events: none;
   z-index: 1;
+}
+
+.hero-text-overlay {
+  position: absolute;
+  top: 80px;
+  left: 40px;
+  z-index: 2;
+  max-width: 520px;
+}
+
+.hero-main-title {
+  font-family: 'Be Vietnam Pro', 'Impact', sans-serif;
+  font-size: 3rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.1;
+  margin: 0 0 24px;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.hero-sub-info {
+  margin-bottom: 28px;
+}
+
+.hero-event-name {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 0;
+  font-style: italic;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+.hero-event-name strong {
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+
+.hero-quote {
+  position: relative;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 16px 20px 16px 36px;
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.hero-quote-mark {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  font-size: 2.4rem;
+  color: rgba(255, 255, 255, 0.25);
+  font-family: Georgia, serif;
+  line-height: 1;
+}
+
+.hero-quote p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  font-style: italic;
 }
 
 .hero-actions-corner {
@@ -1330,6 +1397,9 @@ h3 {
     font-size: 0.9rem !important;
     width: 100% !important;
     max-width: none !important;
+  }
+  .hero-text-overlay {
+    display: none;
   }
 }
 
