@@ -61,6 +61,7 @@ class CreateAdminUserRequest(BaseModel):
     employee_code: str | None = None
     phone: str | None = None
     location_ids: list[uuid.UUID] = []
+    commission_rate: float | None = None  # % of revenue paid to the staff member
 
 
 class PatchAdminUserRequest(BaseModel):

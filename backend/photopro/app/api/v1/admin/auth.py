@@ -1,5 +1,6 @@
 import logging
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
@@ -132,6 +133,7 @@ async def create_admin(
         role=body.role,
         employee_code=employee_code,
         phone=body.phone,
+        commission_rate=Decimal(str(max(0.0, min(100.0, body.commission_rate)))) if body.commission_rate is not None else Decimal("100"),
     )
     db.add(user)
     await db.flush()  # obtain user.id before inserting location assignments
@@ -205,7 +207,6 @@ async def patch_admin(
     if body.is_active is not None:
         user.is_active = body.is_active
     if body.commission_rate is not None:
-        from decimal import Decimal
         user.commission_rate = Decimal(str(max(0.0, min(100.0, body.commission_rate))))
     await db.commit()
     await db.refresh(user)

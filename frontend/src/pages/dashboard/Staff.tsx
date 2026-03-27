@@ -110,11 +110,13 @@ export default function Staff() {
         });
         message.success('Đã cập nhật nhân viên thành công!');
       } else {
+        const newCommRate = parseFloat(form.commissionRate);
         await createStaff({
           email: form.email,
           password: form.password,
           full_name: form.name || undefined,
           role: ROLE_TO_BACKEND[form.role] || form.role,
+          ...((form.role === 'staff' && !isNaN(newCommRate)) ? { commission_rate: newCommRate } : {}),
         });
         message.success('Đã thêm nhân viên thành công!');
       }
@@ -216,8 +218,8 @@ export default function Staff() {
               <Input value={form.employeeCode} onChange={e => setForm(f => ({ ...f, employeeCode: e.target.value }))} placeholder="VD: abcxyz" />
             </div>
           )}
-          {/* Hoa hồng - hiển thị khi edit nhân viên role STAFF */}
-          {isEdit && (form.role === 'staff') && (
+          {/* Hoa hồng - hiển thị khi role STAFF (cả tạo mới và edit) */}
+          {(form.role === 'staff') && (
             <div>
               <label style={labelStyle}>% Hoa hồng <small style={{ color: TEXT_MUTED, fontWeight: 400 }}>(% doanh thu trả cho nhân viên, mặc định 100%)</small></label>
               <Input

@@ -25,6 +25,7 @@ export function useAdminStaff() {
     password: string;
     full_name?: string;
     role: string;
+    commission_rate?: number;
   }) => {
     await apiClient.post(STAFF_PATH, payload);
     invalidateApiCache(STAFF_PATH);
