@@ -100,3 +100,29 @@ async def patch_setting(
         key=setting.key, value=setting.value,
         description=setting.description, updated_by=setting.updated_by,
     ))
+
+
+@router.put("", response_model=APIResponse[list[SettingOut]])
+async def batch_update_settings(
+    body: dict[str, str],
+    db: AsyncSession = Depends(get_db),
+    admin: AdminUser = Depends(require_system),
+):
+    """Upsert multiple settings in a single request."""
+    results: list[SettingOut] = []
+    for key, value in body.items():
+        _validate_setting(key, value)
+        setting = await db.get(SystemSetting, key)
+        if not setting:
+            setting = SystemSetting(key=key, value=value, updated_by=admin.email)
+            db.add(setting)
+        else:
+            setting.value = value
+            setting.updated_by = admin.email
+        results.append(SettingOut(
+            key=key, value=value,
+            description=setting.description if not isinstance(setting, SystemSetting) else setting.description,
+            updated_by=admin.email,
+        ))
+    await db.commit()
+    return APIResponse.ok(results)

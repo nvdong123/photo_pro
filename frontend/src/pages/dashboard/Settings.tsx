@@ -28,7 +28,7 @@ const formGroupStyle: React.CSSProperties = {};
 
 export default function Settings() {
   const canEdit = hasRole(['admin-system']);
-  const { settings: apiSettings, update } = useSettings();
+  const { settings: apiSettings, batchUpdate } = useSettings();
 
   // --- Retention state ---
   const [photoRetention, setPhotoRetention] = useState(30);
@@ -89,33 +89,37 @@ export default function Settings() {
 
   const saveAllSettings = async () => {
     try {
-      // Retention
-      await update('media_ttl_days', String(photoRetention));
-      await update('link_ttl_days', String(linkTTL));
-      await update('max_downloads_per_link', maxDownloads);
-      await update('watermark_opacity', String(watermarkOpacity));
-      // Appearance
-      await update('primary_color', customPrimary);
-      await update('accent_color', customAccent);
-      // Domain
-      await update('subdomain', subdomain);
-      await update('custom_domain', customDomain);
-      // Payment
-      await update('vnpay_enabled', String(vnpayEnabled));
-      await update('vnpay_tmn_code', vnpayTmnCode);
-      await update('vnpay_hash_secret', vnpayHashSecret);
-      await update('momo_enabled', String(momoEnabled));
-      await update('momo_partner_code', momoPartnerCode);
-      await update('momo_access_key', momoAccessKey);
-      await update('bank_enabled', String(bankEnabled));
-      await update('bank_name', bankName);
-      await update('bank_account', bankAccount);
-      await update('bank_owner', bankOwner);
-      // PayOS
-      await update('payos_enabled', String(payosEnabled));
-      await update('payos_client_id', payosClientId);
-      await update('payos_api_key', payosApiKey);
-      await update('payos_checksum_key', payosChecksumKey);
+      await batchUpdate({
+        // Retention
+        media_ttl_days: String(photoRetention),
+        link_ttl_days: String(linkTTL),
+        max_downloads_per_link: maxDownloads,
+        watermark_opacity: String(watermarkOpacity),
+        // Appearance
+        primary_color: customPrimary,
+        accent_color: customAccent,
+        // Domain
+        subdomain,
+        custom_domain: customDomain,
+        // Payment — VNPay
+        vnpay_enabled: String(vnpayEnabled),
+        vnpay_tmn_code: vnpayTmnCode,
+        vnpay_hash_secret: vnpayHashSecret,
+        // Payment — MoMo
+        momo_enabled: String(momoEnabled),
+        momo_partner_code: momoPartnerCode,
+        momo_access_key: momoAccessKey,
+        // Payment — PayOS
+        payos_enabled: String(payosEnabled),
+        payos_client_id: payosClientId,
+        payos_api_key: payosApiKey,
+        payos_checksum_key: payosChecksumKey,
+        // Payment — Bank
+        bank_enabled: String(bankEnabled),
+        bank_name: bankName,
+        bank_account: bankAccount,
+        bank_owner: bankOwner,
+      });
       message.success('Đã lưu cài đặt thành công!');
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Lưu thất bại, vui lòng thử lại');

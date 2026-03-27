@@ -48,5 +48,13 @@ export function useSettings() {
     if (key === "accent_color")  applyColorToDOM("--accent",  value);
   };
 
-  return { settings, loading, error, update, refetch, applyColorToDOM };
+  const batchUpdate = async (kvs: Record<string, string>) => {
+    await apiClient.put("/api/v1/admin/settings", kvs);
+    invalidateApiCache("/api/v1/admin/settings");
+    await refetch();
+    if (kvs.primary_color) applyColorToDOM("--primary", kvs.primary_color);
+    if (kvs.accent_color)  applyColorToDOM("--accent",  kvs.accent_color);
+  };
+
+  return { settings, loading, error, update, batchUpdate, refetch, applyColorToDOM };
 }
