@@ -66,6 +66,7 @@ export default function Orders() {
   }));
 
   const totalCount = ordersData?.total ?? 0;
+  const isMobile = window.innerWidth < 768;
 
   const stats = [
     { label: 'Hoàn thành', val: orders.filter(o => o.status === 'completed').length, color: '#1a854a', icon: <CheckCircleOutlined style={{ fontSize: 22, color: '#1a854a' }} /> },
@@ -265,7 +266,7 @@ export default function Orders() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
         {stats.map(s => (
           <div key={s.label} style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: 8, background: SURFACE_ALT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{s.icon}</div>
@@ -292,7 +293,40 @@ export default function Orders() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table / Cards */}
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {loading && <div style={{ textAlign: 'center', padding: 40, color: TEXT_MUTED }}>Đang tải...</div>}
+          {!loading && orders.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: TEXT_MUTED }}>Không có đơn hàng nào</div>}
+          {orders.map(o => (
+            <div key={o.id} style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, opacity: o.status === 'expired' ? 0.7 : 1 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>{o.code}</span>
+                <Tag color={STATUS_MAP[o.status].color}>{STATUS_MAP[o.status].label}</Tag>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 3 }}>{o.phone}</div>
+              {o.album !== '-' && <div style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 3 }}>{o.album}</div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <div>
+                  <span style={{ fontWeight: 700, color: PRIMARY, fontSize: 15 }}>{o.price}</span>
+                  <span style={{ fontSize: 12, color: TEXT_MUTED, marginLeft: 8 }}>{o.photoCount} ảnh</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Button size="small" icon={<EyeOutlined />} onClick={() => setDetailOrderId(o.id)} />
+                  {canRefund && o.status === 'completed' && <Button size="small" danger icon={<RollbackOutlined />} onClick={() => setRefundOrder(o)} />}
+                </div>
+              </div>
+            </div>
+          ))}
+          {totalCount > PAGE_SIZE && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, padding: '8px 0' }}>
+              <Button size="small" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹ Trước</Button>
+              <span style={{ fontSize: 13, color: TEXT_MUTED }}>Trang {page} / {Math.ceil(totalCount / PAGE_SIZE)}</span>
+              <Button size="small" disabled={page * PAGE_SIZE >= totalCount} onClick={() => setPage(p => p + 1)}>Sau ›</Button>
+            </div>
+          )}
+        </div>
+      ) : (
       <Table
         dataSource={orders}
         loading={loading}
@@ -330,6 +364,7 @@ export default function Orders() {
           },
         ]}
       />
+      )}
 
       {renderDetailModal()}
       {renderRefundModal()}

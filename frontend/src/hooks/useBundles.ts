@@ -9,6 +9,7 @@ export interface Bundle {
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
+  sold_count: number;
   created_at: string;
 }
 

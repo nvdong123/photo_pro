@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -25,7 +25,21 @@ async def list_bundles(
         .where(BundlePricing.deleted_at.is_(None))
         .order_by(BundlePricing.sort_order, BundlePricing.photo_count)
     )
-    return APIResponse.ok([BundleOut.model_validate(b) for b in result.scalars().all()])
+    bundles = result.scalars().all()
+
+    sold_counts = (await db.execute(
+        select(Order.bundle_id, func.count(Order.id).label("cnt"))
+        .where(Order.status == OrderStatus.PAID)
+        .group_by(Order.bundle_id)
+    )).all()
+    sold_map: dict = {str(r.bundle_id): int(r.cnt) for r in sold_counts}
+
+    outs = []
+    for b in bundles:
+        out = BundleOut.model_validate(b)
+        out.sold_count = sold_map.get(str(b.id), 0)
+        outs.append(out)
+    return APIResponse.ok(outs)
 
 
 @router.post("", response_model=APIResponse[BundleOut])

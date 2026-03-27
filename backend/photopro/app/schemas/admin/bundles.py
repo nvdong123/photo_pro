@@ -13,6 +13,7 @@ class BundleOut(BaseModel):
     is_active: bool
     is_popular: bool
     sort_order: int
+    sold_count: int = 0
     created_at: datetime
     updated_at: datetime
 

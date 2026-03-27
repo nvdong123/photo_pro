@@ -49,7 +49,7 @@ export default function Staff() {
     email: u.email,
     phone: '',
     role: ROLE_REMAP[u.role] ?? 'manager' as StaffRole,
-    uploads: '—',
+    uploads: String(u.total_photos ?? 0),
     joinDate: new Date(u.created_at).toLocaleDateString('vi-VN'),
     status: u.is_active ? 'active' : 'locked' as StaffStatus,
     employeeCode: u.employee_code ?? null,
@@ -63,6 +63,7 @@ export default function Staff() {
   const [formErr, setFormErr] = useState<Partial<StaffFormData>>({});
 
   const canManage = hasRole(['admin-system']);
+  const isMobile = window.innerWidth < 768;
 
   const stats = [
     { label: 'Tổng nhân viên', val: staff.length, color: PRIMARY },
@@ -265,7 +266,7 @@ export default function Staff() {
         <div><strong style={{ display: 'block', marginBottom: 4 }}>Chỉ Admin System mới có quyền quản lý nhân viên</strong>Trang này chỉ hiển thị cho Admin System. Admin Sales và Manager không thể truy cập.</div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 16, marginBottom: 24 }}>
         {stats.map(s => (
           <div key={s.label} style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16, textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.val}</div>
@@ -289,6 +290,45 @@ export default function Staff() {
         </div>
       </div>
 
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {filtered.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 40, color: TEXT_MUTED }}>Không tìm thấy nhân viên nào</div>
+          )}
+          {filtered.map((s, idx) => {
+            const avatarCol = AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? { bg: SURFACE_ALT, color: TEXT_MUTED };
+            return (
+              <div key={s.id} style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 12, padding: 14, opacity: s.status === 'locked' ? 0.7 : 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 20, background: avatarCol.bg, color: avatarCol.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                    {getAvatarInitials(s.name)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: TEXT_MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email}</div>
+                    {s.employeeCode && <div style={{ fontSize: 11, color: PRIMARY, fontFamily: 'monospace', marginTop: 2 }}>@{s.employeeCode}</div>}
+                  </div>
+                  <Tag color={ROLE_MAP[s.role].color} style={{ flexShrink: 0 }}>{ROLE_MAP[s.role].label}</Tag>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10, fontSize: 12, alignItems: 'center' }}>
+                  <span style={{ color: TEXT_MUTED }}>Upload: <strong>{s.uploads}</strong></span>
+                  {s.role === 'staff' && <Tag color="purple">{s.commissionRate}%</Tag>}
+                  <Tag color={s.status === 'active' ? 'green' : 'default'}>{s.status === 'active' ? 'Hoạt động' : 'Đã khóa'}</Tag>
+                </div>
+                {canManage && (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <Button size="small" icon={<EditOutlined />} onClick={() => openModal(s)}>Sửa</Button>
+                    {s.status === 'active'
+                      ? <Button size="small" icon={<UnlockOutlined style={{ color: '#1a854a' }} />} onClick={() => toggleLock(s)}>Khóa</Button>
+                      : <Button size="small" danger icon={<LockOutlined />} onClick={() => toggleLock(s)}>Mở khóa</Button>}
+                    <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(s)} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <Table
         size="middle"
         dataSource={filtered}
@@ -334,6 +374,7 @@ export default function Staff() {
           },
         ]}
       />
+      )}
 
       {renderModal()}
     </div>

@@ -33,7 +33,7 @@ export default function Pricing() {
     photos: b.photo_count,
     price: b.price,
     featured: b.is_popular,
-    sold: 0,
+    sold: b.sold_count ?? 0,
   }));
 
   const [bundleModal, setBundleModal] = useState<{ open: boolean; item: Bundle | null }>({ open: false, item: null });
