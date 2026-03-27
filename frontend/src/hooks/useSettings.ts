@@ -1,5 +1,6 @@
 import { useAsync } from "./useAsync";
 import { apiClient, invalidateApiCache, TTL } from "../lib/api-client";
+import { useMemo } from "react";
 
 function hexToHSL(hex: string): { h: number; s: number; l: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -35,10 +36,12 @@ export function useSettings() {
     apiClient.get<Array<{ key: string; value: string }>>("/api/v1/admin/settings", TTL.LONG),
   );
 
-  // Convert array to Record for easy lookup
-  const settings: Record<string, string> | null = rawSettings
-    ? Object.fromEntries(rawSettings.map((s) => [s.key, s.value]))
-    : null;
+  // Convert array to Record — memoized so the reference only changes when
+  // rawSettings actually changes, preventing spurious useEffect re-runs in consumers.
+  const settings: Record<string, string> | null = useMemo(
+    () => rawSettings ? Object.fromEntries(rawSettings.map((s) => [s.key, s.value])) : null,
+    [rawSettings],
+  );
 
   const update = async (key: string, value: string) => {
     await apiClient.patch("/api/v1/admin/settings", { key, value });
