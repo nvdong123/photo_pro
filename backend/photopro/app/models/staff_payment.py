@@ -32,13 +32,15 @@ class StaffPayment(Base):
     period_start: Mapped[date] = mapped_column(Date, index=True)
     period_end: Mapped[date] = mapped_column(Date)
     cycle: Mapped[PaymentCycle] = mapped_column(
-        Enum(PaymentCycle, name="paymentcycle", create_type=False)
+        Enum(PaymentCycle, name="paymentcycle", create_type=False,
+             values_callable=lambda x: [e.value for e in x])
     )
     gross_revenue: Mapped[int] = mapped_column(Integer)            # Total revenue in period (VND)
     commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2))  # % captured at payment time
     net_amount: Mapped[int] = mapped_column(Integer)               # round(gross * rate / 100)
     status: Mapped[PaymentStatus] = mapped_column(
-        Enum(PaymentStatus, name="paymentstatus", create_type=False),
+        Enum(PaymentStatus, name="paymentstatus", create_type=False,
+             values_callable=lambda x: [e.value for e in x]),
         default=PaymentStatus.PENDING,
         index=True,
     )

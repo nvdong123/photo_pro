@@ -47,7 +47,8 @@ class PayrollCycle(Base):
     start_date: Mapped[date]            = mapped_column(Date, nullable=False, index=True)
     end_date: Mapped[date]              = mapped_column(Date, nullable=False)
     status: Mapped[PayrollCycleStatus]  = mapped_column(
-        Enum(PayrollCycleStatus, name="payrollcyclestatus", create_type=False),
+        Enum(PayrollCycleStatus, name="payrollcyclestatus", create_type=False,
+             values_callable=lambda x: [e.value for e in x]),
         nullable=False,
         default=PayrollCycleStatus.PENDING,
         index=True,
