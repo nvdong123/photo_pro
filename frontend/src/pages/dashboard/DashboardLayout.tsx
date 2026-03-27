@@ -15,8 +15,10 @@ import {
   BarChartOutlined,
   CloudUploadOutlined,
   DollarOutlined,
+  MenuOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getUser, logout, hasRole, getAvatarInitials, ROLE_LABELS } from '../../hooks/useAuth';
 import '../styles/dashboard.css';
 
@@ -26,6 +28,18 @@ const { Text } = Typography;
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close sidebar on navigation (mobile)
+  useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
   const user = getUser();
 
@@ -220,18 +234,27 @@ export default function DashboardLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
+      {/* Mobile sidebar overlay */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="dash-sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <Sider
         width={240}
         theme="light"
         style={{
           position: 'fixed',
-          left: 0,
+          left: isMobile ? (sidebarOpen ? 0 : -240) : 0,
           top: 0,
           height: '100vh',
           overflow: 'auto',
           borderRight: '1px solid #e2e5ea',
-          zIndex: 100,
+          zIndex: 200,
+          transition: 'left 0.28s cubic-bezier(0.4,0,0.2,1)',
         }}
       >
         {/* Logo */}
@@ -263,22 +286,42 @@ export default function DashboardLayout() {
       </Sider>
 
       {/* Main Layout */}
-      <Layout style={{ marginLeft: 240 }}>
+      <Layout style={{ marginLeft: isMobile ? 0 : 240, transition: 'margin-left 0.28s cubic-bezier(0.4,0,0.2,1)' }}>
         {/* Header */}
         <Header
           style={{
             background: '#fff',
-            padding: '0 32px',
+            padding: isMobile ? '0 16px' : '0 32px',
             borderBottom: '1px solid #e2e5ea',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             height: 64,
             position: 'sticky',
             top: 0,
             zIndex: 50,
           }}
         >
+          {/* Hamburger — mobile only */}
+          {isMobile ? (
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              aria-label="Toggle menu"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '8px',
+                lineHeight: 0,
+                color: '#1a1d23',
+                borderRadius: 6,
+              }}
+            >
+              {sidebarOpen ? <CloseOutlined style={{ fontSize: 20 }} /> : <MenuOutlined style={{ fontSize: 20 }} />}
+            </button>
+          ) : <div />}
+
+          {/* User menu */}
           <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
             <div
               style={{
@@ -307,7 +350,7 @@ export default function DashboardLayout() {
         </Header>
 
         {/* Content */}
-        <Content style={{ padding: 32, background: '#f6f7f9', minHeight: 'calc(100vh - 64px)' }}>
+        <Content style={{ padding: isMobile ? 16 : 32, background: '#f6f7f9', minHeight: 'calc(100vh - 64px)' }}>
           <Outlet />
         </Content>
       </Layout>

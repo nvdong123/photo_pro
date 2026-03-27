@@ -49,7 +49,7 @@ html {
 }
 
 @media (max-width: 768px) {
-  html { font-size: 14px; }
+  html { font-size: 16px; }
 }
 
 body {
@@ -684,12 +684,31 @@ h3 {
 
 @media (max-width: 768px) {
   .album-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
   
   .album-cover {
-    height: 180px;
+    height: 150px;
+  }
+
+  .album-info {
+    padding: 10px;
+  }
+
+  .album-title {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .album-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .album-cover {
+    height: 120px;
   }
 }
 
@@ -1524,5 +1543,49 @@ h3 {
 
   .footer-top  { flex-direction: column; }
   .footer-brand { max-width: 100%; }
+}
+
+/* ============================================
+   MOBILE NAV DROPDOWN ANIMATION
+   ============================================ */
+@keyframes fnav-slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fnav-mobile-dropdown {
+  animation: fnav-slide-down 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   DASHBOARD MOBILE SIDEBAR
+   ============================================ */
+.dash-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
+
+/* General touch-target improvement on mobile */
+@media (max-width: 768px) {
+  .btn, button {
+    min-height: 44px;
+  }
+  .btn-sm {
+    min-height: 36px;
+  }
+  .tag {
+    min-height: 40px;
+  }
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+  /* Card padding on mobile */
+  .card-padded {
+    padding: 16px;
+  }
 }
 

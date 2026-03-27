@@ -108,13 +108,27 @@ export default function FrontendLayout() {
         </div>
       </header>
 
+      {/* Mobile overlay backdrop — click outside to close */}
+      {menuOpen && (
+        <div
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            zIndex: 998,
+          }}
+        />
+      )}
+
       {/* Mobile dropdown */}
       {menuOpen && (
         <div
+          className="fnav-mobile-dropdown"
           style={{
             position: 'fixed',
             top: 64, left: 0, right: 0,
-            background: 'rgba(8,8,8,0.96)',
+            background: 'rgba(8,8,8,0.97)',
             backdropFilter: 'blur(18px)',
             zIndex: 999,
             padding: '16px 24px 24px',
