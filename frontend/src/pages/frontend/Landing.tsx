@@ -92,7 +92,7 @@ export default function Landing() {
           minHeight: 600,
           backgroundImage: `url(${HERO_BG})`,
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundPosition: 'center top',
         }}
       >
         <div className="hero-overlay" />

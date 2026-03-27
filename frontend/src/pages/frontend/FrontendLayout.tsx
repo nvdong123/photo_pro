@@ -11,7 +11,7 @@ export default function FrontendLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 60);
+    const handler = () => setScrolled(window.scrollY > 200);
     window.addEventListener('scroll', handler, { passive: true });
     return () => window.removeEventListener('scroll', handler);
   }, []);
@@ -55,7 +55,7 @@ export default function FrontendLayout() {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 32px',
-          transition: 'background 0.3s ease, backdrop-filter 0.3s ease, box-shadow 0.3s ease',
+          transition: 'background 0.3s ease, backdrop-filter 0.3s ease, box-shadow 0.3s ease, transform 0.35s ease',
           background: isHome
             ? (scrolled ? 'rgba(8,8,8,0.90)' : 'transparent')
             : '#ffffff',
@@ -63,6 +63,7 @@ export default function FrontendLayout() {
           boxShadow: isHome
             ? (scrolled ? '0 1px 0 rgba(255,255,255,0.06)' : 'none')
             : '0 1px 4px rgba(0,0,0,0.08)',
+          transform: isHome && !scrolled ? 'translateY(-100%)' : 'translateY(0)',
         }}
       >
         {/* Logo */}
