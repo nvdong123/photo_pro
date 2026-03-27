@@ -48,6 +48,14 @@ async def create_bundle(
     db: AsyncSession = Depends(get_db),
     _: AdminUser = Depends(require_sales),
 ):
+    existing = await db.execute(
+        select(BundlePricing).where(
+            BundlePricing.photo_count == body.photo_count,
+            BundlePricing.deleted_at.is_(None),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, f"Đã tồn tại gói {body.photo_count} ảnh")
     bundle = BundlePricing(**body.model_dump())
     db.add(bundle)
     await db.commit()
@@ -80,6 +88,16 @@ async def patch_bundle(
         )
         for other in others.scalars().all():
             other.is_popular = False
+    if body.photo_count is not None and body.photo_count != bundle.photo_count:
+        dup = await db.execute(
+            select(BundlePricing).where(
+                BundlePricing.photo_count == body.photo_count,
+                BundlePricing.deleted_at.is_(None),
+                BundlePricing.id != bundle_id,
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(409, f"Đã tồn tại gói {body.photo_count} ảnh")
     for field, val in body.model_dump(exclude_none=True).items():
         setattr(bundle, field, val)
     await db.commit()

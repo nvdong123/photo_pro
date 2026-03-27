@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -11,6 +11,9 @@ class BundlePricing(Base):
     """Fixed combo pricing – not per-photo."""
 
     __tablename__ = "bundle_pricing"
+    __table_args__ = (
+        UniqueConstraint("photo_count", name="uq_bundle_photo_count"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100))
