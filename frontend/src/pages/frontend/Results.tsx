@@ -235,33 +235,6 @@ export default function Results() {
             </div>
 
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {/* View mode toggle */}
-              <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: 36, height: 32, border: 'none', cursor: 'pointer',
-                    background: viewMode === 'grid' ? 'var(--primary)' : 'var(--surface)',
-                    color: viewMode === 'grid' ? '#fff' : 'var(--text-secondary)',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <AppstoreOutlined />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: 36, height: 32, border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
-                    background: viewMode === 'list' ? 'var(--primary)' : 'var(--surface)',
-                    color: viewMode === 'list' ? '#fff' : 'var(--text-secondary)',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <UnorderedListOutlined />
-                </button>
-              </div>
               <Button
                 size="small"
                 type={similarityFilter === 90 ? 'primary' : 'default'}
@@ -347,7 +320,7 @@ export default function Results() {
                             style={{ width: '100%', display: 'block', borderRadius: '8px', userSelect: 'none' }}
                           />
                           <div className="photo-list-watermark">
-                            <span>HẢI ĐĂNG VŨNG TÀU</span>
+                            <span>@Vũng Tàu</span>
                           </div>
                         </div>
                         <div className="photo-list-footer">
@@ -406,14 +379,12 @@ export default function Results() {
                             <span style={{
                               color: 'rgba(255,255,255,0.32)',
                               fontWeight: 500,
-                              fontSize: '1rem',
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
+                              fontSize: '0.75rem',
+                              letterSpacing: '0.08em',
                               textShadow: '0 1px 2px rgba(0,0,0,0.25)',
-                              transform: 'rotate(-25deg)',
                               whiteSpace: 'nowrap'
                             }}>
-                              HẢI ĐĂNG VŨNG TÀU
+                              @Vũng Tàu
                             </span>
                           </div>
                         </div>
@@ -525,7 +496,37 @@ export default function Results() {
         onCancel={() => setPreviewPhoto(null)}
         centered
         width={760}
-        title="Xem ảnh"
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span>Xem ảnh</span>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden', marginLeft: 'auto' }}>
+              <button
+                onClick={() => setViewMode('grid')}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 36, height: 32, border: 'none', cursor: 'pointer',
+                  background: viewMode === 'grid' ? 'var(--primary)' : 'var(--surface)',
+                  color: viewMode === 'grid' ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <AppstoreOutlined />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 36, height: 32, border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
+                  background: viewMode === 'list' ? 'var(--primary)' : 'var(--surface)',
+                  color: viewMode === 'list' ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <UnorderedListOutlined />
+              </button>
+            </div>
+          </div>
+        }
       >
         {previewPhoto && (
           <div style={{ position: 'relative', lineHeight: 0 }}>
@@ -554,18 +555,15 @@ export default function Results() {
             >
               <span
                 style={{
-                  color: 'rgba(255,255,255,0.55)',
-                  fontWeight: 800,
-                  fontSize: '2.8rem',
-                  letterSpacing: '0.2em',
-                  textTransform: 'uppercase',
-                  textShadow: '0 0 6px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5)',
-                  transform: 'rotate(-25deg)',
-                  whiteSpace: 'nowrap',
-                  WebkitTextStroke: '1px rgba(0,0,0,0.3)'
+                  color: 'rgba(255,255,255,0.45)',
+                  fontWeight: 600,
+                  fontSize: '1.4rem',
+                  letterSpacing: '0.08em',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                  whiteSpace: 'nowrap'
                 }}
               >
-                HẢI ĐĂNG VŨNG TÀU
+                @Vũng Tàu
               </span>
             </div>
           </div>

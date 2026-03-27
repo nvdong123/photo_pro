@@ -12,7 +12,7 @@ import { Camera, Users, MapPin, Sparkles } from 'lucide-react';
 import '../styles/frontend.css';
 
 // Hero background - Hải Đăng Vũng Tàu
-const HERO_BG = '/images/hai-dang-hero.jpg';
+const HERO_BG = '/images/hero-banner.jpg';
 
 const GALLERY_SAMPLES = [
   { id: 1, src: '/images/hai-dang-1.jpg', label: 'Hải Đăng Vũng Tàu' },
@@ -104,32 +104,25 @@ export default function Landing() {
             style={{ height: 120 }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
-          <h1 className="hero-title">
-            Khoảnh Khắc Của Bạn,<br />
-            <span className="hero-title-accent">Mãi Mãi Trong Tầm Tay</span>
-          </h1>
-          <p className="hero-subtitle">
-            CAPTURE YOUR JOURNEY · FIND YOUR MOMENTS · OWN YOUR MEMORIES
-          </p>
-          <div className="hero-actions">
-            <Button
-              type="primary"
-              size="large"
-              icon={<SearchOutlined />}
-              onClick={() => navigate('/face-search')}
-              className="hero-btn-primary"
-            >
-              Tìm Ảnh Của Tôi
-            </Button>
-            <Button
-              size="large"
-              icon={<PictureOutlined />}
-              onClick={() => navigate('/albums')}
-              className="hero-btn-outline"
-            >
-              Xem Albums
-            </Button>
-          </div>
+        </div>
+        <div className="hero-actions-corner">
+          <Button
+            type="primary"
+            size="large"
+            icon={<SearchOutlined />}
+            onClick={() => navigate('/face-search')}
+            className="hero-btn-primary"
+          >
+            Tìm Ảnh Của Tôi
+          </Button>
+          <Button
+            size="large"
+            icon={<PictureOutlined />}
+            onClick={() => navigate('/albums')}
+            className="hero-btn-outline"
+          >
+            Xem Albums
+          </Button>
         </div>
         <button
           className="hero-scroll-indicator"
