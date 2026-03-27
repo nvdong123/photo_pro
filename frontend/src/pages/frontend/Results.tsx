@@ -347,7 +347,7 @@ export default function Results() {
                             style={{ width: '100%', display: 'block', borderRadius: '8px', userSelect: 'none' }}
                           />
                           <div className="photo-list-watermark">
-                            <span>DEMO WATERMARK</span>
+                            <span>HẢI ĐĂNG VŨNG TÀU</span>
                           </div>
                         </div>
                         <div className="photo-list-footer">
@@ -413,7 +413,7 @@ export default function Results() {
                               transform: 'rotate(-25deg)',
                               whiteSpace: 'nowrap'
                             }}>
-                              DEMO WATERMARK
+                              HẢI ĐĂNG VŨNG TÀU
                             </span>
                           </div>
                         </div>
@@ -565,7 +565,7 @@ export default function Results() {
                   WebkitTextStroke: '1px rgba(0,0,0,0.3)'
                 }}
               >
-                DEMO WATERMARK
+                HẢI ĐĂNG VŨNG TÀU
               </span>
             </div>
           </div>
