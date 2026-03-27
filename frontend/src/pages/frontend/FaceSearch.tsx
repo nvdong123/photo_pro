@@ -346,11 +346,20 @@ export default function FaceSearch() {
     }
   };
 
+  const cameraBoxRef = useRef<HTMLDivElement>(null);
+  const scrollToCameraBox = () => {
+    cameraBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="page-section active" style={{ paddingTop: '84px', paddingBottom: '40px' }}>
       <div className="container">
-        {/* Page Header */}
-        <div className="page-header">
+        {/* Page Header — tappable on mobile to scroll to camera */}
+        <div
+          className="page-header"
+          onClick={scrollToCameraBox}
+          style={{ cursor: 'pointer' }}
+        >
           <h1><ScanOutlined /> Quét Khuôn Mặt</h1>
           <p>Tìm ảnh của bạn bằng AI nhận diện khuôn mặt</p>
         </div>
@@ -535,7 +544,7 @@ export default function FaceSearch() {
 
         {/* Face Search Box */}
         {!previewUrl && (
-          <div className="card card-padded mb-3">
+          <div ref={cameraBoxRef} className="card card-padded mb-3">
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px' }}>
               <div style={{ fontSize: '64px', marginBottom: '16px' }}><CameraOutlined /></div>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>Chụp hoặc tải ảnh khuôn mặt</h3>
@@ -543,9 +552,9 @@ export default function FaceSearch() {
                 AI sẽ tìm tất cả ảnh có khuôn mặt của bạn
               </p>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px' }}>
-                <Button type="primary" onClick={startCamera} icon={<VideoCameraOutlined />}>Mở Camera</Button>
-                <Button onClick={() => fileInputRef.current?.click()} icon={<PictureOutlined />}>Chọn Ảnh</Button>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px', width: '100%' }}>
+                <Button type="primary" onClick={startCamera} icon={<VideoCameraOutlined />} style={{ minWidth: 140, flex: '1 1 140px', maxWidth: 200 }}>Mở Camera</Button>
+                <Button onClick={() => fileInputRef.current?.click()} icon={<PictureOutlined />} style={{ minWidth: 140, flex: '1 1 140px', maxWidth: 200 }}>Chọn Ảnh</Button>
               </div>
 
               <input

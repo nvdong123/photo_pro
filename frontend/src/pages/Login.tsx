@@ -138,8 +138,8 @@ export default function Login() {
       <div style={{
         width: 520, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: '#fff', padding: 48, overflowY: 'auto',
-      }}>
+        background: '#fff', padding: '48px 24px', overflowY: 'auto',
+      }} className="login-form-panel">
         <div style={{ width: '100%', maxWidth: 380 }}>
 
           {/* Header */}
@@ -233,6 +233,7 @@ export default function Login() {
         }
         @media (max-width: 1024px) {
           .login-brand-panel { display: none !important; }
+          .login-form-panel { width: 100% !important; min-height: 100vh; padding: 32px 20px !important; }
         }
       `}</style>
     </div>
