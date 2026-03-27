@@ -1311,7 +1311,7 @@ h3 {
   .hero-cinematic {
     height: 100vh !important;
     min-height: 100vh !important;
-    background-image: url('/images/hero-banner-mobile.jpg') !important;
+    background-image: url('/images/banner-mobile.png') !important;
     background-position: center center !important;
     background-size: cover !important;
   }
