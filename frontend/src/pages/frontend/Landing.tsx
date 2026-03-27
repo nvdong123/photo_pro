@@ -12,16 +12,15 @@ import { Camera, Users, MapPin, Sparkles } from 'lucide-react';
 import '../styles/frontend.css';
 
 // Hero background - Hải Đăng Vũng Tàu
-const HERO_BG =
-  'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-1.jpg';
+const HERO_BG = '/images/hai-dang-hero.jpg';
 
 const GALLERY_SAMPLES = [
-  { id: 1, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-2.jpg', label: 'Hải Đăng Vũng Tàu' },
-  { id: 2, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-3.jpg', label: 'Đường lên Hải Đăng' },
-  { id: 3, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-4.jpg', label: 'Vũng Tàu' },
-  { id: 4, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-5.jpg', label: 'Tháp Hải Đăng' },
-  { id: 5, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-6.jpg', label: 'Kiến trúc Pháp' },
-  { id: 6, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-7.jpg', label: 'Check-in Hải Đăng' },
+  { id: 1, src: '/images/hai-dang-1.jpg', label: 'Hải Đăng Vũng Tàu' },
+  { id: 2, src: '/images/hai-dang-2.jpg', label: 'Đường lên Hải Đăng' },
+  { id: 3, src: '/images/hai-dang-3.jpg', label: 'Vũng Tàu' },
+  { id: 4, src: '/images/hai-dang-4.jpg', label: 'Kiến trúc Pháp' },
+  { id: 5, src: '/images/hai-dang-5.jpg', label: 'Check-in Hải Đăng' },
+  { id: 6, src: '/images/hai-dang-hero.jpg', label: 'Tháp Hải Đăng' },
 ];
 
 function useCountUp(target: number, duration = 1800, active = false) {
