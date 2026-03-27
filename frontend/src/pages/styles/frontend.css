@@ -1319,7 +1319,8 @@ h3 {
     bottom: 32px;
     right: 16px;
     left: 16px;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
     gap: 10px;
   }
   .hero-btn-primary.ant-btn,
@@ -1327,7 +1328,7 @@ h3 {
     height: 46px !important;
     padding-inline: 20px !important;
     font-size: 0.9rem !important;
-    flex: 1 1 auto !important;
+    width: 100% !important;
     max-width: none !important;
   }
 }
