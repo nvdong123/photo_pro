@@ -11,17 +11,17 @@ import {
 import { Camera, Users, MapPin, Sparkles } from 'lucide-react';
 import '../styles/frontend.css';
 
-// Hero background - Vietnam travel landscape from Unsplash
+// Hero background - Hải Đăng Vũng Tàu
 const HERO_BG =
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1920&q=80';
+  'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-1.jpg';
 
 const GALLERY_SAMPLES = [
-  { id: 1, src: 'https://images.unsplash.com/photo-1583417319070-4a69db38a482?auto=format&fit=crop&w=600&q=80', label: 'Hội An' },
-  { id: 2, src: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=600&q=80', label: 'Hạ Long Bay' },
-  { id: 3, src: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=600&q=80', label: 'Đà Nẵng' },
-  { id: 4, src: 'https://images.unsplash.com/photo-1528127269322-539801943592?auto=format&fit=crop&w=600&q=80', label: 'Đà Lạt' },
-  { id: 5, src: 'https://images.unsplash.com/photo-1544764200-d834fd210a23?auto=format&fit=crop&w=600&q=80', label: 'Phú Quốc' },
-  { id: 6, src: 'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?auto=format&fit=crop&w=600&q=80', label: 'Sa Pa' },
+  { id: 1, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-2.jpg', label: 'Hải Đăng Vũng Tàu' },
+  { id: 2, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-3.jpg', label: 'Đường lên Hải Đăng' },
+  { id: 3, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-4.jpg', label: 'Vũng Tàu' },
+  { id: 4, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-5.jpg', label: 'Tháp Hải Đăng' },
+  { id: 5, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-6.jpg', label: 'Kiến trúc Pháp' },
+  { id: 6, src: 'https://datviettour.com.vn/uploads/images/mien-nam/vung-tau/danh-thang/check-in-hai-dang-vung-tau-7.jpg', label: 'Check-in Hải Đăng' },
 ];
 
 function useCountUp(target: number, duration = 1800, active = false) {
