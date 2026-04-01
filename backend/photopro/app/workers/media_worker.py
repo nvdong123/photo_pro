@@ -231,3 +231,112 @@ async def _async_index_faces(task, media_id: str):
         await db.commit()
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Task: process_ftp_upload
+# ─────────────────────────────────────────────────────────────────────────────
+
+@celery_app.task(name="process_ftp_upload", bind=True, max_retries=3)
+def process_ftp_upload(self, file_path: str, employee_code: str):
+    """Process a file uploaded via FTP.
+
+    Steps:
+      1. Read file from VPS disk
+      2. Parse path → shoot_date, album_code
+      3. Upload to S3: originals/{shoot_date}/{employee_code}/{filename}
+      4. Create Media record in DB
+      5. Queue create_derivatives + index_faces
+      6. Delete local temp file
+    """
+    try:
+        _run_async(_async_process_ftp_upload(file_path, employee_code))
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=60)
+
+
+async def _async_process_ftp_upload(file_path: str, employee_code: str):
+    from datetime import timedelta, timezone
+    from pathlib import Path as _Path
+
+    path = _Path(file_path)
+
+    # ── Parse path: /photopro_upload/{shoot_date}/{album_code}/{filename}
+    #    Structure: FTP_ROOT / employee_code / {optional shoot_date} / {optional album} / file
+    #    Fall back gracefully when parts are missing.
+    parts = path.parts  # e.g. ('/', 'photopro_upload', 'NV001', '2026-03-30', 'album1', 'IMG.jpg')
+
+    shoot_date: str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    album_code: str = "ftp"
+
+    if len(parts) >= 3:
+        # parts[-1] = filename, parts[-2..] may contain date/album
+        for part in parts[2:-1]:
+            # Detect shoot_date by pattern YYYY-MM-DD
+            import re as _re
+            if _re.match(r"^\d{4}-\d{2}-\d{2}$", part):
+                shoot_date = part
+            elif part != employee_code:
+                album_code = part
+
+    filename = path.name
+    file_id  = uuid.uuid4()
+    s3_key   = f"originals/{shoot_date}/{employee_code}/{album_code}/{file_id}.jpg"
+
+    # ── Read file
+    raw_bytes = path.read_bytes()
+
+    # ── Compress to JPEG
+    try:
+        img = __import__("PIL.Image", fromlist=["Image"]).open(
+            __import__("io").BytesIO(raw_bytes)
+        ).convert("RGB")
+        buf = __import__("io").BytesIO()
+        img.save(buf, format="JPEG", quality=82, optimize=True)
+        compressed = buf.getvalue()
+    except Exception:
+        compressed = raw_bytes  # upload raw if compression fails
+
+    # ── Upload to S3
+    storage_service.upload_bytes(s3_key, compressed, content_type="image/jpeg")
+
+    # ── Create Media record + queue tasks
+    async with AsyncSessionLocal() as db:
+        from app.models.staff import Staff as _Staff
+        from app.services.settings_service import get_setting_int
+
+        # Resolve uploader_id from employee_code
+        result = await db.execute(
+            select(_Staff).where(_Staff.employee_code == employee_code)
+        )
+        staff = result.scalar_one_or_none()
+
+        ttl_days = await get_setting_int(db, "media_ttl_days", default=90)
+        from datetime import timedelta, timezone as _tz
+        expires_at = datetime.now(_tz.utc) + timedelta(days=ttl_days)
+
+        media_record = Media(
+            original_s3_key=s3_key,
+            photographer_code=employee_code,
+            uploader_id=staff.id if staff else None,
+            shoot_date=shoot_date,
+            album_code=album_code,
+            process_status=MediaStatus.NEW,
+            expires_at=expires_at,
+        )
+        db.add(media_record)
+        await db.flush()
+        media_id = str(media_record.id)
+        await db.commit()
+
+    # ── Queue downstream tasks
+    create_derivatives.delay(media_id)
+
+    # ── Delete local temp file
+    try:
+        path.unlink(missing_ok=True)
+        logger.info("Deleted FTP temp file: %s", file_path)
+    except Exception as exc:
+        logger.warning("Could not delete temp file %s: %s", file_path, exc)
+
+    logger.info("process_ftp_upload done: media_id=%s s3_key=%s", media_id, s3_key)
+
+

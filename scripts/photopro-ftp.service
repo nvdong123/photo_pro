@@ -1,0 +1,15 @@
+[Unit]
+Description=PhotoPro FTP Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/photopro
+ExecStart=/opt/photopro/venv/bin/python ftp_server.py
+Restart=always
+RestartSec=5
+EnvironmentFile=/opt/photopro/.env
+
+[Install]
+WantedBy=multi-user.target

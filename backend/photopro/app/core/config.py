@@ -43,6 +43,13 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    # FTP server public hostname (used in FTP credentials response)
+    FTP_HOST_PUBLIC: str = ""
+    FTP_PORT: int = 21
+
+    # Feature flags
+    VENO_SYNC_ENABLED: bool = False  # kept for backward-compat; Veno FM removed
+
     INITIAL_ADMIN_EMAIL: str = "admin@photopro.vn"
     INITIAL_ADMIN_PASSWORD: str = "change_me"
 

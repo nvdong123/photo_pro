@@ -35,6 +35,10 @@ class Staff(Base):
         Numeric(5, 2), nullable=False, server_default="100.00"
     )
 
+    # FTP credentials (auto-generated on staff creation)
+    ftp_password: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    ftp_folder: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -64,9 +64,15 @@ export default function DashboardLayout() {
       label: 'Công việc',
       children: [
         {
+          key: '/upload',
+          icon: <CameraOutlined />,
+          label: 'Kết Nối Máy Ảnh',
+          onClick: () => navigate('/upload'),
+        },
+        {
           key: '/dashboard/staff-upload',
           icon: <CloudUploadOutlined />,
-          label: 'Upload Ảnh',
+          label: 'Upload Ảnh (USB)',
           onClick: () => navigate('/dashboard/staff-upload'),
         },
         {

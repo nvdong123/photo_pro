@@ -33,6 +33,9 @@ import MyEarnings from './pages/dashboard/MyEarnings';
 // Auth Pages
 import Login from './pages/Login';
 
+// Upload / PWA page
+import CameraConnect from './pages/upload/CameraConnect';
+
 // Error Pages
 import NotFound from './pages/errors/NotFound';
 
@@ -59,6 +62,9 @@ function App() {
 
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
+
+        {/* PWA Upload page (standalone, no layout) */}
+        <Route path="/upload" element={<CameraConnect />} />
 
         {/* Dashboard Routes */}
         <Route path="/dashboard" element={<ErrorBoundary><DashboardLayout /></ErrorBoundary>}>
