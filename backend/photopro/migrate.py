@@ -65,7 +65,7 @@ async def ensure_tables(engine) -> None:
 
 async def stamp_alembic(engine) -> None:
     """Transaction 3: ensure alembic_version is at head."""
-    head = "0010_tag_cover_url"
+    head = "0011_staff_ftp_credentials"
     async with engine.begin() as conn:
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -96,6 +96,8 @@ async def apply_pending_columns(engine) -> None:
         ("bundle_pricing", "is_popular", "BOOLEAN DEFAULT false"),
         ("staff", "commission_rate",  "NUMERIC(5,2) NOT NULL DEFAULT 100.00"),
         ("tags", "cover_url",         "VARCHAR(2048)"),
+        ("staff", "ftp_password",     "VARCHAR(50)"),
+        ("staff", "ftp_folder",       "VARCHAR(200)"),
     ]
     async with engine.begin() as conn:
         for table, column, col_type in column_checks:
