@@ -44,6 +44,23 @@ class StorageService:
             ExpiresIn=ttl_seconds,
         )
 
+    def generate_presigned_put_url(
+        self,
+        key: str,
+        content_type: str,
+        ttl_seconds: int = 300,
+    ) -> str:
+        """Generate a presigned PUT URL for direct S3 upload from the browser."""
+        return self._s3.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": self._bucket,
+                "Key": key,
+                "ContentType": content_type,
+            },
+            ExpiresIn=ttl_seconds,
+        )
+
     def delete_objects(self, keys: list[str]) -> None:
         if not keys:
             return

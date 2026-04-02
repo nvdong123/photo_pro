@@ -1,24 +1,16 @@
 ﻿import { useState, useCallback, useRef, useEffect } from 'react';
 import { Tag, Spin, Button, message } from 'antd';
-import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, CheckCircleFilled, CloseCircleFilled, FileImageOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Check, Calendar, MapPin } from 'lucide-react';
+import { EnvironmentOutlined, CalendarOutlined, UploadOutlined, FileImageOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Check, Calendar, MapPin, X, CheckCircle, AlertCircle, Loader, Clock, ArrowUpCircle } from 'lucide-react';
 import { useMyLocations, type MyLocation } from '../../hooks/useMyLocations';
 import { useMyStats } from '../../hooks/useStaffStats';
 import { apiClient, invalidateApiCache } from '../../lib/api-client';
+import { useUpload, type FileItem, type FileStatus } from '../../hooks/useUpload';
+import { useStaffPhotoStream } from '../../hooks/useSSE';
 
 const BORDER = '#e2e5ea';
 const TEXT_MUTED = '#8b91a0';
 const PRIMARY = '#1a6b4e';
-
-type FileStatus = 'pending' | 'uploading' | 'done' | 'error';
-
-interface FileItem {
-  id: string;
-  file: File;
-  progress: number;
-  status: FileStatus;
-  error?: string;
-}
 
 interface LocationPhoto {
   media_id: string;
@@ -28,8 +20,6 @@ interface LocationPhoto {
   created_at: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
-
 const CARD_COLORS = [
   { color: '#1a6b4e', bg: '#e8f5f0' },
   { color: '#2563eb', bg: '#eff6ff' },
@@ -38,23 +28,41 @@ const CARD_COLORS = [
   { color: '#db2777', bg: '#fdf2f8' },
 ];
 
-interface UploadResult {
-  uploaded: number;
-  failed: number;
-  files: { media_id: string; filename: string; s3_key: string; size_kb: number }[];
-  errors: { filename: string; error: string }[];
+function statusLabel(fi: FileItem): string {
+  switch (fi.status) {
+    case 'pending':    return 'Chờ upload';
+    case 'uploading':  return `Đang upload... ${fi.progress}%`;
+    case 'retrying':   return `Thử lại ${fi.retryAttempt ?? '?'}/${fi.maxRetries}...`;
+    case 'done':       return 'Đã upload';
+    case 'processing': return 'Đang xử lý...';
+    case 'indexed':    return '✅ Hoàn thành';
+    case 'cancelled':  return 'Đã huỷ';
+    case 'error':      return fi.error ?? 'Upload thất bại';
+  }
+}
+
+function StatusIcon({ status }: { status: FileStatus }) {
+  const sz = 16;
+  switch (status) {
+    case 'indexed':    return <CheckCircle size={sz} color="#059669" />;
+    case 'done':
+    case 'processing': return <Loader size={sz} color="#d97706" style={{ animation: 'spin 1s linear infinite' }} />;
+    case 'retrying':   return <Loader size={sz} color="#f59e0b" style={{ animation: 'spin 1s linear infinite' }} />;
+    case 'error':      return <AlertCircle size={sz} color="#dc2626" />;
+    case 'cancelled':  return <AlertCircle size={sz} color="#9ca3af" />;
+    case 'uploading':  return <ArrowUpCircle size={sz} color={PRIMARY} />;
+    default:           return <Clock size={sz} color="#9ca3af" />;
+  }
 }
 
 export default function StaffUpload() {
   const { data: locations, loading: locLoading, refetch } = useMyLocations();
   const { data: myStats, loading: statsLoading } = useMyStats();
   const [selectedLocation, setSelectedLocation] = useState<MyLocation | null>(null);
-  const [fileItems, setFileItems] = useState<FileItem[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
+  const [shootDate, setShootDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Photos uploaded to the selected location
+  // Photo gallery for current location
   const [locationPhotos, setLocationPhotos] = useState<LocationPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
 
@@ -78,6 +86,37 @@ export default function StaffUpload() {
     }
   }, [selectedLocation, fetchLocationPhotos]);
 
+  // Upload state from hook (presign → S3 PUT → confirm, with retry + cancel)
+  const { fileItems, uploading, uploadDone, setFiles, startUpload, cancelFile, markIndexed } = useUpload();
+
+  // SSE: mark files 'indexed' once face processing completes. Cookie auth — no JWT in URL.
+  const { processedPhotos } = useStaffPhotoStream(null);
+  const markedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    processedPhotos.forEach((e) => {
+      if (!markedRef.current.has(e.media_id)) {
+        markedRef.current.add(e.media_id);
+        markIndexed(e.media_id);
+      }
+    });
+  }, [processedPhotos, markIndexed]);
+
+  // Auto-refresh gallery + invalidate caches when upload batch finishes
+  useEffect(() => {
+    if (!uploadDone) return;
+    const succeeded = fileItems.filter((fi) => !['error', 'cancelled'].includes(fi.status)).length;
+    const failed    = fileItems.filter((fi) => fi.status === 'error').length;
+    if (succeeded > 0) {
+      message.success(`Upload thành công ${succeeded} ảnh!`);
+      invalidateApiCache('/my-locations');
+      invalidateApiCache('/staff/statistics');
+      refetch?.();
+      if (selectedLocation) fetchLocationPhotos(selectedLocation.id);
+    }
+    if (failed > 0) message.error(`${failed} ảnh upload thất bại`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadDone]);
+
   const stats = [
     { label: 'Địa điểm', value: locations?.length ?? 0, color: PRIMARY, bg: '#e8f5f0' },
     { label: 'Tổng ảnh', value: myStats?.total_photos_uploaded ?? 0, color: PRIMARY, bg: '#e8f5f0' },
@@ -86,98 +125,18 @@ export default function StaffUpload() {
   ];
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    const items: FileItem[] = files.map((f) => ({
-      id: `${f.name}-${f.size}-${f.lastModified}`,
-      file: f,
-      progress: 0,
-      status: 'pending',
-    }));
-    setFileItems(items);
-    setUploadDone(false);
+    setFiles(Array.from(e.target.files ?? []));
     e.target.value = '';
   };
 
-  const uploadOne = (item: FileItem, locationId: string, token: string | null): Promise<void> => {
-    return new Promise((resolve) => {
-      const form = new FormData();
-      form.append('location_id', locationId);
-      form.append('files', item.file);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_BASE}/api/v1/staff/upload`);
-      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-      xhr.upload.onprogress = (ev) => {
-        if (ev.lengthComputable) {
-          const pct = Math.round((ev.loaded / ev.total) * 100);
-          setFileItems((prev) =>
-            prev.map((fi) => fi.id === item.id ? { ...fi, progress: pct, status: 'uploading' } : fi)
-          );
-        }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          setFileItems((prev) =>
-            prev.map((fi) => fi.id === item.id ? { ...fi, progress: 100, status: 'done' } : fi)
-          );
-        } else {
-          setFileItems((prev) =>
-            prev.map((fi) => fi.id === item.id ? { ...fi, status: 'error', error: `HTTP ${xhr.status}` } : fi)
-          );
-        }
-        resolve();
-      };
-
-      xhr.onerror = () => {
-        setFileItems((prev) =>
-          prev.map((fi) => fi.id === item.id ? { ...fi, status: 'error', error: 'Lỗi mạng' } : fi)
-        );
-        resolve();
-      };
-
-      xhr.send(form);
-    });
-  };
-
   const handleUpload = useCallback(async () => {
-    if (!selectedLocation || fileItems.length === 0) return;
+    if (!selectedLocation || fileItems.filter((fi) => fi.status === 'pending').length === 0) return;
+    await startUpload({ location_id: selectedLocation.id, shoot_date: shootDate });
+  }, [selectedLocation, shootDate, fileItems, startUpload]);
 
-    setUploading(true);
-    setUploadDone(false);
-
-    const token = localStorage.getItem('admin_token');
-
-    for (const item of fileItems) {
-      setFileItems((prev) =>
-        prev.map((fi) => fi.id === item.id ? { ...fi, status: 'uploading', progress: 0 } : fi)
-      );
-      await uploadOne(item, selectedLocation.id, token);
-    }
-
-    setUploading(false);
-    setUploadDone(true);
-
-    const doneItems = fileItems.filter((fi) => fi.status !== 'error');
-    const errItems  = fileItems.filter((fi) => fi.status === 'error');
-
-    if (doneItems.length > 0) {
-      message.success(`Upload thành công ${doneItems.length} ảnh!`);
-      invalidateApiCache('/my-locations');
-      invalidateApiCache('/staff/statistics');
-      refetch?.();
-      // Refresh location photos list
-      if (selectedLocation) fetchLocationPhotos(selectedLocation.id);
-    }
-    if (errItems.length > 0) {
-      message.error(`${errItems.length} ảnh upload thất bại`);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLocation, fileItems, refetch]);
-
-  const doneCount  = fileItems.filter((fi) => fi.status === 'done').length;
-  const totalCount = fileItems.length;
+  const completedCount = fileItems.filter((fi) => ['done', 'processing', 'indexed'].includes(fi.status)).length;
+  const totalCount     = fileItems.length;
+  const pendingCount   = fileItems.filter((fi) => fi.status === 'pending').length;
 
   return (
     <div>
@@ -298,11 +257,28 @@ export default function StaffUpload() {
             </h3>
             {totalCount > 0 && (
               <span style={{ fontSize: 13, color: uploadDone ? '#1a6b4e' : TEXT_MUTED, fontWeight: 600 }}>
-                {uploadDone ? '✓ Upload hoàn tất!' : `${doneCount}/${totalCount} hoàn thành`}
+                {uploadDone ? '✓ Upload hoàn tất!' : `${completedCount}/${totalCount} hoàn thành`}
               </span>
             )}
           </div>
           <div style={{ padding: 20 }}>
+            {/* Date picker */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
+                Ngày chụp *
+              </label>
+              <input
+                type="date"
+                value={shootDate}
+                onChange={(e) => setShootDate(e.target.value)}
+                disabled={uploading}
+                style={{
+                  padding: '8px 12px', borderRadius: 8,
+                  border: `1px solid ${BORDER}`, fontSize: 14, color: '#111827',
+                }}
+              />
+            </div>
+
             {/* Drop zone / file picker */}
             <div
               onClick={() => !uploading && inputRef.current?.click()}
@@ -310,13 +286,7 @@ export default function StaffUpload() {
               onDrop={(e) => {
                 e.preventDefault();
                 if (uploading) return;
-                const files = Array.from(e.dataTransfer.files).filter((f) => f.type === 'image/jpeg');
-                const items: FileItem[] = files.map((f) => ({
-                  id: `${f.name}-${f.size}-${f.lastModified}`,
-                  file: f, progress: 0, status: 'pending',
-                }));
-                setFileItems(items);
-                setUploadDone(false);
+                setFiles(Array.from(e.dataTransfer.files));
               }}
               style={{
                 border: `2px dashed ${BORDER}`, borderRadius: 10, padding: '32px 20px',
@@ -326,13 +296,13 @@ export default function StaffUpload() {
               }}
             >
               <UploadOutlined style={{ fontSize: 32, color: PRIMARY, marginBottom: 8 }} />
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Kéo thả ảnh JPEG vào đây hoặc click để chọn</div>
-              <div style={{ fontSize: 12, color: TEXT_MUTED }}>Tối đa 25MB/ảnh, chỉ chấp nhận file JPEG</div>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Kéo thả ảnh vào đây hoặc click để chọn</div>
+              <div style={{ fontSize: 12, color: TEXT_MUTED }}>JPG, PNG, RAW — tối đa 50 ảnh</div>
               <input
                 ref={inputRef}
                 type="file"
                 multiple
-                accept=".jpg,.jpeg"
+                accept=".jpg,.jpeg,.png,.cr2,.nef,.arw,.rw2,.rw,.raf"
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
               />
@@ -343,36 +313,49 @@ export default function StaffUpload() {
               <div style={{ marginBottom: 16 }}>
                 {fileItems.map((fi) => {
                   const sizeMB = (fi.file.size / 1024 / 1024).toFixed(1);
-                  const isDone  = fi.status === 'done';
-                  const isErr   = fi.status === 'error';
-                  const isActive = fi.status === 'uploading';
+                  const isActive = fi.status === 'uploading' || fi.status === 'retrying';
+                  const canCancel = (fi.status === 'uploading' || fi.status === 'retrying') && fi.mediaId;
+                  const barColor = fi.status === 'retrying' ? '#f59e0b'
+                    : fi.status === 'indexed' ? '#059669'
+                    : PRIMARY;
                   return (
                     <div key={fi.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
+                      display: 'flex', alignItems: 'center', gap: 10,
                       padding: '10px 0', borderBottom: `1px solid ${BORDER}`,
                     }}>
-                      <FileImageOutlined style={{ fontSize: 24, color: TEXT_MUTED, flexShrink: 0 }} />
+                      <FileImageOutlined style={{ fontSize: 20, color: TEXT_MUTED, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 500, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {fi.file.name}
                         </div>
-                        <div style={{ fontSize: 11, color: TEXT_MUTED }}>{sizeMB} MB</div>
-                        {(isActive || isDone) && (
-                          <div style={{ marginTop: 4, height: 4, borderRadius: 2, background: '#e8f5f0', overflow: 'hidden' }}>
+                        <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 2 }}>
+                          {sizeMB} MB · {statusLabel(fi)}
+                        </div>
+                        {isActive && (
+                          <div style={{ height: 4, borderRadius: 2, background: '#e8f5f0', overflow: 'hidden' }}>
                             <div style={{
                               height: '100%', borderRadius: 2,
-                              background: isDone ? '#52c41a' : PRIMARY,
+                              background: barColor,
                               width: `${fi.progress}%`,
                               transition: 'width 0.15s',
                             }} />
                           </div>
                         )}
                       </div>
-                      <div style={{ flexShrink: 0, width: 32, textAlign: 'center' }}>
-                        {isDone  && <CheckCircleFilled  style={{ color: '#52c41a', fontSize: 18 }} />}
-                        {isErr   && <CloseCircleFilled  style={{ color: '#ff4d4f', fontSize: 18 }} title={fi.error} />}
-                        {isActive && <span style={{ fontSize: 12, color: PRIMARY, fontWeight: 600 }}>{fi.progress}%</span>}
-                        {fi.status === 'pending' && <span style={{ fontSize: 11, color: TEXT_MUTED }}>—</span>}
+                      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <StatusIcon status={fi.status} />
+                        {canCancel && (
+                          <button
+                            onClick={() => cancelFile(fi.mediaId!)}
+                            title="Huỷ"
+                            style={{
+                              border: 'none', background: 'none', cursor: 'pointer',
+                              padding: 2, color: '#9ca3af', display: 'flex', alignItems: 'center',
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -386,14 +369,14 @@ export default function StaffUpload() {
                 icon={<UploadOutlined />}
                 size="large"
                 loading={uploading}
-                disabled={fileItems.length === 0}
+                disabled={pendingCount === 0}
                 onClick={handleUpload}
                 style={{ background: PRIMARY, borderColor: PRIMARY }}
               >
-                {uploading ? 'Đang upload...' : `Upload ${totalCount} ảnh`}
+                {uploading ? 'Đang upload...' : `Upload ${pendingCount > 0 ? pendingCount : totalCount} ảnh`}
               </Button>
               {fileItems.length > 0 && !uploading && (
-                <Button size="large" onClick={() => { setFileItems([]); setUploadDone(false); }}>
+                <Button size="large" onClick={() => setFiles([])}>
                   Xóa tất cả
                 </Button>
               )}

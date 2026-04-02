@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, Wifi, Upload } from 'lucide-react';
 import { getUser, isLoggedIn } from '../../hooks/useAuth';
 import FtpCredentialsTab from './FtpCredentialsTab';
-import UsbUploadTab from './UsbUploadTab';
+import DirectUploadTab from './DirectUploadTab';
 
 const PRIMARY = '#1a6b4e';
 
@@ -16,7 +17,7 @@ export default function CameraConnect() {
     return null;
   }
 
-  const [tab, setTab] = useState<'ftp' | 'usb'>('ftp');
+  const [tab, setTab] = useState<'ftp' | 'direct'>('ftp');
 
   return (
     <div style={{ minHeight: '100dvh', background: '#f5f7fa', display: 'flex', flexDirection: 'column' }}>
@@ -35,10 +36,10 @@ export default function CameraConnect() {
       }}>
         <button
           onClick={() => navigate('/dashboard')}
-          style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 20, padding: 4 }}
+          style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
           aria-label="Back"
         >
-          ←
+          <ChevronLeft size={22} />
         </button>
         <span style={{ fontWeight: 700, fontSize: 17, letterSpacing: 0.2 }}>Kết Nối Máy Ảnh</span>
         <span style={{ fontSize: 13, opacity: 0.8 }}>{user?.name ?? ''}</span>
@@ -66,32 +67,40 @@ export default function CameraConnect() {
             fontSize: 15,
             cursor: 'pointer',
             transition: 'all 0.18s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
           }}
         >
-          📡 WiFi / FTP
+          <Wifi size={16} /> WiFi / FTP
         </button>
         <button
-          onClick={() => setTab('usb')}
+          onClick={() => setTab('direct')}
           style={{
             flex: 1,
             padding: '14px 0',
             background: 'none',
             border: 'none',
-            borderBottom: tab === 'usb' ? `3px solid ${PRIMARY}` : '3px solid transparent',
-            color: tab === 'usb' ? PRIMARY : '#6b7280',
-            fontWeight: tab === 'usb' ? 700 : 400,
+            borderBottom: tab === 'direct' ? `3px solid ${PRIMARY}` : '3px solid transparent',
+            color: tab === 'direct' ? PRIMARY : '#6b7280',
+            fontWeight: tab === 'direct' ? 700 : 400,
             fontSize: 15,
             cursor: 'pointer',
             transition: 'all 0.18s',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
           }}
         >
-          🔌 USB / Thẻ nhớ
+          <Upload size={16} /> Trực Tiếp
         </button>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, padding: '16px', maxWidth: 600, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
-        {tab === 'ftp' ? <FtpCredentialsTab /> : <UsbUploadTab />}
+        {tab === 'ftp' ? <FtpCredentialsTab /> : <DirectUploadTab />}
       </div>
     </div>
   );

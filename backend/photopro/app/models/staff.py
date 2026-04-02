@@ -36,7 +36,8 @@ class Staff(Base):
     )
 
     # FTP credentials (auto-generated on staff creation)
-    ftp_password: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # ftp_password stores a bcrypt hash (60 chars); String(100) leaves headroom
+    ftp_password: Mapped[str | None] = mapped_column(String(100), nullable=True)
     ftp_folder: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

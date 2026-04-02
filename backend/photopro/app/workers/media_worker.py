@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import WorkerAsyncSessionLocal as AsyncSessionLocal
 from app.models.media import Media, MediaStatus
+from app.models.tag import MediaTag, Tag
 from app.services.face_client import face_client
 from app.services.storage_service import storage_service
 
@@ -41,6 +42,10 @@ celery_app.conf.beat_schedule = {
     "cleanup-expired": {
         "task": "cleanup_expired",
         "schedule": crontab(minute=0, hour="*/1"),
+    },
+    "cleanup-uploading": {
+        "task": "cleanup_uploading",
+        "schedule": crontab(minute="*/15"),
     },
 }
 
@@ -177,6 +182,7 @@ async def _async_index_faces(task, media_id: str):
             media.process_status = MediaStatus.INDEXED
             media.has_face = False
             await db.commit()
+            await _publish_sse_event(media)
             return
 
         # Jitter: spread concurrent workers to avoid S3 connection pool exhaustion
@@ -229,6 +235,45 @@ async def _async_index_faces(task, media_id: str):
         media.face_service_photo_id = str(media.id)
         media.process_status = MediaStatus.INDEXED
         await db.commit()
+
+        # ── Publish SSE event so connected clients see the new photo ──────────
+        await _publish_sse_event(media)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SSE helper — called after index_faces succeeds
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _publish_sse_event(media: Media) -> None:
+    """Look up location tags for this media and publish a photo-ready event."""
+    from app.models.tag import MediaTag, Tag, TagType
+    from app.services.redis_pubsub import publish_photo_ready_sync
+    from sqlalchemy import select
+
+    try:
+        async with AsyncSessionLocal() as db2:
+            tags_result = await db2.execute(
+                select(Tag)
+                .join(MediaTag, MediaTag.tag_id == Tag.id)
+                .where(MediaTag.media_id == media.id, Tag.tag_type == TagType.LOCATION)
+            )
+            location_tags = tags_result.scalars().all()
+
+        thumb_url = (
+            storage_service.get_presigned_url(media.thumb_s3_key, ttl_seconds=3600)
+            if media.thumb_s3_key
+            else ""
+        )
+
+        for tag in location_tags:
+            publish_photo_ready_sync(
+                media_id=str(media.id),
+                location_id=str(tag.id),
+                thumb_url=thumb_url,
+            )
+    except Exception:
+        # SSE publish failure must never crash the indexing task
+        logger.exception("Failed to publish SSE event for media %s", media.id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -303,6 +348,17 @@ async def _async_process_ftp_upload(file_path: str, employee_code: str):
         from app.models.staff import Staff as _Staff
         from app.services.settings_service import get_setting_int
 
+        # ── Duplicate check: skip if this s3_key was already processed
+        existing = await db.execute(
+            select(Media).where(
+                Media.original_s3_key == s3_key,
+                Media.deleted_at.is_(None),
+            )
+        )
+        if existing.scalar_one_or_none():
+            logger.info("FTP: duplicate file skipped: %s", s3_key)
+            return
+
         # Resolve uploader_id from employee_code
         result = await db.execute(
             select(_Staff).where(_Staff.employee_code == employee_code)
@@ -325,6 +381,21 @@ async def _async_process_ftp_upload(file_path: str, employee_code: str):
         db.add(media_record)
         await db.flush()
         media_id = str(media_record.id)
+
+        # ── Link to location Tag so photo appears in albums and face search
+        if album_code:
+            tag_result = await db.execute(
+                select(Tag).where(Tag.name == album_code)
+            )
+            tag = tag_result.scalar_one_or_none()
+            if tag:
+                db.add(MediaTag(media_id=media_record.id, tag_id=tag.id))
+            else:
+                logger.warning(
+                    "FTP upload: no Tag found for album_code=%r, photo will be untagged",
+                    album_code,
+                )
+
         await db.commit()
 
     # ── Queue downstream tasks

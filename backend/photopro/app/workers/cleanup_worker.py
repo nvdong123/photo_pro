@@ -137,3 +137,40 @@ def _delete_media_s3(media: Media) -> None:
         storage_service.delete_objects(keys)
     except Exception:
         logger.exception("Failed to delete S3 objects for media %s", media.id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Task: cleanup_uploading
+# Runs every 15 minutes. Soft-deletes Media records stuck in UPLOADING state
+# for more than 30 minutes — these represent abandoned presigned uploads.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@celery_app.task(name="cleanup_uploading")
+def cleanup_uploading():
+    _run_async(_async_cleanup_uploading())
+
+
+async def _async_cleanup_uploading():
+    from datetime import timedelta
+    from app.core.database import WorkerAsyncSessionLocal as AsyncSessionLocal
+    from app.models.media import MediaStatus
+
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Media).where(
+                and_(
+                    Media.process_status == MediaStatus.UPLOADING,
+                    Media.created_at < cutoff,
+                    Media.deleted_at.is_(None),
+                )
+            )
+        )
+        stale = result.scalars().all()
+        now = datetime.now(timezone.utc)
+        for media in stale:
+            media.deleted_at = now
+        await db.commit()
+        if stale:
+            logger.info("Cleaned up %d stale UPLOADING media records", len(stale))

@@ -7,6 +7,7 @@ Mounted at /api/v1/admin/staff (same prefix as commission.py).
   GET  /{staff_id}/ftp-credentials  → admin: get staff FTP credentials
   POST /{staff_id}/reset-ftp-password → admin: regenerate FTP password
 """
+import bcrypt
 import secrets
 import string
 import uuid
@@ -53,6 +54,11 @@ def _generate_ftp_password(length: int = 12) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
+def _hash_ftp_password(plain: str) -> str:
+    """Return bcrypt hash of a plaintext FTP password."""
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
 def _ftp_folder(employee_code: str) -> str:
     import os
     root = os.getenv("FTP_ROOT", "/photopro_upload")
@@ -74,17 +80,28 @@ async def my_ftp_credentials(
 
     # Auto-generate password on first access
     if not current_user.ftp_password:
-        current_user.ftp_password = _generate_ftp_password()
+        plain = _generate_ftp_password()
+        current_user.ftp_password = _hash_ftp_password(plain)
         current_user.ftp_folder = _ftp_folder(current_user.employee_code)
         await db.commit()
         await db.refresh(current_user)
+        # Return plaintext ONLY on first creation — it cannot be recovered later
+        return APIResponse.ok({
+            "host": _ftp_host(),
+            "port": _ftp_port(),
+            "username": current_user.employee_code,
+            "password": plain,
+            "folder": current_user.ftp_folder or _ftp_folder(current_user.employee_code),
+            "password_note": "Save this password — it will not be shown again.",
+        })
 
     return APIResponse.ok({
         "host": _ftp_host(),
         "port": _ftp_port(),
         "username": current_user.employee_code,
-        "password": current_user.ftp_password,
+        "password": None,
         "folder": current_user.ftp_folder or _ftp_folder(current_user.employee_code),
+        "password_note": "Password is set. Use the reset endpoint to generate a new one.",
     })
 
 
@@ -108,17 +125,27 @@ async def get_staff_ftp_credentials(
 
     # Auto-generate if missing
     if not staff.ftp_password:
-        staff.ftp_password = _generate_ftp_password()
+        plain = _generate_ftp_password()
+        staff.ftp_password = _hash_ftp_password(plain)
         staff.ftp_folder = _ftp_folder(staff.employee_code)
         await db.commit()
         await db.refresh(staff)
+        return APIResponse.ok({
+            "host": _ftp_host(),
+            "port": _ftp_port(),
+            "username": staff.employee_code,
+            "password": plain,
+            "folder": staff.ftp_folder or _ftp_folder(staff.employee_code),
+            "password_note": "Save this password — it will not be shown again.",
+        })
 
     return APIResponse.ok({
         "host": _ftp_host(),
         "port": _ftp_port(),
         "username": staff.employee_code,
-        "password": staff.ftp_password,
+        "password": None,
         "folder": staff.ftp_folder or _ftp_folder(staff.employee_code),
+        "password_note": "Password is set. Use the reset endpoint to generate a new one.",
     })
 
 
@@ -136,7 +163,8 @@ async def reset_ftp_password(
     if not staff.employee_code:
         raise HTTPException(422, "Staff has no employee_code — FTP not available")
 
-    staff.ftp_password = _generate_ftp_password()
+    plain = _generate_ftp_password()
+    staff.ftp_password = _hash_ftp_password(plain)
     staff.ftp_folder = _ftp_folder(staff.employee_code)
     await db.commit()
     await db.refresh(staff)
@@ -145,6 +173,7 @@ async def reset_ftp_password(
         "host": _ftp_host(),
         "port": _ftp_port(),
         "username": staff.employee_code,
-        "password": staff.ftp_password,
+        "password": plain,
         "folder": staff.ftp_folder,
+        "password_note": "Save this password — it will not be shown again.",
     })

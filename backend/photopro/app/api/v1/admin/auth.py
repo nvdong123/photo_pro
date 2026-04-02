@@ -2,7 +2,7 @@ import logging
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +37,7 @@ router = APIRouter()
 @limiter.limit("5/minute")
 async def admin_login(
     request: Request,
+    response: Response,
     body: AdminLoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
@@ -57,6 +58,21 @@ async def admin_login(
         user_agent=user_agent,
     ))
     await db.commit()
+
+    # Set HttpOnly cookie so staff SSE stream can authenticate without
+    # exposing the token in the URL (nginx logs, browser history).
+    # Scoped to /api/v1/realtime so it is not sent for every API request.
+    is_secure = not settings.DEBUG  # Secure flag only on HTTPS (not local dev)
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=is_secure,
+        samesite="strict",
+        path="/api/v1/realtime",
+        max_age=7 * 24 * 3600,  # 7 days, matching JWT expiry
+    )
+
     return APIResponse.ok(AdminLoginResponse(
         access_token=token,
         role=admin.role,

@@ -4,6 +4,7 @@ import { ConfigProvider } from 'antd'
 import viVN from 'antd/locale/vi_VN'
 import './index.css'
 import App from './App.tsx'
+import './registerSW'
 
 const isMobile = window.matchMedia('(max-width: 768px)').matches;
 

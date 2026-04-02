@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlbums } from '../../hooks/useAlbums';
-import { Button, Alert } from 'antd';
+import { useAllPhotosStream } from '../../hooks/useSSE';
+import { Button, Alert, notification } from 'antd';
 import { SearchOutlined, BulbOutlined, PictureOutlined } from '@ant-design/icons';
-import { MapPin } from 'lucide-react';
+import { MapPin, Radio } from 'lucide-react';
 import '../styles/frontend.css';
 
 interface Album {
@@ -10,6 +12,20 @@ interface Album {
   name: string;
   photoCount: number;
   thumbnailUrl: string | null;
+}
+
+/** Live badge — blinking red dot + "LIVE" label */
+function LiveBadge() {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      background: '#dc2626', color: '#fff', borderRadius: 4,
+      padding: '2px 6px', fontSize: 10, fontWeight: 800, letterSpacing: 1,
+      animation: 'photopro-live-blink 1.4s ease-in-out infinite',
+    }}>
+      <Radio size={10} /> LIVE
+    </span>
+  );
 }
 
 export default function Albums() {
@@ -21,6 +37,41 @@ export default function Albums() {
     photoCount: a.media_count,
     thumbnailUrl: a.cover_url ?? a.thumbnail_url,
   }));
+
+  // ── SSE: global stream — 1 connection, events from ALL locations ──────────
+  const [liveAlbumIds, setLiveAlbumIds] = useState<Set<string>>(new Set());
+  const [photoCounts, setPhotoCounts] = useState<Map<string, number>>(new Map());
+
+  const { newPhotos } = useAllPhotosStream();
+
+  useEffect(() => {
+    if (!newPhotos.length) return;
+    const latest = newPhotos[0];
+    const locId = latest.location_id;
+
+    setLiveAlbumIds(prev => {
+      const next = new Set(prev);
+      next.add(locId);
+      return next;
+    });
+
+    setPhotoCounts(prev => {
+      const next = new Map(prev);
+      next.set(locId, (prev.get(locId) ?? 0) + 1);
+      return next;
+    });
+
+    // Toast notification
+    const album = albums.find(a => a.id === locId);
+    notification.info({
+      message: 'Ảnh mới',
+      description: `Có ảnh mới${album ? ` trong ${album.name}` : ''}.`,
+      placement: 'bottomRight',
+      duration: 4,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newPhotos]);
+
 
   return (
     <div style={{ background: '#0f0f0f', minHeight: '100vh', padding: '84px 24px 24px' }}>
@@ -96,10 +147,18 @@ export default function Albums() {
                 {/* Info */}
                 <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fff', fontWeight: 600, fontSize: '1rem' }}>
-                    <MapPin size={14} style={{ flexShrink: 0, color: '#5dffb0' }} />{album.name}
+                    <MapPin size={14} style={{ flexShrink: 0, color: '#5dffb0' }} />
+                    <span style={{ flex: 1 }}>{album.name}</span>
+                    {liveAlbumIds.has(album.id) && <LiveBadge />}
                   </div>
-                  <div style={{ color: '#9ca3af', fontSize: '0.85rem' }}>
-                    <PictureOutlined /> {album.photoCount} ảnh
+                  <div style={{ color: '#9ca3af', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <PictureOutlined />
+                    {album.photoCount + (photoCounts.get(album.id) ?? 0)} ảnh
+                    {(photoCounts.get(album.id) ?? 0) > 0 && (
+                      <span style={{ color: '#4ade80', fontSize: '0.78rem' }}>
+                        +{photoCounts.get(album.id)} mới
+                      </span>
+                    )}
                   </div>
                   <Button type="primary" block icon={<SearchOutlined />}
                     onClick={() => navigate(`/face-search?album_id=${album.id}&album_name=${encodeURIComponent(album.name)}`)}

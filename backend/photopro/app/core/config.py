@@ -46,9 +46,31 @@ class Settings(BaseSettings):
     # FTP server public hostname (used in FTP credentials response)
     FTP_HOST_PUBLIC: str = ""
     FTP_PORT: int = 21
+    FTP_PUBLIC_IP: str = ""  # public IP or domain for PASV mode behind NAT/Docker
 
     # Feature flags
-    VENO_SYNC_ENABLED: bool = False  # kept for backward-compat; Veno FM removed
+    VENO_SYNC_ENABLED: bool = False          # kept for backward-compat; Veno FM removed
+    SCAN_LOCAL_FOLDER_ENABLED: bool = True   # set False when using S3 direct-upload only
+
+    # Realtime / SSE
+    SSE_HEARTBEAT_INTERVAL: int = 30         # seconds between ping events
+    REDIS_PUBSUB_CHANNEL: str = "photopro:photos"
+
+    # Direct upload constraints
+    UPLOAD_MAX_SIZE_MB: int = 50
+    UPLOAD_ALLOWED_EXTENSIONS: list[str] = [
+        ".jpg", ".jpeg", ".png", ".cr2", ".nef", ".arw", ".rw2", ".rw", ".raf"
+    ]
+    UPLOAD_ALLOWED_CONTENT_TYPES: list[str] = [
+        "image/jpeg",
+        "image/png",
+        "image/x-canon-cr2",
+        "image/x-nikon-nef",
+        "image/x-sony-arw",
+        "image/x-sony-raw",
+        "image/x-fuji-raf",
+        "image/tiff",
+    ]
 
     INITIAL_ADMIN_EMAIL: str = "admin@photopro.vn"
     INITIAL_ADMIN_PASSWORD: str = "change_me"

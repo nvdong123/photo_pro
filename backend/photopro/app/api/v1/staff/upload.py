@@ -6,20 +6,39 @@ POST /api/v1/staff/upload
   - Validates staff assignment, compresses JPEG q=82, uploads to S3
   - Creates Media record + queues create_derivatives
 
+POST /api/v1/staff/upload/presign
+  - JSON body: filename, content_type, location_id, shoot_date, album_code?
+  - Generates a presigned S3 PUT URL (expires 300 s)
+  - Creates Media record with process_status=UPLOADING
+  - Response: { upload_url, media_id, s3_key, expires_in }
+
+POST /api/v1/staff/upload/confirm
+  - JSON body: { media_id }
+  - Marks Media UPLOADING → NEW, queues create_derivatives
+
+POST /api/v1/staff/upload/batch-presign
+  - JSON body: { files: [{filename, content_type, size}], location_id, shoot_date, album_code? }
+  - Returns list of presign responses (max 50 files)
+
 Router prefix: /api/v1/staff
 """
 import io
 import logging
+import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from PIL import Image
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_admin
+from app.core.deps import get_current_admin, require_any
 from app.models.media import Media, MediaStatus
 from app.models.staff import Staff, StaffRole
 from app.models.staff_location import StaffLocationAssignment
@@ -34,6 +53,8 @@ router = APIRouter()
 
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB per file
 MAX_FILES_PER_REQUEST = 20
+MAX_BATCH_PRESIGN = 50
+PRESIGN_TTL = 300  # seconds
 
 
 def _compress_jpeg(data: bytes, quality: int = 82) -> bytes:
@@ -45,6 +66,322 @@ def _compress_jpeg(data: bytes, quality: int = 82) -> bytes:
         return out.getvalue()
     except Exception:
         return data  # return raw if compression fails
+
+
+def _safe_filename(filename: str) -> str:
+    """Strip path components and normalise to safe ASCII-ish filename."""
+    name = os.path.basename(filename)
+    name = re.sub(r"[^\w.\-]", "_", name)
+    return name[:100] or "file"
+
+
+def _ext_from_content_type(content_type: str) -> str:
+    _map = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/x-canon-cr2": ".cr2",
+        "image/x-nikon-nef": ".nef",
+        "image/x-sony-arw": ".arw",
+        "image/x-sony-raw": ".rw2",
+        "image/x-fuji-raf": ".raf",
+        "image/tiff": ".tif",
+    }
+    return _map.get(content_type.lower(), ".jpg")
+
+
+def _validate_upload_type(filename: str, content_type: str) -> None:
+    ext = PurePosixPath(filename).suffix.lower()
+    allowed_exts = settings.UPLOAD_ALLOWED_EXTENSIONS
+    allowed_types = settings.UPLOAD_ALLOWED_CONTENT_TYPES
+    if ext not in allowed_exts:
+        raise HTTPException(400, f"File extension {ext!r} not allowed")
+    if content_type.lower() not in allowed_types:
+        raise HTTPException(400, f"Content type {content_type!r} not allowed")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Schemas for presign endpoints
+# ──────────────────────────────────────────────────────────────────────────────
+
+class PresignRequest(BaseModel):
+    filename: str
+    content_type: str
+    location_id: uuid.UUID
+    shoot_date: str         # YYYY-MM-DD
+    album_code: str | None = None
+
+    @field_validator("shoot_date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("shoot_date must be YYYY-MM-DD")
+        return v
+
+
+class PresignResponse(BaseModel):
+    upload_url: str
+    media_id: str
+    s3_key: str
+    expires_in: int
+
+
+class ConfirmRequest(BaseModel):
+    media_id: uuid.UUID
+
+
+class CancelRequest(BaseModel):
+    media_id: uuid.UUID
+
+
+class BatchFileItem(BaseModel):
+    filename: str
+    content_type: str
+    size: int | None = None
+
+
+class BatchPresignRequest(BaseModel):
+    files: list[BatchFileItem]
+    location_id: uuid.UUID
+    shoot_date: str
+    album_code: str | None = None
+
+    @field_validator("shoot_date")
+    @classmethod
+    def validate_date(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("shoot_date must be YYYY-MM-DD")
+        return v
+
+    @field_validator("files")
+    @classmethod
+    def validate_files(cls, v: list) -> list:
+        if len(v) > MAX_BATCH_PRESIGN:
+            raise ValueError(f"Maximum {MAX_BATCH_PRESIGN} files per batch")
+        return v
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helper: resolve location + staff assignment
+# ──────────────────────────────────────────────────────────────────────────────
+
+async def _resolve_location(
+    db: AsyncSession,
+    staff: Staff,
+    location_id: uuid.UUID,
+) -> tuple[Tag, str, str]:
+    """Validate assignment and return (tag, shoot_date, album_code)."""
+    if not staff.employee_code:
+        raise HTTPException(403, "No employee_code – upload not allowed")
+
+    sla = (await db.execute(
+        select(StaffLocationAssignment).where(
+            StaffLocationAssignment.staff_id == staff.id,
+            StaffLocationAssignment.tag_id == location_id,
+        )
+    )).scalar_one_or_none()
+    if not sla or not sla.can_upload:
+        raise HTTPException(403, "Not assigned to this location or upload not permitted")
+
+    tag = await db.get(Tag, location_id)
+    if not tag or tag.tag_type != TagType.LOCATION:
+        raise HTTPException(404, "Location not found")
+
+    shoot_date = tag.shoot_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    album_code = tag.name
+    return tag, shoot_date, album_code
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /upload/presign
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/upload/presign", response_model=APIResponse[PresignResponse])
+async def presign_upload(
+    body: PresignRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Generate a presigned S3 PUT URL for direct browser→S3 upload."""
+    _validate_upload_type(body.filename, body.content_type)
+
+    tag, shoot_date, default_album = await _resolve_location(db, current_user, body.location_id)
+    # Caller may override shoot_date and album_code
+    shoot_date = body.shoot_date or shoot_date
+    album_code = body.album_code or default_album
+
+    ext = PurePosixPath(body.filename).suffix.lower() or _ext_from_content_type(body.content_type)
+    file_id = uuid.uuid4()
+    s3_key = (
+        f"originals/{shoot_date}/{current_user.employee_code}"
+        f"/{album_code}/{file_id}{ext}"
+    )
+
+    ttl_days = await get_setting_int(db, "media_ttl_days", default=90)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
+
+    media = Media(
+        id=file_id,
+        original_s3_key=s3_key,
+        photographer_code=current_user.employee_code,
+        uploader_id=current_user.id,
+        shoot_date=shoot_date,
+        album_code=album_code,
+        process_status=MediaStatus.UPLOADING,
+        expires_at=expires_at,
+    )
+    db.add(media)
+    db.add(MediaTag(media_id=media.id, tag_id=tag.id))
+    await db.commit()
+
+    upload_url = storage_service.generate_presigned_put_url(
+        s3_key, body.content_type, ttl_seconds=PRESIGN_TTL
+    )
+
+    return APIResponse.ok(PresignResponse(
+        upload_url=upload_url,
+        media_id=str(file_id),
+        s3_key=s3_key,
+        expires_in=PRESIGN_TTL,
+    ))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /upload/confirm
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/upload/confirm", response_model=APIResponse[dict])
+async def confirm_upload(
+    body: ConfirmRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Confirm that a presigned upload has completed and queue processing."""
+    media = await db.get(Media, body.media_id)
+    if not media or media.deleted_at:
+        raise HTTPException(404, detail={"code": "MEDIA_NOT_FOUND", "message": "Media not found"})
+
+    if media.uploader_id != current_user.id:
+        raise HTTPException(403, detail={"code": "PERMISSION_DENIED", "message": "Not your upload"})
+
+    if media.process_status != MediaStatus.UPLOADING:
+        # Idempotent: already confirmed or processing
+        return APIResponse.ok({"media_id": str(media.id), "status": media.process_status.value})
+
+    media.process_status = MediaStatus.NEW
+    await db.commit()
+
+    from app.workers.media_worker import create_derivatives
+    create_derivatives.delay(str(media.id))
+
+    return APIResponse.ok({"media_id": str(media.id), "status": "processing"})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DELETE /upload/cancel
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.delete("/upload/cancel", response_model=APIResponse[dict])
+async def cancel_upload(
+    body: CancelRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Cancel an in-progress upload by soft-deleting the UPLOADING Media record.
+
+    Idempotent — returns success if the record is already deleted or not found.
+    Called by the frontend after 3 failed PUT retries, or on explicit user cancel.
+    Only works while the record is still in UPLOADING state (not yet confirmed).
+    """
+    media = await db.get(Media, body.media_id)
+    if not media or media.deleted_at:
+        # Already cancelled / cleaned up — idempotent
+        return APIResponse.ok({"media_id": str(body.media_id), "cancelled": True})
+
+    if media.uploader_id != current_user.id:
+        raise HTTPException(
+            403, detail={"code": "PERMISSION_DENIED", "message": "Not your upload"}
+        )
+
+    if media.process_status != MediaStatus.UPLOADING:
+        # Already confirmed — do not cancel a record past UPLOADING
+        return APIResponse.ok(
+            {"media_id": str(media.id), "cancelled": False, "reason": "already_confirmed"}
+        )
+
+    media.deleted_at = datetime.now(timezone.utc)
+    await db.commit()
+    logger.info("Cancelled UPLOADING media %s by staff %s", media.id, current_user.id)
+    return APIResponse.ok({"media_id": str(media.id), "cancelled": True})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /upload/batch-presign
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/upload/batch-presign", response_model=APIResponse[dict])
+async def batch_presign_upload(
+    body: BatchPresignRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Generate presigned PUT URLs for up to 50 files at once."""
+    tag, shoot_date, default_album = await _resolve_location(db, current_user, body.location_id)
+    shoot_date = body.shoot_date or shoot_date
+    album_code = body.album_code or default_album
+
+    ttl_days = await get_setting_int(db, "media_ttl_days", default=90)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days)
+
+    uploads = []
+    for fi in body.files:
+        try:
+            _validate_upload_type(fi.filename, fi.content_type)
+        except HTTPException as exc:
+            # Skip invalid files rather than failing the whole batch
+            logger.warning("Skipping file %s: %s", fi.filename, exc.detail)
+            continue
+
+        ext = PurePosixPath(fi.filename).suffix.lower() or _ext_from_content_type(fi.content_type)
+        file_id = uuid.uuid4()
+        s3_key = (
+            f"originals/{shoot_date}/{current_user.employee_code}"
+            f"/{album_code}/{file_id}{ext}"
+        )
+
+        media = Media(
+            id=file_id,
+            original_s3_key=s3_key,
+            photographer_code=current_user.employee_code,
+            uploader_id=current_user.id,
+            shoot_date=shoot_date,
+            album_code=album_code,
+            process_status=MediaStatus.UPLOADING,
+            expires_at=expires_at,
+        )
+        db.add(media)
+        db.add(MediaTag(media_id=media.id, tag_id=tag.id))
+
+        upload_url = storage_service.generate_presigned_put_url(
+            s3_key, fi.content_type, ttl_seconds=PRESIGN_TTL
+        )
+        uploads.append({
+            "upload_url": upload_url,
+            "media_id": str(file_id),
+            "s3_key": s3_key,
+            "expires_in": PRESIGN_TTL,
+        })
+
+    await db.commit()
+    return APIResponse.ok({"uploads": uploads})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /upload  (original multipart upload — kept for backward compat)
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 @router.post("/upload", response_model=APIResponse[dict])

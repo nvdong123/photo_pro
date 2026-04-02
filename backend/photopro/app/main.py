@@ -11,7 +11,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 logger = logging.getLogger(__name__)
 
 from app.api.health import router as health_router
-from app.api.v1 import search, cart, checkout, payment, download, media, bundles as public_bundles
+from app.api.v1 import search, cart, checkout, payment, download, media, bundles as public_bundles, realtime
 from app.api.v1.admin import auth, bundles, coupons, revenue, orders, media as admin_media, albums, settings, locations, staff_stats, notifications as admin_notifications, payroll as admin_payroll, commission as admin_commission, ftp as admin_ftp
 from app.api.v1.staff import upload as staff_upload, batch_upload as staff_batch_upload
 from app.core.config import settings as app_settings
@@ -34,7 +34,9 @@ async def lifespan(app: FastAPI):
             checksum_key=app_settings.PAYOS_CHECKSUM_KEY,
         )
         logger.info("PayOS configured successfully")
+
     yield
+
     # Shutdown
     await face_client.aclose()
 
@@ -74,9 +76,12 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
+# NOTE: allow_origins must never be ["*"] when allow_credentials=True.
+# Browsers reject credentialed requests (cookies) to wildcard origins.
+# In DEBUG we fall back to the CORS_ORIGINS list (localhost entries).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if app_settings.DEBUG else app_settings.cors_origin_list,
+    allow_origins=app_settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -113,6 +118,9 @@ app.include_router(admin_ftp.router,           prefix="/api/v1/admin/staff",    
 # ── Staff routes ─────────────────────────────────────────────────────────────
 app.include_router(staff_upload.router,        prefix="/api/v1/staff",                tags=["Staff – Upload"])
 app.include_router(staff_batch_upload.router,  prefix="/api/v1/staff",                tags=["Staff – Batch Upload"])
+
+# ── Realtime / SSE ───────────────────────────────────────────────────────────
+app.include_router(realtime.router,            prefix="/api/v1/realtime",             tags=["Realtime"])
 
 
 @app.get("/healthz", tags=["Health"])

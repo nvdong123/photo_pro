@@ -98,6 +98,27 @@ services:
       - redis
     restart: unless-stopped
 
+  ftp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python ftp_server.py
+    restart: unless-stopped
+    ports:
+      - "21:21"
+      - "21000-21099:21000-21099"
+    volumes:
+      - photopro_upload:/photopro_upload
+    env_file: .env
+    environment:
+      - FTP_PUBLIC_IP=${FTP_PUBLIC_IP}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
   miniodata:
+  photopro_upload:

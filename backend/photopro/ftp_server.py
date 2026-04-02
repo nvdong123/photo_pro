@@ -8,6 +8,7 @@ Cài:  pip install pyftpdlib redis psycopg2-binary
 Chạy: python ftp_server.py
 """
 
+import bcrypt
 import json
 import logging
 import os
@@ -16,18 +17,21 @@ import time
 from pathlib import Path
 
 import redis
-from pyftpdlib.authorizers import DummyAuthorizer
+from pyftpdlib.authorizers import AuthenticationFailed, DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 
 # ── Config from env ──────────────────────────────────────────────────────────
-FTP_HOST          = os.getenv("FTP_HOST", "0.0.0.0")
-FTP_PORT          = int(os.getenv("FTP_PORT", "21"))
-FTP_PASSIVE_PORTS = range(21000, 21100)
-FTP_ROOT          = os.getenv("FTP_ROOT", "/photopro_upload")
-REDIS_URL         = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-DATABASE_URL      = os.getenv("DATABASE_URL", "")          # sync psycopg2 DSN
-FTP_QUEUE_KEY     = "ftp_uploads"
+FTP_HOST               = os.getenv("FTP_HOST", "0.0.0.0")
+FTP_PORT               = int(os.getenv("FTP_PORT", "21"))
+FTP_PUBLIC_IP          = os.getenv("FTP_PUBLIC_IP", "")     # public IP/domain for PASV behind NAT/Docker
+_ps_start              = int(os.getenv("FTP_PASSIVE_PORTS_START", "21000"))
+_ps_end                = int(os.getenv("FTP_PASSIVE_PORTS_END", "21099"))
+FTP_PASSIVE_PORTS      = range(_ps_start, _ps_end + 1)
+FTP_ROOT               = os.getenv("FTP_ROOT", "/photopro_upload")
+REDIS_URL              = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+DATABASE_URL           = os.getenv("DATABASE_URL", "")      # sync psycopg2 DSN
+FTP_QUEUE_KEY          = "ftp_uploads"
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".cr2", ".nef", ".arw", ".raf", ".dng"}
 
@@ -57,7 +61,25 @@ def get_redis() -> redis.Redis:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DBAuthorizer(DummyAuthorizer):
-    """Load FTP credentials from PostgreSQL at startup (and on SIGHUP/reload)."""
+    """Load FTP credentials from PostgreSQL at startup (and on SIGHUP/reload).
+
+    ftp_password column stores a bcrypt hash.  Authentication is performed by
+    overriding validate_authentication() so that pyftpdlib's plaintext compare
+    is never used.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Maps username → bcrypt hash string (separate from user_table)
+        self._password_map: dict[str, str] = {}
+
+    def validate_authentication(self, username: str, password: str, handler) -> None:  # type: ignore[override]
+        """Check bcrypt hash instead of plaintext comparison."""
+        hashed = self._password_map.get(username)
+        if not hashed:
+            raise AuthenticationFailed("Invalid credentials")
+        if not bcrypt.checkpw(password.encode(), hashed.encode()):
+            raise AuthenticationFailed("Invalid credentials")
 
     def load_from_db(self) -> None:
         """Query staff table and register users. Called at startup and on reload."""
@@ -95,20 +117,25 @@ class DBAuthorizer(DummyAuthorizer):
 
         # Clear existing user table (except anonymous)
         self.user_table.clear()
+        self._password_map.clear()
 
         for row in rows:
             employee_code: str = row["employee_code"]
-            ftp_password: str  = row["ftp_password"]
+            ftp_password: str  = row["ftp_password"]  # bcrypt hash
             ftp_folder: str    = row["ftp_folder"] or f"{FTP_ROOT}/{employee_code}"
 
             # Ensure the home directory exists
             Path(ftp_folder).mkdir(parents=True, exist_ok=True)
 
+            # Store hash for validate_authentication(); pass a dummy placeholder
+            # to add_user() — pyftpdlib stores it in user_table but we never use
+            # it for auth because validate_authentication() is overridden.
+            self._password_map[employee_code] = ftp_password
             self.add_user(
                 employee_code,
-                ftp_password,
+                "*",             # dummy — auth uses _password_map via bcrypt
                 ftp_folder,
-                perm="elradfmw",   # full upload permissions
+                perm="elradfmw",  # full upload permissions
             )
             logger.debug("Registered FTP user %s → %s", employee_code, ftp_folder)
 
@@ -206,6 +233,9 @@ def main() -> None:
     handler = PhotoProHandler
     handler.authorizer = authorizer
     handler.passive_ports = FTP_PASSIVE_PORTS
+    if FTP_PUBLIC_IP:
+        handler.masquerade_address = FTP_PUBLIC_IP
+        logger.info("PASV masquerade address: %s", FTP_PUBLIC_IP)
     handler.banner = "PhotoPro FTP Server ready."
 
     # Start Redis listener thread

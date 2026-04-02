@@ -9,6 +9,7 @@ from app.core.database import Base
 
 
 class MediaStatus(str, enum.Enum):
+    UPLOADING         = "UPLOADING"          # client is uploading directly to S3
     NEW               = "NEW"
     DERIVATIVES_READY = "DERIVATIVES_READY"
     INDEXED           = "INDEXED"

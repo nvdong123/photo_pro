@@ -1545,6 +1545,19 @@ h3 {
   margin: 0;
 }
 
+/* ============================================
+   LIVE BADGE ANIMATION (Albums page)
+   ============================================ */
+@keyframes photopro-live-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* ── Gallery dark ── */
 .gallery-dark-grid {
   display: grid;
