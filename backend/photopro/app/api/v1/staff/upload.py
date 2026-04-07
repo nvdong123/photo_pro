@@ -54,7 +54,7 @@ router = APIRouter()
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB per file
 MAX_FILES_PER_REQUEST = 20
 MAX_BATCH_PRESIGN = 50
-PRESIGN_TTL = 300  # seconds
+PRESIGN_TTL = 900  # seconds - increased from 300 for OTG uploads
 
 
 def _compress_jpeg(data: bytes, quality: int = 82) -> bytes:
@@ -109,6 +109,10 @@ class PresignRequest(BaseModel):
     location_id: uuid.UUID
     shoot_date: str         # YYYY-MM-DD
     album_code: str | None = None
+    source: str | None = Field(default=None, description="Upload source: otg, ftp, web, gallery")
+    camera_format: str | None = Field(default=None, description="JPG_HD, JPG, RAW_PNG, RAW_JPG")
+    camera_mode: str | None = Field(default=None, description="manual, auto, burst")
+    camera_slot: str | None = Field(default=None, description="SD, CF, XQD")
 
     @field_validator("shoot_date")
     @classmethod
@@ -117,6 +121,13 @@ class PresignRequest(BaseModel):
             datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
             raise ValueError("shoot_date must be YYYY-MM-DD")
+        return v
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("otg", "ftp", "web", "gallery"):
+            raise ValueError("source must be one of: otg, ftp, web, gallery")
         return v
 
 
