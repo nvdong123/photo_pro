@@ -26,6 +26,7 @@ import io
 import logging
 import os
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import PurePosixPath
@@ -39,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_admin, require_any
+from app.core.security import hash_password
 from app.models.media import Media, MediaStatus
 from app.models.staff import Staff, StaffRole
 from app.models.staff_location import StaffLocationAssignment
@@ -173,6 +175,24 @@ class BatchPresignRequest(BaseModel):
         if len(v) > MAX_BATCH_PRESIGN:
             raise ValueError(f"Maximum {MAX_BATCH_PRESIGN} files per batch")
         return v
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FTP Credentials Schemas
+# ──────────────────────────────────────────────────────────────────────────────
+
+class FTPCredentialsResponse(BaseModel):
+    host: str
+    port: int
+    username: str
+    password: str
+    passive_mode: bool = True
+    upload_path: str = "/"
+
+
+class ResetFTPPasswordResponse(BaseModel):
+    password: str
+    message: str = "FTP password has been reset. Please update your FTP client."
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -502,3 +522,86 @@ async def upload_photos(
         "files": uploaded,
         "errors": failed,
     })
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# GET /ftp-credentials
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.get("/ftp-credentials", response_model=APIResponse[FTPCredentialsResponse])
+async def get_ftp_credentials(
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Get FTP credentials for current staff member.
+    
+    If ftp_password is not set, auto-generate an 8-character random password,
+    bcrypt hash, and save to database before returning plaintext password.
+    """
+    if not current_user.employee_code:
+        raise HTTPException(403, detail={"code": "PERMISSION_DENIED", "message": "No employee_code set"})
+
+    # Auto-generate password if not set
+    if not current_user.ftp_password:
+        # Generate 8-char random password (alphanumeric + symbols)
+        plaintext_password = secrets.token_urlsafe(6)[:8]  # 8 chars
+        hashed = hash_password(plaintext_password)
+        
+        current_user.ftp_password = hashed
+        current_user.ftp_folder = f"/{current_user.employee_code}"
+        await db.commit()
+        
+        logger.info("Auto-generated FTP password for staff %s", current_user.id)
+    else:
+        # Password already set - return placeholder and log warning
+        plaintext_password = "[*** use /ftp-credentials/reset to get new password ***]"
+        logger.debug("Staff %s requested FTP credentials with existing password", current_user.id)
+
+    # Get FTP configuration from settings
+    ftp_host = settings.FTP_PUBLIC_IP or os.getenv("FTP_PUBLIC_IP", "localhost")
+    ftp_port = int(os.getenv("FTP_PORT", "21"))
+
+    return APIResponse.ok(FTPCredentialsResponse(
+        host=ftp_host,
+        port=ftp_port,
+        username=current_user.employee_code,
+        password=plaintext_password,
+        passive_mode=True,
+        upload_path=f"/{current_user.employee_code}",
+    ))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# POST /ftp-credentials/reset
+# ──────────────────────────────────────────────────────────────────────────────
+
+@router.post("/ftp-credentials/reset", response_model=APIResponse[ResetFTPPasswordResponse])
+async def reset_ftp_password(
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Reset FTP password for current staff member.
+    
+    Generates a new 8-character random password, bcrypt hashes it, 
+    saves to database, and returns the new plaintext password.
+    """
+    if not current_user.employee_code:
+        raise HTTPException(403, detail={"code": "PERMISSION_DENIED", "message": "No employee_code set"})
+
+    # Generate new 8-char random password
+    new_password = secrets.token_urlsafe(6)[:8]  # 8 chars
+    hashed = hash_password(new_password)
+    
+    current_user.ftp_password = hashed
+    if not current_user.ftp_folder:
+        current_user.ftp_folder = f"/{current_user.employee_code}"
+    
+    await db.commit()
+    
+    logger.info("Reset FTP password for staff %s", current_user.id)
+    
+    return APIResponse.ok(ResetFTPPasswordResponse(
+        password=new_password,
+        message="FTP password has been reset. Please update your FTP client.",
+    ))
+
