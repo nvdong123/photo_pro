@@ -104,19 +104,8 @@ export default function FtpCredentialsTab() {
     if (!creds) return;
     setResetting(true);
     try {
-      // Need the staff_id; use the "me" endpoint indirectly via reset endpoint with a special "me" alias
-      // The backend /me endpoint auto-resets if needed; we reload creds after nullifying locally
-      const token = localStorage.getItem('admin_token');
-      if (!token) return;
-
-      // Decode JWT to get sub (staff_id)
-      const parts = token.split('.');
-      if (parts.length !== 3) return;
-      const payload = JSON.parse(atob(parts[1]));
-      const staffId: string = payload.sub;
-
       const data = await apiClient.post<FtpCredentials>(
-        `/api/v1/admin/staff/${staffId}/reset-ftp-password`,
+        `/api/v1/admin/staff/me/reset-ftp-password`,
         {}
       );
       setCreds(data);

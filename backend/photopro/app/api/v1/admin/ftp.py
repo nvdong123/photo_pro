@@ -149,6 +149,31 @@ async def get_staff_ftp_credentials(
     })
 
 
+@router.post("/me/reset-ftp-password", response_model=APIResponse[dict])
+async def reset_my_ftp_password(
+    current_user: Staff = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Staff: regenerate own FTP password."""
+    if not current_user.employee_code:
+        raise HTTPException(422, "Staff has no employee_code — FTP not available")
+
+    plain = _generate_ftp_password()
+    current_user.ftp_password = _hash_ftp_password(plain)
+    current_user.ftp_folder = _ftp_folder(current_user.employee_code)
+    await db.commit()
+    await db.refresh(current_user)
+
+    return APIResponse.ok({
+        "host": _ftp_host(),
+        "port": _ftp_port(),
+        "username": current_user.employee_code,
+        "password": plain,
+        "folder": current_user.ftp_folder,
+        "password_note": "Save this password — it will not be shown again.",
+    })
+
+
 @router.post("/{staff_id}/reset-ftp-password", response_model=APIResponse[dict])
 async def reset_ftp_password(
     staff_id: uuid.UUID,
