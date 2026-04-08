@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_admin, require_sales_up, require_any
+from app.core.deps import get_current_admin, require_sales_up
 from app.models.staff import Staff, StaffRole
 from app.schemas.common import APIResponse
 
@@ -151,7 +151,7 @@ async def get_staff_ftp_credentials(
 
 @router.post("/me/reset-ftp-password", response_model=APIResponse[dict])
 async def reset_my_ftp_password(
-    current_user: Staff = Depends(require_any),
+    current_user: Staff = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Staff: regenerate own FTP password."""
