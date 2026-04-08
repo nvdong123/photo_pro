@@ -1282,8 +1282,7 @@ h3 {
 .hero-text-overlay {
   position: absolute;
   bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 80px;
   z-index: 2;
   text-align: center;
 }
