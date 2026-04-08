@@ -155,9 +155,10 @@ async def checkout(
         ))
 
     # ── NORMAL MODE: generate payment URL ─────────────────────────────────
-    # Generate payment URL (may raise)
+    # Generate payment URL (may raise) — handles VNPay, PayOS, MoMo, Bank
     try:
         client_ip = request.client.host if request.client else "127.0.0.1"
+        
         if body.payment_method == "payos":
             payos_client_id, payos_api_key, payos_checksum = await get_payos_config(db)
             payos_service.configure(payos_client_id, payos_api_key, payos_checksum)
@@ -165,11 +166,15 @@ async def checkout(
                 await db.rollback()
                 raise HTTPException(400, "PayOS is not configured")
             payment_url = await payos_service.create_payment_url(order)
-        else:
+        elif body.payment_method in ("vnpay", "momo", "bank"):
+            # VNPay handles VNPay, MoMo, and Bank Transfer methods
             vnpay_tmn, vnpay_secret = await get_vnpay_config(db)
             payment_url = payment_service.create_payment_url(
                 order, client_ip, tmn_code=vnpay_tmn, hash_secret=vnpay_secret
             )
+        else:
+            await db.rollback()
+            raise HTTPException(400, f"Unknown payment method: {body.payment_method}")
     except HTTPException:
         raise
     except Exception as exc:

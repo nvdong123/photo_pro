@@ -136,6 +136,27 @@ export default function Cart() {
           <p>Xem lại các ảnh đã chọn trước khi thanh toán</p>
         </div>
 
+        {/* SKIP_PAYMENT Warning Banner */}
+        {import.meta.env.VITE_SKIP_PAYMENT === 'true' && (
+          <div
+            style={{
+              backgroundColor: '#fff7e6',
+              borderLeft: '4px solid #faad14',
+              padding: '12px 16px',
+              marginBottom: '24px',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+            <span style={{ color: '#ad6800', fontSize: '0.95rem', fontWeight: 500 }}>
+              Chế độ test — thanh toán đã được tắt. Đơn hàng sẽ được xử lý ngay mà không cần gửi tiền.
+            </span>
+          </div>
+        )}
+
         {/* Content Grid */}
         <div style={{ 
           display: 'grid', 
