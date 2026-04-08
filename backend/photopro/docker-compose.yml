@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "8000:8000"
+      - "21:21"
+      - "21000-21099:21000-21099"
     env_file: .env
     depends_on:
       postgres:
@@ -12,7 +14,7 @@ services:
     volumes:
       - ./assets:/app/assets:ro
       - photopro_upload:/photopro_upload
-    command: sh -c "python migrate.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: supervisord -c supervisord.conf
     restart: unless-stopped
 
   worker:
@@ -100,31 +102,6 @@ services:
       - redis
     restart: unless-stopped
 
-  ftp:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: python ftp_server.py
-    restart: unless-stopped
-    ports:
-      - "21:21"
-      - "21000-21099:21000-21099"
-    volumes:
-      - photopro_upload:/photopro_upload
-    env_file: .env
-    environment:
-      - FTP_PUBLIC_IP=${FTP_PUBLIC_IP}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('localhost',21),2)"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-        
 
 volumes:
   pgdata:
