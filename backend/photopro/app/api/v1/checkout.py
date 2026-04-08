@@ -3,11 +3,12 @@ import string
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.cart import _load_cart, _save_cart
+from app.core.config import settings
 from app.core.database import get_db
 from app.services.settings_service import get_payos_config, get_vnpay_config
 from app.models.bundle import BundlePricing
@@ -33,6 +34,7 @@ def _generate_order_code() -> str:
 async def checkout(
     body: CheckoutRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     pp_cart: str | None = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -120,6 +122,39 @@ async def checkout(
             price_at_purchase=price,
         ))
 
+    # ── SKIP_PAYMENT MODE: bypass payment gateway and mark order PAID immediately ──
+    if settings.SKIP_PAYMENT:
+        await db.commit()
+        
+        # Import here to avoid circular imports
+        from app.api.v1.payment import _process_paid_order
+        
+        try:
+            await _process_paid_order(order, db, background_tasks)
+        except Exception as exc:
+            await db.rollback()
+            raise HTTPException(500, f"Failed to process order: {exc}")
+        
+        # Fetch delivery token
+        delivery_result = await db.execute(
+            select(DigitalDelivery).where(DigitalDelivery.order_id == order.id)
+        )
+        delivery = delivery_result.scalar_one_or_none()
+        
+        download_url = None
+        if delivery and delivery.is_active:
+            download_url = f"{settings.effective_frontend_url}/d/{delivery.download_token}"
+        
+        # Clear the Redis cart
+        _save_cart(pp_cart, [])
+        
+        return APIResponse.ok(CheckoutResponse(
+            order_id=order.id,
+            order_code=order.order_code,
+            download_url=download_url,
+        ))
+
+    # ── NORMAL MODE: generate payment URL ─────────────────────────────────
     # Generate payment URL (may raise)
     try:
         client_ip = request.client.host if request.client else "127.0.0.1"

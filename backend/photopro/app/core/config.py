@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # Feature flags
     VENO_SYNC_ENABLED: bool = False          # kept for backward-compat; Veno FM removed
     SCAN_LOCAL_FOLDER_ENABLED: bool = True   # set False when using S3 direct-upload only
+    SKIP_PAYMENT: bool = False                # temporary: bypass VNPay, mark orders paid immediately
 
     # Realtime / SSE
     SSE_HEARTBEAT_INTERVAL: int = 30         # seconds between ping events

@@ -23,7 +23,8 @@ class CheckoutRequest(BaseModel):
 class CheckoutResponse(BaseModel):
     order_id: uuid.UUID
     order_code: str
-    payment_url: str
+    payment_url: str | None = None      # None if SKIP_PAYMENT is enabled
+    download_url: str | None = None     # Set if order auto-paid (SKIP_PAYMENT)
 
 
 class PublicOrderStatus(BaseModel):
