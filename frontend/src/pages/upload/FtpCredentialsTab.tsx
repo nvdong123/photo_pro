@@ -105,7 +105,7 @@ export default function FtpCredentialsTab() {
     setResetting(true);
     try {
       const data = await apiClient.post<FtpCredentials>(
-        `/api/v1/admin/staff/me/reset-ftp-password`,
+        `/api/v1/admin/staff/reset-ftp-password`,
         {}
       );
       setCreds(data);

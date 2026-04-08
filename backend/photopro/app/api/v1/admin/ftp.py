@@ -149,12 +149,15 @@ async def get_staff_ftp_credentials(
     })
 
 
-@router.post("/me/reset-ftp-password", response_model=APIResponse[dict])
+@router.post("/reset-ftp-password", response_model=APIResponse[dict])
 async def reset_my_ftp_password(
     current_user: Staff = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Staff: regenerate own FTP password."""
+    """Staff: regenerate own FTP password. 
+    
+    Called via: POST /api/v1/admin/staff/reset-ftp-password (without /me or staff_id path params)
+    """
     if not current_user.employee_code:
         raise HTTPException(422, "Staff has no employee_code — FTP not available")
 
