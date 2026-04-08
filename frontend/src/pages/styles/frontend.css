@@ -1282,9 +1282,10 @@ h3 {
 .hero-text-overlay {
   position: absolute;
   bottom: 80px;
-  left: 48px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 2;
-  max-width: 480px;
+  text-align: center;
 }
 
 .hero-main-title {
@@ -1333,6 +1334,7 @@ h3 {
 .hero-actions {
   display: flex;
   gap: 12px;
+  justify-content: center;
 }
 
 .hero-btn-primary.ant-btn {
@@ -1360,23 +1362,21 @@ h3 {
   .hero-cinematic {
     height: 100vh !important;
     min-height: 100vh !important;
-    background-image: url('/images/banner-mobile.png') !important;
+    background-image: url('/images/banner-mobile.jpg') !important;
     background-position: center center !important;
     background-size: cover !important;
   }
   .hero-text-overlay {
-    bottom: 24px;
-    left: 16px;
-    right: 16px;
-    max-width: none;
-  }
-  .hero-main-title,
-  .hero-event-name,
-  .hero-quote {
-    display: none;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    width: calc(100% - 32px);
+    text-align: center;
   }
   .hero-actions {
     flex-direction: column;
+    align-items: center;
   }
   .hero-btn-primary.ant-btn,
   .hero-btn-outline.ant-btn {

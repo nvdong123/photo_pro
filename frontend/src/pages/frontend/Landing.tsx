@@ -87,20 +87,6 @@ export default function Landing() {
       >
         <div className="hero-overlay" />
         <div className="hero-text-overlay">
-          <h1 className="hero-main-title">
-            CHINH PHỤC ĐỈNH CAO –<br />
-            BẮT TRỌN MỌI KHOẢNH KHẮC!
-          </h1>
-          <p className="hero-event-name">
-            <MapPin size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4, color: '#f5a623' }} />
-            Ngày hội leo núi <strong>Hải Đăng 2026</strong><br />
-            AI Photo nhận diện &amp; lưu ảnh tự động
-          </p>
-          <div className="hero-quote">
-            <p>
-              🔥 Bạn cứ thỏa sức leo núi, phần <strong>hình ảnh</strong> đã có <strong>Team Media</strong> từ Ban Tổ Chức lo cho bạn từng khoảnh khắc!
-            </p>
-          </div>
           <div className="hero-actions">
             <Button
               type="primary"
