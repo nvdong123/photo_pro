@@ -118,7 +118,7 @@ async def get_staff_ftp_credentials(
 ):
     """Admin: get FTP credentials for a staff member."""
     staff = await db.get(Staff, staff_id)
-    if not staff or staff.deleted_at if hasattr(staff, "deleted_at") else not staff:
+    if not staff or (hasattr(staff, "deleted_at") and staff.deleted_at):
         raise HTTPException(404, "Staff not found")
 
     if not staff.employee_code:

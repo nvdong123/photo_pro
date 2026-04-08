@@ -1,10 +1,12 @@
 """Unit tests for FTP-related helpers and Celery task logic."""
+import asyncio
 import io
 import json
 import sys
 import uuid
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import bcrypt
 import pytest
 
 from app.api.v1.admin.ftp import _generate_ftp_password, _ftp_folder
@@ -162,3 +164,270 @@ def test_process_ftp_upload_parses_shoot_date(tmp_path):
     assert len(uploaded_keys) == 1
     assert "2026-03-15" in uploaded_keys[0]
     assert "NV001" in uploaded_keys[0]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# process_ftp_upload — happy path with staff found
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_process_ftp_upload_with_staff_found(tmp_path):
+    """When staff exists in DB, uploader_id should be set on the Media record."""
+    img_path = tmp_path / "2026-04-01" / "IMG_002.jpg"
+    img_path.parent.mkdir(parents=True)
+
+    from PIL import Image as PILImage
+    PILImage.new("RGB", (1, 1), color=(0, 255, 0)).save(str(img_path), format="JPEG")
+
+    fake_staff = MagicMock()
+    fake_staff.id = uuid.uuid4()
+
+    added_records: list = []
+
+    mock_db = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock(return_value=False)
+    mock_db.add = Mock(side_effect=added_records.append)
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    # First execute: duplicate check → not found; second: staff lookup → found
+    no_dup = MagicMock()
+    no_dup.scalar_one_or_none.return_value = None
+    staff_result = MagicMock()
+    staff_result.scalar_one_or_none.return_value = fake_staff
+    # third execute: tag lookup → not found
+    no_tag = MagicMock()
+    no_tag.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(side_effect=[no_dup, staff_result, no_tag])
+
+    mock_storage = Mock()
+    mock_storage.upload_bytes = Mock()
+
+    mock_create_deriv = Mock()
+
+    with (
+        patch("app.workers.media_worker.storage_service", mock_storage),
+        patch("app.workers.media_worker.AsyncSessionLocal") as mock_session_cls,
+        patch("app.workers.media_worker.create_derivatives", mock_create_deriv),
+        patch("app.services.settings_service.get_setting_int", new_callable=AsyncMock, return_value=90),
+    ):
+        mock_session_cls.return_value = mock_db
+        from app.workers.media_worker import _async_process_ftp_upload
+        asyncio.run(_async_process_ftp_upload(str(img_path), "NV001"))
+
+    # Media record was added with correct uploader_id
+    media_record = next(r for r in added_records if hasattr(r, "photographer_code"))
+    assert media_record.photographer_code == "NV001"
+    assert media_record.uploader_id == fake_staff.id
+    assert media_record.shoot_date == "2026-04-01"
+
+    # S3 upload happened
+    mock_storage.upload_bytes.assert_called_once()
+    s3_key = mock_storage.upload_bytes.call_args[0][0]
+    assert "2026-04-01" in s3_key
+    assert "NV001" in s3_key
+
+    # Downstream task queued
+    mock_create_deriv.delay.assert_called_once()
+
+    # Local temp file deleted
+    assert not img_path.exists()
+
+
+def test_process_ftp_upload_skips_duplicate(tmp_path):
+    """If s3_key already in DB, upload and DB insert should be skipped."""
+    img_path = tmp_path / "IMG_dup.jpg"
+
+    from PIL import Image as PILImage
+    PILImage.new("RGB", (1, 1)).save(str(img_path), format="JPEG")
+
+    mock_db = AsyncMock()
+    mock_db.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_db.__aexit__ = AsyncMock(return_value=False)
+    mock_db.add = Mock()
+    mock_db.flush = AsyncMock()
+    mock_db.commit = AsyncMock()
+
+    existing = MagicMock()
+    existing.scalar_one_or_none.return_value = MagicMock()  # duplicate found
+    mock_db.execute = AsyncMock(return_value=existing)
+
+    mock_storage = Mock()
+
+    with (
+        patch("app.workers.media_worker.storage_service", mock_storage),
+        patch("app.workers.media_worker.AsyncSessionLocal") as mock_session_cls,
+        patch("app.services.settings_service.get_setting_int", new_callable=AsyncMock, return_value=90),
+    ):
+        mock_session_cls.return_value = mock_db
+        from app.workers.media_worker import _async_process_ftp_upload
+        asyncio.run(_async_process_ftp_upload(str(img_path), "NV001"))
+
+    mock_db.add.assert_not_called()
+    mock_db.commit.assert_not_called()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DBAuthorizer
+# ─────────────────────────────────────────────────────────────────────────────
+
+@skip_no_pyftpdlib
+def test_db_authorizer_correct_password():
+    sys.path.insert(0, ".")
+    from ftp_server import DBAuthorizer
+
+    auth = DBAuthorizer()
+    plain = "secret123"
+    auth._password_map["NV001"] = bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+    # Should not raise
+    auth.validate_authentication("NV001", plain, None)
+
+
+@skip_no_pyftpdlib
+def test_db_authorizer_wrong_password():
+    sys.path.insert(0, ".")
+    from ftp_server import DBAuthorizer
+    from pyftpdlib.authorizers import AuthenticationFailed
+
+    auth = DBAuthorizer()
+    auth._password_map["NV001"] = bcrypt.hashpw(b"correct", bcrypt.gensalt()).decode()
+    with pytest.raises(AuthenticationFailed):
+        auth.validate_authentication("NV001", "wrong", None)
+
+
+@skip_no_pyftpdlib
+def test_db_authorizer_unknown_user():
+    sys.path.insert(0, ".")
+    from ftp_server import DBAuthorizer
+    from pyftpdlib.authorizers import AuthenticationFailed
+
+    auth = DBAuthorizer()
+    with pytest.raises(AuthenticationFailed):
+        auth.validate_authentication("GHOST", "any", None)
+
+
+@skip_no_pyftpdlib
+def test_db_authorizer_load_from_db(tmp_path, monkeypatch):
+    sys.path.insert(0, ".")
+    from ftp_server import DBAuthorizer
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://test:test@localhost/test")
+    monkeypatch.setenv("FTP_ROOT", str(tmp_path))
+
+    hashed = bcrypt.hashpw(b"pass123", bcrypt.gensalt()).decode()
+    mock_row = {"employee_code": "NV001", "ftp_password": hashed, "ftp_folder": None}
+
+    mock_cur = Mock()
+    mock_cur.fetchall.return_value = [mock_row]
+    mock_conn = Mock()
+    mock_conn.cursor.return_value = mock_cur
+
+    with patch("psycopg2.connect", return_value=mock_conn):
+        auth = DBAuthorizer()
+        auth.load_from_db()
+
+    assert "NV001" in auth._password_map
+    assert auth._password_map["NV001"] == hashed
+    assert "NV001" in auth.user_table
+    # Home directory created under FTP_ROOT
+    assert (tmp_path / "NV001").is_dir()
+
+
+@skip_no_pyftpdlib
+def test_db_authorizer_load_from_db_no_database_url(monkeypatch, caplog):
+    sys.path.insert(0, ".")
+    from ftp_server import DBAuthorizer
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    auth = DBAuthorizer()
+    auth.load_from_db()  # Should log warning, not raise
+    assert auth.user_table == {}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# on_incomplete_file_received
+# ─────────────────────────────────────────────────────────────────────────────
+
+@skip_no_pyftpdlib
+def test_on_incomplete_file_received_deletes_partial(tmp_path):
+    sys.path.insert(0, ".")
+    from ftp_server import PhotoProHandler
+
+    partial = tmp_path / "partial.jpg"
+    partial.write_bytes(b"incomplete data")
+
+    handler = PhotoProHandler.__new__(PhotoProHandler)
+    handler.on_incomplete_file_received(str(partial))
+
+    assert not partial.exists()
+
+
+@skip_no_pyftpdlib
+def test_on_incomplete_file_received_missing_file(tmp_path):
+    """Should not raise if file was already gone."""
+    sys.path.insert(0, ".")
+    from ftp_server import PhotoProHandler
+
+    handler = PhotoProHandler.__new__(PhotoProHandler)
+    # Should not raise
+    handler.on_incomplete_file_received(str(tmp_path / "nonexistent.jpg"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _redis_listener — dispatch to Celery
+# ─────────────────────────────────────────────────────────────────────────────
+
+@skip_no_pyftpdlib
+def test_redis_listener_dispatches_to_celery():
+    sys.path.insert(0, ".")
+    from ftp_server import _redis_listener
+
+    payload = json.dumps({"file_path": "/ftp/NV001/IMG.jpg", "employee_code": "NV001"})
+
+    mock_redis = Mock()
+    mock_redis.brpop.side_effect = [
+        ("ftp_uploads", payload),
+        StopIteration("stop"),  # break the loop on second call
+    ]
+
+    mock_celery = Mock()
+
+    with (
+        patch("ftp_server.get_redis", return_value=mock_redis),
+        patch("app.workers.media_worker.celery_app", mock_celery),
+    ):
+        # Import lazily inside the listener patches the right reference
+        import importlib, app.workers.media_worker as mw
+        with patch.object(mw, "celery_app", mock_celery):
+            with pytest.raises(StopIteration):
+                _redis_listener()
+
+    mock_celery.send_task.assert_called_once_with(
+        "process_ftp_upload",
+        kwargs={"file_path": "/ftp/NV001/IMG.jpg", "employee_code": "NV001"},
+    )
+
+
+@skip_no_pyftpdlib
+def test_redis_listener_skips_malformed_payload():
+    sys.path.insert(0, ".")
+    from ftp_server import _redis_listener
+
+    bad_payload = json.dumps({"file_path": "", "employee_code": ""})  # both empty
+
+    mock_redis = Mock()
+    mock_redis.brpop.side_effect = [
+        ("ftp_uploads", bad_payload),
+        StopIteration("stop"),
+    ]
+    mock_celery = Mock()
+
+    import app.workers.media_worker as mw
+    with (
+        patch("ftp_server.get_redis", return_value=mock_redis),
+        patch.object(mw, "celery_app", mock_celery),
+    ):
+        with pytest.raises(StopIteration):
+            _redis_listener()
+
+    mock_celery.send_task.assert_not_called()
