@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlbums } from '../../hooks/useAlbums';
-import { usePublicBundles } from '../../hooks/usePublicBundles';
-import { Button, Badge, Card, Tag, Skeleton, Collapse, Alert } from 'antd';
+// import { usePublicBundles } from '../../hooks/usePublicBundles'; // dùng lại khi mở pricing
+import { Button, Skeleton, Collapse } from 'antd';
 import {
   SearchOutlined, MobileOutlined, ScanOutlined, CreditCardOutlined,
-  DollarOutlined, BulbOutlined, QuestionCircleOutlined, PictureOutlined,
+  QuestionCircleOutlined, PictureOutlined,
   DownOutlined,
 } from '@ant-design/icons';
 import { Camera, Users, MapPin, Sparkles } from 'lucide-react';
 import '../styles/frontend.css';
 
 const GALLERY_SAMPLES = [
-  { id: 1, src: '/images/hai-dang-1.jpg', label: 'Hải Đăng Vũng Tàu' },
-  { id: 2, src: '/images/hai-dang-2.jpg', label: 'Đường lên Hải Đăng' },
-  { id: 3, src: '/images/hai-dang-3.jpg', label: 'Vũng Tàu' },
-  { id: 4, src: '/images/hai-dang-4.jpg', label: 'Kiến trúc Pháp' },
-  { id: 5, src: '/images/hai-dang-5.jpg', label: 'Check-in Hải Đăng' },
-  { id: 6, src: '/images/hai-dang-hero.jpg', label: 'Tháp Hải Đăng' },
+  { id: 1, src: '/images/meta-1.jpg', label: 'Meta Growth Summit Vietnam 2026' },
+  { id: 2, src: '/images/meta-2.jpg', label: 'Khai Mạc Sự Kiện' },
+  { id: 3, src: '/images/meta-3.jpg', label: 'Networking Session' },
+  { id: 4, src: '/images/meta-4.jpg', label: 'Workshop & Training' },
+  { id: 5, src: '/images/meta-5.jpg', label: 'Panel Discussion' },
+  { id: 6, src: '/images/meta-6.jpg', label: 'Gala Dinner' },
 ];
 
 function useCountUp(target: number, duration = 1800, active = false) {
@@ -41,7 +41,7 @@ interface Album { id: string; name: string; photoCount: number; thumbnailUrl: st
 export default function Landing() {
   const navigate = useNavigate();
   const { data: apiAlbums, loading } = useAlbums();
-  const { bundles, loading: bundleLoading } = usePublicBundles();
+  // const { bundles, loading: bundleLoading } = usePublicBundles(); // dùng lại khi mở pricing
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsActive, setStatsActive] = useState(false);
 
@@ -168,9 +168,9 @@ export default function Landing() {
       <section style={{ background: '#0a0a0a', padding: '80px 0' }}>
         <div className="container">
           <div className="section-header-dark">
-            <div className="section-eyebrow">Bộ Sưu Tập</div>
-            <h2 className="section-title-dark">Khám Phá Những Khoảnh Khắc</h2>
-            <p className="section-subtitle-dark">Hàng nghìn bức ảnh chất lượng cao đang chờ bạn</p>
+            <div className="section-eyebrow">Meta Growth Summit Vietnam 2026</div>
+            <h2 className="section-title-dark">Khoảnh Khắc Đáng Nhớ</h2>
+            <p className="section-subtitle-dark">Hàng nghìn bức ảnh sự kiện chất lượng cao đang chờ bạn</p>
           </div>
           <div className="gallery-dark-grid">
             {GALLERY_SAMPLES.map(item => (
@@ -236,6 +236,7 @@ export default function Landing() {
       )}
 
       {/* PRICING */}
+      {/* Tạm ẩn Bảng Giá Ảnh HD — bật lại khi cần
       <section id="pricing" className="dark-section" style={{ padding: '80px 0' }}>
         <div className="container">
           <div className="section-header-dark">
@@ -319,6 +320,7 @@ export default function Landing() {
           />
         </div>
       </section>
+      */}
 
       {/* FAQ */}
       <section className="dark-section">
