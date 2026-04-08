@@ -1,39 +1,43 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Alert,
+  ActivityIndicator,
+  Alert,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useUpload } from '../hooks/useUpload';
-import { useOTG } from '../hooks/useOTG';
-import { pickFilesFromDevice, pickFromGallery } from '../services/otgService';
-import { apiJson, clearToken } from '../services/apiClient';
-import { useStaffStream } from '../hooks/useSSE';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
-import type { UploadItem } from '../hooks/useUpload';
 import PhotoGrid, { type PhotoCard } from '../components/PhotoGrid';
+import { useOTG } from '../hooks/useOTG';
+import { useStaffStream } from '../hooks/useSSE';
+import { useUpload, type UploadItem } from '../hooks/useUpload';
+import { pickFilesFromDevice } from '../services/otgService';
+import { apiJson } from '../services/apiClient';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Upload'>;
 
-type Method = 'otg' | 'ftp' | 'gallery' | 'card' | null;
 type FtpStatus = 'idle' | 'connecting' | 'connected' | 'error';
-type FilterTab = 'all' | 'unupload' | 'uploading' | 'uploaded' | 'failed';
+type FilterTab = 'all' | 'queued' | 'uploading' | 'uploaded' | 'failed';
 
-type LocationOption = { id: string; name: string; can_upload: boolean };
+type SessionPhase = 'preparing' | 'ready' | 'active' | 'paused' | 'failed';
 
-const PRIMARY = '#3f73f1';
-const DARK = '#171717';
+interface FtpInfo {
+  connected: boolean;
+  client_ip: string;
+  last_file: string;
+}
+
+const BRAND = '#1c5c46';
+const WIRED = '#1c5c46';
+const WIRELESS = '#2563eb';
+const INK = '#172033';
 const STORAGE_PREFIX = 'photopro_mobile_upload_';
-
-const methodList = [
-  { key: 'otg' as Method, title: Platform.OS === 'android' ? 'Camera Wired Connection (OTG)' : 'USB Camera (Android Only)', subtitle: Platform.OS === 'android' ? 'May anh DSLR/Mirrorless - Cap OTG' : 'Chi ho tro Android', icon: 'usb', color: '#22c55e', disabled: Platform.OS !== 'android' },
-  { key: 'ftp' as Method, title: 'Camera Wireless Connection (FTP WiFi)', subtitle: 'May anh co chuc nang FTP', icon: 'wifi', color: '#3b82f6', disabled: false },
-  { key: 'gallery' as Method, title: 'Smartphone Gallery', subtitle: 'Chon anh tu thu vien dien thoai', icon: 'image-multiple', color: '#8b5cf6', disabled: false },
-  { key: 'card' as Method, title: Platform.OS === 'android' ? 'Card Reader / USB Drive' : 'SD Card Reader', subtitle: Platform.OS === 'android' ? 'The nho qua OTG adapter' : 'Doc the nho qua Lightning', icon: 'memory', color: '#0ea5e9', disabled: false },
-];
 
 function groupByBucket(items: UploadItem[]) {
   const groups = new Map<string, UploadItem[]>();
@@ -56,39 +60,63 @@ function splitBucketKey(key: string): { date: string; time: string } {
   return { date: date ?? '', time: time ?? '' };
 }
 
-export default function UploadScreen({ navigation }: Props) {
-  const { files, addFiles, uploading, completed, total, currentFile, startUpload, cancelUpload, toggleSelectFile, setAllSelected, markMediaUploaded } = useUpload();
+function toPhotoCard(item: UploadItem): PhotoCard {
+  return {
+    id: item.id,
+    uri: item.uri,
+    name: item.name,
+    status: item.status,
+    selected: item.selected,
+    progress: item.progress,
+    media_id: item.media_id,
+    size: item.size,
+    capturedAt: item.capturedAt,
+    addedAt: item.addedAt,
+    source: item.source,
+  };
+}
+
+export default function UploadScreen({ navigation, route }: Props) {
+  const { locationId, locationName, connectionMode } = route.params;
+  const isWired = connectionMode === 'wired';
+  const sourceTone = isWired ? WIRED : WIRELESS;
+  const sourceLabel = isWired ? 'Wired' : 'Wireless';
+
+  const {
+    files,
+    addFiles,
+    clearFiles,
+    uploading,
+    completed,
+    total,
+    currentFile,
+    startUpload,
+    cancelUpload,
+    toggleSelectFile,
+    setAllSelected,
+    markMediaUploaded,
+  } = useUpload();
   const otg = useOTG();
   const { events: photoEvents } = useStaffStream();
 
-  const [locations, setLocations] = useState<LocationOption[]>([]);
-  const [locLoading, setLocLoading] = useState(false);
-  const [selectedLoc, setSelectedLoc] = useState<{ id: string; name: string } | null>(null);
-  const [shootDate] = useState(new Date().toISOString().slice(0, 10));
-
-  const [methodModalVisible, setMethodModalVisible] = useState(false);
-  const [locationModalVisible, setLocationModalVisible] = useState(false);
-  const [method, setMethod] = useState<Method>(null);
   const [ftpStatus, setFtpStatus] = useState<FtpStatus>('idle');
-  const [ftpInfo, setFtpInfo] = useState<{ connected: boolean; client_ip: string; last_file: string } | null>(null);
-  const [cameraModel, setCameraModel] = useState('Unknown');
+  const [ftpInfo, setFtpInfo] = useState<FtpInfo | null>(null);
+  const [sessionPaused, setSessionPaused] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [filterTab, setFilterTab] = useState<FilterTab>('all');
   const [errorMessage, setErrorMessage] = useState('');
-
   const [format, setFormat] = useState<'JPG_HD' | 'JPG' | 'RAW_PNG' | 'RAW_JPG'>('JPG_HD');
   const [mode, setMode] = useState<'manual' | 'auto' | 'burst'>('manual');
   const [slot, setSlot] = useState<'SD' | 'CF' | 'XQD'>('SD');
-
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
-  const [selectionMode, setSelectionMode] = useState(true);
+  const shootDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const processedEventsRef = useRef(0);
 
   useEffect(() => {
     const load = async () => {
-      const m = (await AsyncStorage.getItem(`${STORAGE_PREFIX}method`)) as Method | null;
       const f = (await AsyncStorage.getItem(`${STORAGE_PREFIX}format`)) as 'JPG_HD' | 'JPG' | 'RAW_PNG' | 'RAW_JPG' | null;
       const md = (await AsyncStorage.getItem(`${STORAGE_PREFIX}mode`)) as 'manual' | 'auto' | 'burst' | null;
       const sl = (await AsyncStorage.getItem(`${STORAGE_PREFIX}slot`)) as 'SD' | 'CF' | 'XQD' | null;
-      if (m) setMethod(m);
-      else if (Platform.OS === 'android') setMethod('otg');
       if (f) setFormat(f);
       if (md) setMode(md);
       if (sl) setSlot(sl);
@@ -96,22 +124,40 @@ export default function UploadScreen({ navigation }: Props) {
     void load();
   }, []);
 
-  useEffect(() => {
-    if (method !== 'ftp') return;
-    let active = true;
+  const savePreference = useCallback(async (key: string, value: string) => {
+    await AsyncStorage.setItem(`${STORAGE_PREFIX}${key}`, value);
+  }, []);
 
+  useEffect(() => {
+    if (!isWired) {
+      otg.stopAutoScan();
+      return undefined;
+    }
+
+    if (sessionPaused) {
+      otg.stopAutoScan();
+      return undefined;
+    }
+
+    otg.startAutoScan();
+    return () => {
+      otg.stopAutoScan();
+    };
+  }, [isWired, otg, sessionPaused]);
+
+  useEffect(() => {
+    if (isWired || sessionPaused) {
+      return undefined;
+    }
+
+    let active = true;
     const fetchStatus = async () => {
       try {
         setFtpStatus('connecting');
-        const data = await apiJson<{ connected: boolean; client_ip: string; last_file: string }>('/api/v1/staff/ftp/status');
+        const data = await apiJson<FtpInfo>('/api/v1/staff/ftp/status');
         if (!active) return;
-        if (data.connected) {
-          setFtpStatus('connected');
-          setFtpInfo(data);
-        } else {
-          setFtpStatus('idle');
-          setFtpInfo(data);
-        }
+        setFtpInfo(data);
+        setFtpStatus(data.connected ? 'connected' : 'idle');
       } catch (_err) {
         if (!active) return;
         setFtpStatus('error');
@@ -124,138 +170,39 @@ export default function UploadScreen({ navigation }: Props) {
       active = false;
       clearInterval(timer);
     };
-  }, [method]);
+  }, [isWired, sessionPaused]);
 
   useEffect(() => {
-    if (method === 'otg') {
-      otg.startAutoScan();
-      setSelectionMode(true);
-      return () => {
-        otg.stopAutoScan();
-      };
-    }
-    return undefined;
-  }, [method, otg.startAutoScan, otg.stopAutoScan]);
-
-  useEffect(() => {
-    if (method !== 'otg') {
+    if (!isWired) {
       return;
     }
-
     if (otg.files.length) {
       addFiles(otg.files);
-      if (cameraModel === 'Unknown') {
-        const fn = otg.files[0].name.toLowerCase();
-        if (fn.includes('canon')) setCameraModel('Canon');
-        else if (fn.includes('nikon')) setCameraModel('Nikon');
-        else if (fn.includes('sony')) setCameraModel('Sony');
-      }
     }
-  }, [method, otg.files, addFiles, cameraModel]);
+  }, [addFiles, isWired, otg.files]);
 
   useEffect(() => {
-    photoEvents.forEach((event) => {
+    if (photoEvents.length === processedEventsRef.current) {
+      return;
+    }
+    for (const event of photoEvents.slice(processedEventsRef.current)) {
       markMediaUploaded(event.media_id);
-    });
-  }, [photoEvents, markMediaUploaded]);
-
-  const loadLocations = useCallback(async () => {
-    setLocLoading(true);
-    try {
-      const data = await apiJson<LocationOption[]>('/api/v1/admin/auth/my-locations');
-      const nextLocations = (Array.isArray(data) ? data : []).filter((item) => item.can_upload);
-      setLocations(nextLocations);
-      setSelectedLoc((prev) => {
-        if (prev && nextLocations.some((item) => item.id === prev.id)) {
-          return prev;
-        }
-        if (nextLocations[0]) {
-          return { id: nextLocations[0].id, name: nextLocations[0].name };
-        }
-        return null;
-      });
-    } catch (err) {
-      Alert.alert('Lỗi', 'Không thể tải danh sách folder upload: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setLocLoading(false);
     }
-  }, []);
+    processedEventsRef.current = photoEvents.length;
+  }, [markMediaUploaded, photoEvents]);
 
-  useEffect(() => {
-    void loadLocations();
-  }, [loadLocations]);
-
-  const handleLogout = useCallback(() => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Đăng xuất',
-        style: 'destructive',
-        onPress: async () => {
-          await clearToken();
-          navigation.replace('Login');
-        },
-      },
-    ]);
-  }, [navigation]);
-
-  useEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity onPress={handleLogout} style={{ marginRight: 4, padding: 6 }}>
-          <Text style={{ color: '#fff', fontSize: 14 }}>Đăng xuất</Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, handleLogout]);
-
-  const savePreference = async (key: string, value: string) => {
-    await AsyncStorage.setItem(`${STORAGE_PREFIX}${key}`, value);
-  };
-
-  const handleMethodConfirm = async () => {
-    if (!method) return;
-
-    setMethodModalVisible(false);
-    await AsyncStorage.setItem(`${STORAGE_PREFIX}method`, method);
-
-    try {
-      if (method === 'otg') {
-        otg.startAutoScan();
-      } else if (method === 'gallery') {
-        const selected = await pickFromGallery();
-        if (!selected.length) return;
-        addFiles(selected);
-      } else if (method === 'card') {
-        const selected = await pickFilesFromDevice();
-        if (!selected.length) return;
-        addFiles(selected);
-      } else if (method === 'ftp') {
-        navigation.navigate('CameraConnect');
-      }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const filteredFiles = useMemo(() => {
-    return files.filter((item) => {
-      switch (filterTab) {
-        case 'unupload': return item.status === 'UNUPLOAD';
-        case 'uploading': return item.status === 'UPLOADING';
-        case 'uploaded': return item.status === 'UPLOADED';
-        case 'failed': return item.status === 'FAILED';
-        default: return true;
-      }
-    });
-  }, [files, filterTab]);
-
-  const grouped = useMemo(() => groupByBucket(filteredFiles), [filteredFiles]);
+  const metadata = useMemo(() => ({
+    location_id: locationId,
+    shoot_date: shootDate,
+    camera_format: format,
+    camera_mode: mode,
+    camera_slot: slot,
+  }), [format, locationId, mode, shootDate, slot]);
 
   const statusCounts = useMemo(() => {
-    const counts = { all: files.length, unupload: 0, uploading: 0, uploaded: 0, failed: 0 };
+    const counts = { all: files.length, queued: 0, uploading: 0, uploaded: 0, failed: 0 };
     files.forEach((item) => {
-      if (item.status === 'UNUPLOAD') counts.unupload += 1;
+      if (item.status === 'UNUPLOAD' || item.status === 'CACHED') counts.queued += 1;
       else if (item.status === 'UPLOADING') counts.uploading += 1;
       else if (item.status === 'UPLOADED') counts.uploaded += 1;
       else if (item.status === 'FAILED') counts.failed += 1;
@@ -263,41 +210,148 @@ export default function UploadScreen({ navigation }: Props) {
     return counts;
   }, [files]);
 
-  const onUploadSelected = async () => {
-    if (!selectedLoc) {
-      Alert.alert('Chọn folder', 'Vui lòng chọn folder upload trước khi upload.');
-      return;
-    }
-    const selectedIds = files.filter((file) => file.selected).map((file) => file.id);
-    if (!selectedIds.length) {
-      Alert.alert('Chọn ảnh', 'Chưa có ảnh được chọn.');
-      return;
+  const selectedCount = useMemo(
+    () => files.filter((file) => file.selected).length,
+    [files],
+  );
+
+  const filteredFiles = useMemo(() => {
+    return files.filter((item) => {
+      switch (filterTab) {
+        case 'queued':
+          return item.status === 'UNUPLOAD' || item.status === 'CACHED';
+        case 'uploading':
+          return item.status === 'UPLOADING';
+        case 'uploaded':
+          return item.status === 'UPLOADED';
+        case 'failed':
+          return item.status === 'FAILED';
+        default:
+          return true;
+      }
+    });
+  }, [files, filterTab]);
+
+  const grouped = useMemo(() => groupByBucket(filteredFiles), [filteredFiles]);
+
+  const connectionState = useMemo(() => {
+    if (sessionPaused) {
+      return {
+        label: 'Paused',
+        detail: 'Tạm dừng nhận ảnh mới. Queue hiện tại vẫn được giữ nguyên.',
+        tone: '#b45309',
+        icon: 'pause-circle-outline' as const,
+      };
     }
 
-    await startUpload({
-      location_id: selectedLoc.id,
-      shoot_date: shootDate,
-      camera_format: format,
-      camera_mode: mode,
-      camera_slot: slot,
-    }, selectedIds);
-  };
-
-const onUploadSingle = async (itemId: string) => {
-    if (!selectedLoc) {
-      Alert.alert('Chọn folder', 'Vui lòng chọn folder upload trước khi upload.');
-      return;
+    if (isWired) {
+      if (otg.errorMessage) {
+        return {
+          label: 'Connection Issue',
+          detail: otg.errorMessage,
+          tone: '#dc2626',
+          icon: 'alert-circle-outline' as const,
+        };
+      }
+      if (otg.permissionRequired) {
+        return {
+          label: 'USB Permission Required',
+          detail: 'Cần cấp quyền USB để đọc ảnh trực tiếp từ camera.',
+          tone: '#c2410c',
+          icon: 'shield-key-outline' as const,
+        };
+      }
+      if (otg.deviceName || otg.files.length > 0) {
+        return {
+          label: 'Connected',
+          detail: otg.deviceName || `${otg.files.length} ảnh đã được nhận từ camera.`,
+          tone: WIRED,
+          icon: 'usb-port' as const,
+        };
+      }
+      if (otg.scanning) {
+        return {
+          label: 'Preparing',
+          detail: 'Đang quét camera hoặc thiết bị USB qua OTG.',
+          tone: '#475569',
+          icon: 'progress-clock' as const,
+        };
+      }
+      return {
+        label: 'Disconnected',
+        detail: 'Cắm camera qua OTG để bắt đầu nhận ảnh.',
+        tone: '#475569',
+        icon: 'usb-port' as const,
+      };
     }
-    await startUpload({
-      location_id: selectedLoc.id,
-      shoot_date: shootDate,
-      camera_format: format,
-      camera_mode: mode,
-      camera_slot: slot,
-    }, [itemId]);
-  };
 
-  const handleViewDetail = (photo: PhotoCard) => {
+    if (ftpStatus === 'connected') {
+      return {
+        label: 'Connected',
+        detail: ftpInfo?.client_ip ? `Camera đang kết nối từ ${ftpInfo.client_ip}.` : 'Camera đã sẵn sàng gửi ảnh không dây.',
+        tone: WIRELESS,
+        icon: 'wifi-check' as const,
+      };
+    }
+    if (ftpStatus === 'connecting') {
+      return {
+        label: 'Preparing',
+        detail: 'Đang kiểm tra trạng thái FTP và chờ ảnh đi vào phiên.',
+        tone: '#475569',
+        icon: 'wifi-refresh' as const,
+      };
+    }
+    if (ftpStatus === 'error') {
+      return {
+        label: 'Connection Issue',
+        detail: 'Không kiểm tra được FTP status. Hãy kiểm tra lại camera và mạng.',
+        tone: '#dc2626',
+        icon: 'wifi-alert' as const,
+      };
+    }
+    return {
+      label: 'Waiting for Photos',
+      detail: 'Phiên đang chờ camera gửi ảnh không dây.',
+      tone: '#475569',
+      icon: 'wifi' as const,
+    };
+  }, [ftpInfo?.client_ip, ftpStatus, isWired, otg.deviceName, otg.errorMessage, otg.files.length, otg.permissionRequired, otg.scanning, sessionPaused]);
+
+  const sessionPhase = useMemo((): SessionPhase => {
+    if (sessionPaused) return 'paused';
+    if (connectionState.label === 'Connection Issue') return 'failed';
+    if (uploading || statusCounts.uploaded > 0 || statusCounts.uploading > 0) return 'active';
+    if (connectionState.label === 'Connected' || connectionState.label === 'Waiting for Photos') return 'ready';
+    return 'preparing';
+  }, [connectionState.label, sessionPaused, statusCounts.uploaded, statusCounts.uploading, uploading]);
+
+  const phaseCopy = useMemo(() => {
+    switch (sessionPhase) {
+      case 'paused':
+        return { label: 'Paused', tone: '#b45309' };
+      case 'failed':
+        return { label: 'Attention Needed', tone: '#dc2626' };
+      case 'active':
+        return { label: 'Active Session', tone: sourceTone };
+      case 'ready':
+        return { label: 'Ready', tone: sourceTone };
+      default:
+        return { label: 'Preparing', tone: '#475569' };
+    }
+  }, [sessionPhase, sourceTone]);
+
+  const latestActivity = useMemo(() => {
+    const lastEvent = photoEvents[photoEvents.length - 1];
+    if (errorMessage) return errorMessage;
+    if (currentFile) return `Đang upload ${currentFile}`;
+    if (uploading) return `Đã hoàn thành ${completed}/${total} ảnh trong queue.`;
+    if (lastEvent?.media_id) return `Ảnh ${lastEvent.media_id.slice(0, 8)} đã sẵn sàng trên backend.`;
+    if (isWired && otg.newPhotoHandles.size > 0) return `Đã phát hiện ${otg.newPhotoHandles.size} ảnh mới từ camera.`;
+    if (!isWired && ftpInfo?.last_file) return `Ảnh mới nhất từ FTP: ${ftpInfo.last_file}`;
+    return isWired ? 'Phiên đang chờ ảnh mới từ camera.' : 'Phiên đang chờ ảnh mới từ kết nối wireless.';
+  }, [completed, currentFile, errorMessage, ftpInfo?.last_file, isWired, otg.newPhotoHandles.size, photoEvents, total, uploading]);
+
+  const handleViewDetail = useCallback((photo: PhotoCard) => {
     navigation.navigate('ImageDetail', {
       uri: photo.uri,
       name: photo.name,
@@ -306,170 +360,270 @@ const onUploadSingle = async (itemId: string) => {
       capturedAt: photo.capturedAt,
       addedAt: photo.addedAt,
     });
-  };
+  }, [navigation]);
 
-  const onRunUpload = async () => {
-    if (!selectedLoc) {
-      Alert.alert('Chọn folder', 'Vui lòng chọn folder upload trước khi upload.');
+  const onUploadSingle = useCallback(async (itemId: string) => {
+    await startUpload(metadata, [itemId]);
+  }, [metadata, startUpload]);
+
+  const onUploadSelected = useCallback(async () => {
+    const selectedIds = files.filter((file) => file.selected).map((file) => file.id);
+    if (!selectedIds.length) {
+      Alert.alert('Chưa chọn ảnh', 'Bật chế độ chọn nhiều rồi chọn ảnh cần upload.');
       return;
     }
-    await startUpload({
-      location_id: selectedLoc.id,
-      shoot_date: shootDate,
-      camera_format: format,
-      camera_mode: mode,
-      camera_slot: slot,
-    });
-  };
+    await startUpload(metadata, selectedIds);
+  }, [files, metadata, startUpload]);
+
+  const onUploadQueued = useCallback(async () => {
+    await startUpload(metadata);
+  }, [metadata, startUpload]);
+
+  const retryFailed = useCallback(async () => {
+    const failedIds = files.filter((file) => file.status === 'FAILED').map((file) => file.id);
+    if (!failedIds.length) {
+      Alert.alert('Không có ảnh lỗi', 'Hiện không có ảnh nào cần retry.');
+      return;
+    }
+    await startUpload(metadata, failedIds);
+  }, [files, metadata, startUpload]);
+
+  const importBackupFiles = useCallback(async () => {
+    try {
+      const picked = await pickFilesFromDevice();
+      if (picked.length) {
+        addFiles(picked);
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
+    }
+  }, [addFiles]);
+
+  const handleEndSession = useCallback(() => {
+    const hasPending = statusCounts.queued > 0 || statusCounts.uploading > 0 || statusCounts.failed > 0;
+    Alert.alert(
+      'Kết thúc phiên',
+      hasPending
+        ? 'Phiên vẫn còn ảnh trong queue hoặc lỗi upload. Bạn vẫn muốn kết thúc?'
+        : 'Bạn muốn kết thúc phiên hiện tại?',
+      [
+        { text: 'Huỷ', style: 'cancel' },
+        {
+          text: 'Kết thúc',
+          style: 'destructive',
+          onPress: () => {
+            cancelUpload();
+            clearFiles();
+            otg.clearFiles();
+            navigation.reset({
+              index: 1,
+              routes: [
+                { name: 'LocationSelect' },
+                { name: 'ConnectionMode', params: { locationId, locationName } },
+              ],
+            });
+          },
+        },
+      ],
+    );
+  }, [cancelUpload, clearFiles, locationId, locationName, navigation, otg, statusCounts.failed, statusCounts.queued, statusCounts.uploading]);
+
+  const togglePause = useCallback(() => {
+    setSessionPaused((prev) => !prev);
+  }, []);
+
+  const counters = [
+    { key: 'received', label: 'Received', value: statusCounts.all, tone: '#1f2937', icon: 'image-multiple-outline' },
+    { key: 'queued', label: 'Queued', value: statusCounts.queued, tone: '#c2410c', icon: 'clock-outline' },
+    { key: 'uploaded', label: 'Uploaded', value: statusCounts.uploaded, tone: sourceTone, icon: 'cloud-check-outline' },
+    { key: 'failed', label: 'Failed', value: statusCounts.failed, tone: '#dc2626', icon: 'alert-circle-outline' },
+  ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.topRow}>
-        <TouchableOpacity style={styles.folderPicker} onPress={() => setLocationModalVisible(true)}>
-          <MaterialCommunityIcons name="folder-outline" size={22} color={PRIMARY} />
-          <View style={styles.folderCopy}>
-            <Text style={styles.folderLabel}>Folder upload</Text>
-            <Text style={styles.folderValue}>{selectedLoc?.name ?? (locLoading ? 'Đang tải folder...' : 'Chọn folder upload')}</Text>
+      <View style={[styles.heroCard, { backgroundColor: isWired ? '#163d31' : '#18356d' }]}>
+        <View style={styles.heroTopRow}>
+          <View>
+            <Text style={styles.heroEyebrow}>SESSION MONITOR</Text>
+            <Text style={styles.heroTitle}>{locationName}</Text>
+            <Text style={styles.heroSubtitle}>{sourceLabel} · {phaseCopy.label}</Text>
           </View>
-          {locLoading ? <ActivityIndicator size="small" color={PRIMARY} /> : <MaterialCommunityIcons name="chevron-down" size={20} color="#475569" />}
+          <View style={[styles.phaseBadge, { backgroundColor: `${phaseCopy.tone}22` }]}>
+            <Text style={[styles.phaseBadgeText, { color: phaseCopy.tone }]}>{phaseCopy.label}</Text>
+          </View>
+        </View>
+
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Location</Text>
+            <Text style={styles.summaryValue}>{locationName}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Connection</Text>
+            <Text style={styles.summaryValue}>{sourceLabel}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.statusCard}>
+        <View style={[styles.statusIconWrap, { backgroundColor: `${connectionState.tone}20` }]}>
+          <MaterialCommunityIcons name={connectionState.icon} size={24} color={connectionState.tone} />
+        </View>
+        <View style={styles.statusCopy}>
+          <Text style={styles.statusLabel}>{connectionState.label}</Text>
+          <Text style={styles.statusDetail}>{connectionState.detail}</Text>
+        </View>
+      </View>
+
+      <View style={styles.activityCard}>
+        <Text style={styles.activityTitle}>Recent Activity</Text>
+        <Text style={styles.activityText}>{latestActivity}</Text>
+        {uploading ? (
+          <View style={styles.progressRow}>
+            <ActivityIndicator color={sourceTone} size="small" />
+            <Text style={styles.progressText}>{completed}/{total} completed{currentFile ? ` · ${currentFile}` : ''}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={styles.counterGrid}>
+        {counters.map((counter) => (
+          <View key={counter.key} style={styles.counterCard}>
+            <MaterialCommunityIcons name={counter.icon as never} size={18} color={counter.tone} />
+            <Text style={styles.counterValue}>{counter.value}</Text>
+            <Text style={styles.counterLabel}>{counter.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#fff' }]} onPress={togglePause}>
+          <Text style={styles.actionButtonText}>{sessionPaused ? 'Resume Session' : 'Pause Session'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#fff' }]} onPress={() => void retryFailed()}>
+          <Text style={styles.actionButtonText}>Retry Failed</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.methodButton} onPress={() => setMethodModalVisible(true)}>
-        <Text style={styles.methodButtonText}>{method ? `Phương thức: ${method.toUpperCase()}` : 'Chọn phương thức upload'}</Text>
-      </TouchableOpacity>
-
-      <View style={styles.heroCard}>
-        <View style={styles.heroBadges}>
-          <View style={[styles.heroBadge, method === 'otg' && otg.files.length > 0 ? styles.heroBadgeActive : styles.heroBadgeIdle]}>
-            <Text style={styles.heroBadgeTitle}>Connect USB</Text>
-            <Text style={styles.heroBadgeSub}>{method === 'otg' ? 'USB' : 'Idle'}</Text>
-          </View>
-          <View style={[styles.heroBadge, method === 'otg' && otg.files.length > 0 ? styles.heroBadgeActive : styles.heroBadgeIdle]}>
-            <Text style={styles.heroBadgeTitle}>{method === 'otg' ? 'Camera: Active' : 'Camera: Idle'}</Text>
-            <Text style={styles.heroBadgeSub}>{otg.deviceName || cameraModel}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.connectionLine}>
-          {method === 'otg'
-            ? otg.permissionRequired
-              ? 'Cần cấp quyền USB để đọc ảnh từ camera'
-              : otg.errorMessage
-              ? otg.errorMessage
-              : otg.scanning
-              ? 'Đang scan USB camera...'
-              : otg.files.length > 0
-              ? 'Connected, waiting for photos transfer'
-              : 'Uploader Idle'
-            : method === 'ftp'
-            ? ftpStatus === 'connected'
-              ? `Connected, waiting for photos transfer - ${ftpInfo?.client_ip ?? ''}`
-              : ftpStatus === 'connecting'
-              ? 'Đang kết nối...'
-              : ftpStatus === 'error'
-              ? 'Kết nối thất bại - thử lại'
-              : 'Uploader Idle'
-            : 'Chưa chọn phương thức'}
-        </Text>
-
-        {selectedLoc ? <Text style={styles.subStatusText}>Folder: {selectedLoc.name}</Text> : null}
-        {otg.files.length > 0 ? <Text style={styles.subStatusText}>Ảnh tìm được: {otg.files.length}</Text> : null}
-
-        <View style={styles.statusActions}>
-          {otg.permissionRequired ? (
-            <TouchableOpacity style={styles.permissionBtn} onPress={() => otg.startAutoScan()}>
-              <Text style={styles.permissionBtnText}>Cấp quyền USB</Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.secondaryBtn} onPress={() => method === 'otg' ? otg.startAutoScan() : setMethodModalVisible(true)}>
-            <Text style={styles.secondaryBtnText}>{method === 'otg' ? (otg.scanning ? 'Đang scan...' : 'Quét lại OTG') : 'Đổi phương thức'}</Text>
-          </TouchableOpacity>
-        </View>
+      <View style={styles.actionRow}>
+        <TouchableOpacity style={[styles.primaryButton, styles.actionStretch]} disabled={!statusCounts.queued || uploading} onPress={() => void onUploadQueued()}>
+          <Text style={styles.primaryButtonText}>{uploading ? 'Uploading...' : 'Upload Queued Photos'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.dangerButton, styles.actionStretch]} onPress={handleEndSession}>
+          <Text style={styles.dangerButtonText}>End Session</Text>
+        </TouchableOpacity>
       </View>
 
-      {uploading ? (
-        <View style={styles.uploadSummary}>
-          <Text style={styles.uploadSummaryTitle}>Upload Progress</Text>
-          <Text style={styles.uploadSummaryText}>{completed}/{total} completed</Text>
-          <Text style={styles.uploadSummaryText}>{currentFile ? `Current: ${currentFile}` : 'Đang chuẩn bị...'}</Text>
-        </View>
-      ) : null}
-
-      {method && (method === 'otg' || method === 'ftp') && (
-        <View style={styles.pills}>
-          {['JPG_HD', 'JPG', 'RAW_PNG', 'RAW_JPG'].map((value) => (
-            <TouchableOpacity
-              key={value}
-              onPress={() => { setFormat(value as 'JPG_HD' | 'JPG' | 'RAW_PNG' | 'RAW_JPG'); void savePreference('format', value); }}
-              style={[styles.pill, format === value && styles.pillActive]}
-            >
-              <Text style={[styles.pillText, format === value && styles.pillTextActive]}>{value}</Text>
-            </TouchableOpacity>
-          ))}
-          {['manual', 'auto', 'burst'].map((value) => (
-            <TouchableOpacity
-              key={value}
-              onPress={() => { setMode(value as 'manual' | 'auto' | 'burst'); void savePreference('mode', value); }}
-              style={[styles.pill, mode === value && styles.pillActive]}
-            >
-              <Text style={[styles.pillText, mode === value && styles.pillTextActive]}>{value}</Text>
-            </TouchableOpacity>
-          ))}
-          {['SD', 'CF', 'XQD'].map((value) => (
-            <TouchableOpacity
-              key={value}
-              onPress={() => { setSlot(value as 'SD' | 'CF' | 'XQD'); void savePreference('slot', value); }}
-              style={[styles.pill, slot === value && styles.pillActive]}
-            >
-              <Text style={[styles.pillText, slot === value && styles.pillTextActive]}>{value}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.counterBar}>
-        {[['all', 'All'], ['unupload', 'Un-Upload'], ['uploading', 'Uploading'], ['uploaded', 'Uploaded'], ['failed', 'Failed']].map(([key, label]) => (
-          <TouchableOpacity key={key} style={[styles.counterChip, filterTab === key && styles.counterChipActive]} onPress={() => setFilterTab(key as FilterTab)}>
-            <Text style={[styles.counterText, filterTab === key && styles.counterTextActive]}>{statusCounts[key as keyof typeof statusCounts]}</Text>
-            <Text style={[styles.counterCaption, filterTab === key && styles.counterTextActive]}>{label}</Text>
+      <View style={styles.filterRow}>
+        {[
+          ['all', 'All', statusCounts.all],
+          ['queued', 'Queued', statusCounts.queued],
+          ['uploading', 'Uploading', statusCounts.uploading],
+          ['uploaded', 'Uploaded', statusCounts.uploaded],
+          ['failed', 'Failed', statusCounts.failed],
+        ].map(([key, label, count]) => (
+          <TouchableOpacity
+            key={key}
+            style={[styles.filterChip, filterTab === key && styles.filterChipActive]}
+            onPress={() => setFilterTab(key as FilterTab)}
+          >
+            <Text style={[styles.filterChipText, filterTab === key && styles.filterChipTextActive]}>{count}</Text>
+            <Text style={[styles.filterChipLabel, filterTab === key && styles.filterChipTextActive]}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectionMode((prev) => !prev)}>
-          <Text style={styles.actionBtnText}>{selectionMode ? 'HỦY CHỌN' : 'MULTI-SELECT'}</Text>
+      <View style={styles.selectionRow}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={() => setSelectionMode((prev) => !prev)}>
+          <Text style={styles.secondaryButtonText}>{selectionMode ? 'Done Selecting' : 'Select Photos'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtnPrimary} onPress={onRunUpload} disabled={!files.length || uploading}>
-          <Text style={styles.actionBtnPrimaryText}>{uploading ? 'Đang upload...' : 'Batch upload'}</Text>
-        </TouchableOpacity>
+        {selectionMode ? (
+          <>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => setAllSelected(true)}>
+              <Text style={styles.secondaryButtonText}>Chọn tất cả</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => setAllSelected(false)}>
+              <Text style={styles.secondaryButtonText}>Bỏ chọn</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
       </View>
 
-      {files.length > 0 ? (
-        <View style={styles.selectionActions}>
-          <TouchableOpacity style={styles.smallChip} onPress={() => setAllSelected(true)}>
-            <Text style={styles.smallChipText}>Chọn tất cả</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.smallChip, styles.smallChipAlt]} onPress={() => setAllSelected(false)}>
-            <Text style={[styles.smallChipText, styles.smallChipAltText]}>Bỏ chọn</Text>
-          </TouchableOpacity>
+      {selectionMode && selectedCount > 0 ? (
+        <TouchableOpacity style={styles.primaryButton} onPress={() => void onUploadSelected()}>
+          <Text style={styles.primaryButtonText}>Upload {selectedCount} selected photos</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      <TouchableOpacity style={styles.ghostToggle} onPress={() => setShowAdvanced((prev) => !prev)}>
+        <Text style={styles.ghostToggleText}>{showAdvanced ? 'Ẩn advanced tools' : 'Mở advanced tools'}</Text>
+      </TouchableOpacity>
+
+      {showAdvanced ? (
+        <View style={styles.advancedCard}>
+          <Text style={styles.advancedTitle}>Advanced Session Controls</Text>
+          <View style={styles.pillsWrap}>
+            {['JPG_HD', 'JPG', 'RAW_PNG', 'RAW_JPG'].map((value) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => {
+                  setFormat(value as 'JPG_HD' | 'JPG' | 'RAW_PNG' | 'RAW_JPG');
+                  void savePreference('format', value);
+                }}
+                style={[styles.pill, format === value && styles.pillActive]}
+              >
+                <Text style={[styles.pillText, format === value && styles.pillTextActive]}>{value}</Text>
+              </TouchableOpacity>
+            ))}
+            {['manual', 'auto', 'burst'].map((value) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => {
+                  setMode(value as 'manual' | 'auto' | 'burst');
+                  void savePreference('mode', value);
+                }}
+                style={[styles.pill, mode === value && styles.pillActive]}
+              >
+                <Text style={[styles.pillText, mode === value && styles.pillTextActive]}>{value}</Text>
+              </TouchableOpacity>
+            ))}
+            {['SD', 'CF', 'XQD'].map((value) => (
+              <TouchableOpacity
+                key={value}
+                onPress={() => {
+                  setSlot(value as 'SD' | 'CF' | 'XQD');
+                  void savePreference('slot', value);
+                }}
+                style={[styles.pill, slot === value && styles.pillActive]}
+              >
+                <Text style={[styles.pillText, slot === value && styles.pillTextActive]}>{value}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={styles.advancedActions}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('LiveAlbum', { locationId, locationName })}>
+              <Text style={styles.secondaryButtonText}>Open Live Album</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => void importBackupFiles()}>
+              <Text style={styles.secondaryButtonText}>Import Backup Files</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.reset({ index: 1, routes: [{ name: 'LocationSelect' }, { name: 'ConnectionMode', params: { locationId, locationName } }] })}>
+              <Text style={styles.secondaryButtonText}>Switch Connection</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
 
-      {selectionMode ? (
-        <Text style={styles.selectionCounter}>{files.filter((file) => file.selected).length} ảnh đã chọn</Text>
-      ) : null}
-
-      {!selectedLoc ? (
-        <TouchableOpacity style={styles.warningCard} onPress={() => setLocationModalVisible(true)}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#b45309" />
-          <Text style={styles.warningText}>Chưa chọn folder upload. Chạm để chọn.</Text>
-        </TouchableOpacity>
-      ) : null}
-
       {grouped.length === 0 ? (
-        <View style={styles.emptyBoard}><Text style={styles.emptyText}>Chưa có ảnh</Text></View>
+        <View style={styles.emptyBoard}>
+          <MaterialCommunityIcons name={isWired ? 'camera-wireless-outline' : 'wifi'} size={28} color={sourceTone} />
+          <Text style={styles.emptyTitle}>{isWired ? 'Waiting for camera photos' : 'Waiting for wireless transfer'}</Text>
+          <Text style={styles.emptyText}>
+            {isWired
+              ? 'Khi ảnh đi vào từ OTG, queue sẽ hiện ngay tại đây để bạn theo dõi và upload.'
+              : 'Wireless mode đang theo dõi kết nối và trạng thái transfer. Queue cục bộ sẽ hiện khi có file được nhập vào app.'}
+          </Text>
+        </View>
       ) : (
         <View style={styles.timelineBoard}>
           {grouped.map((group) => {
@@ -479,25 +633,14 @@ const onUploadSingle = async (itemId: string) => {
                 <View style={styles.timelineRail}>
                   <Text style={styles.timelineDate}>{info.date}</Text>
                   <Text style={styles.timelineTime}>{info.time}</Text>
-                  <Text style={styles.timelineCount}>{group.items.length} pic</Text>
+                  <Text style={styles.timelineCount}>{group.items.length} items</Text>
                 </View>
                 <View style={styles.gridWrap}>
                   <PhotoGrid
-                    photos={group.items.map((item) => ({
-                      id: item.id,
-                      uri: item.uri,
-                      name: item.name,
-                      status: item.status,
-                      selected: item.selected,
-                      progress: item.progress,
-                      size: item.size,
-                      capturedAt: item.capturedAt,
-                      addedAt: item.addedAt,
-                      source: item.source,
-                    }))}
+                    photos={group.items.map(toPhotoCard)}
                     selectionMode={selectionMode}
                     onToggleSelect={toggleSelectFile}
-                    onUploadItem={onUploadSingle}
+                    onUploadItem={(id) => void onUploadSingle(id)}
                     onViewDetail={handleViewDetail}
                     numColumns={3}
                     scrollEnabled={false}
@@ -510,190 +653,171 @@ const onUploadSingle = async (itemId: string) => {
         </View>
       )}
 
-      {selectionMode && files.some((file) => file.selected) ? (
-        <TouchableOpacity style={styles.primaryBtn} onPress={onUploadSelected}>
-          <Text style={styles.primaryBtnText}>Upload {files.filter((file) => file.selected).length} ảnh đã chọn</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={styles.bottomTools}>
-        <TouchableOpacity style={styles.btnOutline} onPress={() => setLocationModalVisible(true)}>
-          <Text style={styles.btnOutlineText}>Folder Upload</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.btnOutline} onPress={() => navigation.navigate('CameraConnect')}>
-          <Text style={styles.btnOutlineText}>Kết nối FTP / WiFi</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.btn} onPress={() => cancelUpload()}>
-        <Text style={styles.btnText}>Huỷ Upload</Text>
-      </TouchableOpacity>
-
-      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-
-      {locationModalVisible ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Chọn folder upload</Text>
-            {locLoading ? (
-              <ActivityIndicator color={PRIMARY} />
-            ) : locations.length === 0 ? (
-              <View style={styles.emptyModalState}>
-                <Text style={styles.methodSub}>Không có folder upload nào khả dụng.</Text>
-                <TouchableOpacity style={styles.confirmBtn} onPress={() => void loadLocations()}>
-                  <Text style={styles.confirmBtnText}>Tải lại</Text>
-                </TouchableOpacity>
-              </View>
-            ) : locations.map((location) => (
-              <TouchableOpacity
-                key={location.id}
-                style={[styles.methodCard, selectedLoc?.id === location.id && styles.methodCardActive]}
-                onPress={() => {
-                  setSelectedLoc({ id: location.id, name: location.name });
-                  setLocationModalVisible(false);
-                }}
-              >
-                <View style={[styles.methodIcon, { backgroundColor: PRIMARY }]}>
-                  <MaterialCommunityIcons name="folder-outline" size={20} color="#fff" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.methodTitle}>{location.name}</Text>
-                  <Text style={styles.methodSub}>Folder dùng để upload ảnh</Text>
-                </View>
-                {selectedLoc?.id === location.id ? <Text style={styles.methodSelected}>✓</Text> : null}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.confirmBtnAlt} onPress={() => setLocationModalVisible(false)}>
-              <Text style={styles.confirmBtnText}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
-
-      {methodModalVisible ? (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Chọn phương thức</Text>
-            {methodList.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[styles.methodCard, method === option.key && styles.methodCardActive, option.disabled && styles.methodCardDisabled]}
-                onPress={() => !option.disabled && setMethod(option.key)}
-                disabled={option.disabled}
-              >
-                <View style={[styles.methodIcon, { backgroundColor: option.disabled ? '#9ca3af' : option.color }]}>
-                  <MaterialCommunityIcons name={option.icon as never} size={20} color="#fff" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.methodTitle, option.disabled && styles.methodTitleDisabled]}>{option.title}</Text>
-                  <Text style={styles.methodSub}>{option.subtitle}</Text>
-                </View>
-                {method === option.key ? <Text style={styles.methodSelected}>✓</Text> : null}
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleMethodConfirm}>
-              <Text style={styles.confirmBtnText}>Xác nhận</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtnAlt} onPress={() => setMethodModalVisible(false)}>
-              <Text style={styles.confirmBtnText}>Huỷ</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
+      {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#eef3ff' },
-  content: { padding: 14, paddingBottom: 32 },
-  topRow: { marginBottom: 10 },
-  folderPicker: {
-    backgroundColor: '#fff',
+  container: { flex: 1, backgroundColor: '#f4f1ea' },
+  content: { padding: 18, paddingBottom: 36 },
+  heroCard: {
+    borderRadius: 28,
+    padding: 22,
+    marginBottom: 16,
+  },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  heroEyebrow: { color: '#d7e8df', fontSize: 12, fontWeight: '800', letterSpacing: 1.2 },
+  heroTitle: { color: '#fff', fontSize: 29, fontWeight: '800', marginTop: 8 },
+  heroSubtitle: { color: '#e4eef4', fontSize: 15, marginTop: 8 },
+  phaseBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999 },
+  phaseBadgeText: { fontSize: 12, fontWeight: '800' },
+  summaryGrid: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    padding: 14,
+  },
+  summaryLabel: { color: '#d8e4de', fontSize: 12, fontWeight: '700' },
+  summaryValue: { color: '#fff', fontSize: 16, fontWeight: '800', marginTop: 6 },
+  statusCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e4dbcb',
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#dbe4ff',
+    marginBottom: 12,
   },
-  folderCopy: { flex: 1, marginLeft: 10 },
-  folderLabel: { fontSize: 12, color: '#64748b', fontWeight: '700' },
-  folderValue: { fontSize: 15, color: '#0f172a', fontWeight: '700', marginTop: 1 },
-  methodButton: { backgroundColor: PRIMARY, borderRadius: 18, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
-  methodButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  heroCard: { backgroundColor: '#fff', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#dbe4ff', marginBottom: 12 },
-  heroBadges: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  heroBadge: { flex: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12 },
-  heroBadgeActive: { backgroundColor: '#22c55e' },
-  heroBadgeIdle: { backgroundColor: '#e2e8f0' },
-  heroBadgeTitle: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  heroBadgeSub: { color: '#fff', fontSize: 15, fontWeight: '800', marginTop: 2 },
-  connectionLine: { fontSize: 15, color: '#5370d1', fontWeight: '600' },
-  subStatusText: { fontSize: 12, color: '#475569', marginTop: 3 },
-  statusActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  permissionBtn: { backgroundColor: PRIMARY, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 },
-  permissionBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  secondaryBtn: { backgroundColor: '#e8eefc', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 },
-  secondaryBtnText: { color: '#1e3a8a', fontWeight: '700', fontSize: 12 },
-  uploadSummary: { backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#dbe4ff', marginBottom: 12 },
-  uploadSummaryTitle: { fontSize: 13, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
-  uploadSummaryText: { fontSize: 12, color: '#475569' },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 },
-  pill: { borderWidth: 1, borderColor: '#d7ddeb', borderRadius: 20, paddingVertical: 7, paddingHorizontal: 11, marginRight: 6, marginBottom: 6, backgroundColor: '#fff' },
-  pillActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  pillText: { fontSize: 12, color: '#334155', fontWeight: '600' },
+  statusIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  statusCopy: { flex: 1 },
+  statusLabel: { color: INK, fontSize: 18, fontWeight: '800' },
+  statusDetail: { color: '#5e6778', fontSize: 14, lineHeight: 21, marginTop: 4 },
+  activityCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e4dbcb',
+    marginBottom: 12,
+  },
+  activityTitle: { color: INK, fontSize: 15, fontWeight: '800' },
+  activityText: { color: '#526072', fontSize: 14, lineHeight: 21, marginTop: 8 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  progressText: { color: '#344154', fontSize: 13, fontWeight: '700' },
+  counterGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  counterCard: {
+    width: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e4dbcb',
+  },
+  counterValue: { color: INK, fontSize: 24, fontWeight: '800', marginTop: 12 },
+  counterLabel: { color: '#5e6778', fontSize: 13, fontWeight: '700', marginTop: 6 },
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  actionButton: {
+    flex: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd3c5',
+  },
+  actionButtonText: { color: INK, fontWeight: '800', fontSize: 14 },
+  actionStretch: { flex: 1 },
+  primaryButton: {
+    backgroundColor: BRAND,
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  dangerButton: {
+    backgroundColor: '#fff1f2',
+    borderRadius: 18,
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+  },
+  dangerButtonText: { color: '#be123c', fontSize: 15, fontWeight: '800' },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  filterChip: {
+    minWidth: 68,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#ddd3c5',
+    alignItems: 'center',
+  },
+  filterChipActive: { backgroundColor: BRAND, borderColor: BRAND },
+  filterChipText: { color: INK, fontSize: 16, fontWeight: '800' },
+  filterChipLabel: { color: '#526072', fontSize: 11, marginTop: 2 },
+  filterChipTextActive: { color: '#fff' },
+  selectionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
+  secondaryButton: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd3c5',
+  },
+  secondaryButtonText: { color: INK, fontWeight: '700', fontSize: 13 },
+  ghostToggle: { alignSelf: 'flex-start', marginBottom: 10, paddingVertical: 6 },
+  ghostToggleText: { color: '#485365', fontWeight: '700', fontSize: 13 },
+  advancedCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#e4dbcb',
+    marginBottom: 12,
+  },
+  advancedTitle: { color: INK, fontSize: 16, fontWeight: '800', marginBottom: 12 },
+  pillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  pill: {
+    borderWidth: 1,
+    borderColor: '#d8d1c5',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#faf8f2',
+  },
+  pillActive: { backgroundColor: BRAND, borderColor: BRAND },
+  pillText: { color: '#334155', fontWeight: '700', fontSize: 12 },
   pillTextActive: { color: '#fff' },
-  counterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  counterChip: { minWidth: 68, backgroundColor: '#fff', borderRadius: 14, paddingVertical: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#d7ddeb', alignItems: 'center' },
-  counterChipActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  counterText: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
-  counterCaption: { fontSize: 11, color: '#475569', marginTop: 2 },
-  counterTextActive: { color: '#fff' },
-  actionBar: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  actionBtn: { flex: 1, backgroundColor: PRIMARY, borderRadius: 22, paddingVertical: 14, alignItems: 'center' },
-  actionBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  actionBtnPrimary: { flex: 1, backgroundColor: PRIMARY, borderRadius: 22, paddingVertical: 14, alignItems: 'center' },
-  actionBtnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  warningCard: { backgroundColor: '#fff7ed', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#fed7aa', flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  warningText: { color: '#9a3412', fontSize: 12, fontWeight: '600' },
+  advancedActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
+  emptyBoard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    paddingVertical: 28,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e4dbcb',
+  },
+  emptyTitle: { color: INK, fontSize: 18, fontWeight: '800', marginTop: 12 },
+  emptyText: { color: '#617083', fontSize: 14, lineHeight: 22, textAlign: 'center', marginTop: 8 },
   timelineBoard: { gap: 10 },
   timelineRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  timelineRail: { width: 78, paddingTop: 8, paddingRight: 8 },
+  timelineRail: { width: 88, paddingTop: 8, paddingRight: 8 },
   timelineDate: { fontSize: 12, color: '#64748b', fontWeight: '700' },
-  timelineTime: { fontSize: 22, color: '#0f172a', fontWeight: '800', marginTop: 4 },
-  timelineCount: { fontSize: 12, color: PRIMARY, fontWeight: '700', marginTop: 2 },
-  gridWrap: { flex: 1, backgroundColor: DARK, borderRadius: 10, paddingHorizontal: 4, paddingVertical: 4 },
-  emptyBoard: { backgroundColor: '#fff', borderRadius: 18, paddingVertical: 28, alignItems: 'center', borderWidth: 1, borderColor: '#dbe4ff' },
-  emptyText: { color: '#64748b', fontSize: 14 },
-  primaryBtn: { backgroundColor: PRIMARY, borderRadius: 18, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
-  primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  selectionActions: { flexDirection: 'row', gap: 10, marginBottom: 10, flexWrap: 'wrap' },
-  smallChip: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1' },
-  smallChipAlt: { backgroundColor: '#e2e8f0' },
-  smallChipText: { color: '#0f172a', fontWeight: '700' },
-  smallChipAltText: { color: '#334155' },
-  selectionCounter: { color: '#334155', fontSize: 12, marginBottom: 10 },
-  bottomTools: { gap: 10, marginTop: 12 },
-  btnOutline: { borderWidth: 1.5, borderColor: PRIMARY, borderRadius: 16, paddingVertical: 14, alignItems: 'center', backgroundColor: '#fff' },
-  btnOutlineText: { color: PRIMARY, fontWeight: '700', fontSize: 15 },
-  btn: { backgroundColor: '#111827', borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 10 },
-  btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  error: { color: '#dc2626', marginTop: 10 },
-  modalOverlay: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
-  modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 18, padding: 16, maxHeight: '84%' },
-  modalTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12, color: '#0f172a' },
-  methodCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: '#e5e7eb', padding: 12, marginBottom: 8 },
-  methodCardActive: { borderColor: PRIMARY, backgroundColor: '#edf3ff' },
-  methodCardDisabled: { opacity: 0.6, backgroundColor: '#f8fafc' },
-  methodIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  methodTitle: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
-  methodTitleDisabled: { color: '#94a3b8' },
-  methodSub: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  methodSelected: { color: PRIMARY, fontWeight: '800', fontSize: 18 },
-  confirmBtn: { backgroundColor: PRIMARY, borderRadius: 14, padding: 12, alignItems: 'center', marginTop: 10 },
-  confirmBtnAlt: { backgroundColor: '#94a3b8', borderRadius: 14, padding: 12, alignItems: 'center', marginTop: 8 },
-  confirmBtnText: { color: '#fff', fontWeight: '800' },
-  emptyModalState: { paddingVertical: 8 },
+  timelineTime: { fontSize: 22, color: INK, fontWeight: '800', marginTop: 4 },
+  timelineCount: { fontSize: 12, color: BRAND, fontWeight: '700', marginTop: 2 },
+  gridWrap: { flex: 1, backgroundColor: '#111827', borderRadius: 12, paddingHorizontal: 4, paddingVertical: 4 },
+  errorText: { color: '#dc2626', fontSize: 13, marginTop: 10 },
 });

@@ -3,22 +3,34 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import LoginScreen from './src/screens/LoginScreen';
+import LocationSelectScreen from './src/screens/LocationSelectScreen';
+import ConnectionModeScreen from './src/screens/ConnectionModeScreen';
 import UploadScreen from './src/screens/UploadScreen';
 import CameraConnectScreen from './src/screens/CameraConnectScreen';
 import LiveAlbumScreen from './src/screens/LiveAlbumScreen';
 import ImageDetailScreen from './src/screens/ImageDetailScreen';
 
+export type ConnectionMode = 'wired' | 'wireless';
+
+export interface SessionRouteParams {
+  locationId: string;
+  locationName: string;
+  connectionMode: ConnectionMode;
+}
+
 export type RootStackParamList = {
   Login: undefined;
-  Upload: undefined;
-  CameraConnect: undefined;
+  LocationSelect: undefined;
+  ConnectionMode: { locationId: string; locationName: string };
+  CameraConnect: SessionRouteParams;
+  Upload: SessionRouteParams;
   LiveAlbum: { locationId: string; locationName: string };
   ImageDetail: { uri: string; name: string; size?: number; status?: string; capturedAt?: number; addedAt?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const PRIMARY = '#1a6b4e';
+const PRIMARY = '#1c5c46';
 
 export default function App() {
   return (
@@ -31,11 +43,14 @@ export default function App() {
             headerStyle: { backgroundColor: PRIMARY },
             headerTintColor: '#fff',
             headerTitleStyle: { fontWeight: '700' },
+            contentStyle: { backgroundColor: '#f4f1ea' },
           }}
         >
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Upload" component={UploadScreen} options={{ title: 'Upload Ảnh' }} />
-          <Stack.Screen name="CameraConnect" component={CameraConnectScreen} options={{ title: 'Kết Nối Máy Ảnh' }} />
+          <Stack.Screen name="LocationSelect" component={LocationSelectScreen} options={{ title: 'Select Location' }} />
+          <Stack.Screen name="ConnectionMode" component={ConnectionModeScreen} options={{ title: 'Choose Connection' }} />
+          <Stack.Screen name="CameraConnect" component={CameraConnectScreen} options={{ title: 'Setup Session' }} />
+          <Stack.Screen name="Upload" component={UploadScreen} options={{ title: 'Session Monitor' }} />
           <Stack.Screen name="LiveAlbum" component={LiveAlbumScreen} options={{ title: 'Album Trực Tiếp' }} />
           <Stack.Screen name="ImageDetail" component={ImageDetailScreen} options={{ title: 'Chi tiết ảnh' }} />
         </Stack.Navigator>

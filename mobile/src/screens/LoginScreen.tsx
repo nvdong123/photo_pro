@@ -47,7 +47,7 @@ export default function LoginScreen({ navigation }: Props) {
 
       const json = await res.json() as { data: { access_token: string } };
       await setToken(json.data.access_token);
-      navigation.replace('Upload');
+      navigation.replace('LocationSelect');
     } catch (err) {
       Alert.alert('Đăng nhập thất bại', err instanceof Error ? err.message : 'Lỗi không xác định');
     } finally {
