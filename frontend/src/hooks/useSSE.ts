@@ -50,7 +50,7 @@ export function usePhotoStream(locationId: string | null | undefined): PhotoStre
   const [error, setError] = useState<string | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
-  const retryRef = useRef<ReturnType<typeof setTimeout>>();
+  const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const connect = useCallback(() => {
     if (!locationId) return;
@@ -88,7 +88,7 @@ export function usePhotoStream(locationId: string | null | undefined): PhotoStre
     connect();
     return () => {
       esRef.current?.close();
-      clearTimeout(retryRef.current);
+      if (retryRef.current !== undefined) clearTimeout(retryRef.current);
     };
   }, [connect]);
 
@@ -113,7 +113,7 @@ export function useAllPhotosStream(): PhotoStreamResult {
   const [error, setError] = useState<string | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
-  const retryRef = useRef<ReturnType<typeof setTimeout>>();
+  const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const connect = useCallback(() => {
     const url = `${API_BASE}/api/v1/realtime/stream`;
@@ -148,7 +148,7 @@ export function useAllPhotosStream(): PhotoStreamResult {
     connect();
     return () => {
       esRef.current?.close();
-      clearTimeout(retryRef.current);
+      if (retryRef.current !== undefined) clearTimeout(retryRef.current);
     };
   }, [connect]);
 
@@ -182,7 +182,7 @@ export function useStaffPhotoStream(token: string | null | undefined): StaffStre
   const [isConnected, setIsConnected] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
-  const retryRef = useRef<ReturnType<typeof setTimeout>>();
+  const retryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const connect = useCallback(() => {
     const ctrl = new AbortController();
@@ -243,7 +243,7 @@ export function useStaffPhotoStream(token: string | null | undefined): StaffStre
     connect();
     return () => {
       abortRef.current?.abort();
-      clearTimeout(retryRef.current);
+      if (retryRef.current !== undefined) clearTimeout(retryRef.current);
     };
   }, [connect]);
 
