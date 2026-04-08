@@ -4,6 +4,7 @@ FTP Credentials management endpoints.
 Mounted at /api/v1/admin/staff (same prefix as commission.py).
 
   GET  /me/ftp-credentials          → current staff own FTP credentials
+  POST /reset-ftp-password          → current staff reset own FTP password
   GET  /{staff_id}/ftp-credentials  → admin: get staff FTP credentials
   POST /{staff_id}/reset-ftp-password → admin: regenerate FTP password
 """
