@@ -118,12 +118,13 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('localhost',21),2)"]
       interval: 30s
       timeout: 5s
       retries: 3
-        condition: service_healthy
+        
 
 volumes:
   pgdata:
