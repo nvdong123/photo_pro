@@ -151,7 +151,7 @@ async def get_staff_ftp_credentials(
 
 @router.post("/me/reset-ftp-password", response_model=APIResponse[dict])
 async def reset_my_ftp_password(
-    current_user: Staff = Depends(get_current_admin),
+    current_user: Staff = Depends(require_any),
     db: AsyncSession = Depends(get_db),
 ):
     """Staff: regenerate own FTP password."""
