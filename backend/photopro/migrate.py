@@ -30,7 +30,7 @@ from app.models.commission import (  # noqa: F401
 _ENUM_SPECS: list[tuple[str, list[str]]] = [
     ("staffrole",     ["SYSTEM", "SALES", "MANAGER", "STAFF"]),
     ("tagtype",       ["location", "order"]),
-    ("mediastatus",   ["NEW", "DERIVATIVES_READY", "INDEXED", "FAILED"]),
+    ("mediastatus",   ["UPLOADING", "NEW", "DERIVATIVES_READY", "INDEXED", "FAILED"]),
     ("photostatus",   ["available", "sold"]),
     ("orderstatus",   ["CREATED", "PAID", "FAILED", "REFUNDED"]),
     ("paymentcycle",       ["weekly", "monthly", "quarterly"]),
