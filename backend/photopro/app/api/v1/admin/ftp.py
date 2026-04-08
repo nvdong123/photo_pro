@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_admin, require_sales_up
+from app.core.deps import get_current_admin, require_sales_up, require_any
 from app.models.staff import Staff, StaffRole
 from app.schemas.common import APIResponse
 
