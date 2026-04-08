@@ -11,10 +11,15 @@
       "resizeMode": "contain",
       "backgroundColor": "#1a6b4e"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "vn.photopro.mobile"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,14 +28,35 @@
       },
       "package": "vn.photopro.mobile",
       "permissions": [
-        "USB_PERMISSION"
+        "android.permission.INTERNET"
       ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 26
+          }
+        }
+      ]
+    ],
+    "_internal": {
+      "autolinkedModules": [
+        "expo-image-picker"
+      ],
+      "excludedModules": [
+        "expo-image-loader"
+      ]
     },
     "extra": {
-      "apiUrl": "https://api.102photo.trip360.vn"
-    }
-  } 
+      "apiUrl": "https://api.102photo.trip360.vn",
+      "eas": {
+        "projectId": "6f7962a3-1bd1-4b0d-a12b-36178bb3dacf"
+      }
+    },
+    "owner": "dong_dev"
+  }
 }

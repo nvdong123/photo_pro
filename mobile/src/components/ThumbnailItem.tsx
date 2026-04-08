@@ -42,11 +42,9 @@ export default function ThumbnailItem({ photo, isSelected, onPress, onLayout }: 
   }, [photo.cacheKey, photo.name, thumbUri, loading]);
 
   useEffect(() => {
-    if (onLayout) {
-      // Load immediately if onLayout is provided (visible)
-      loadThumbnail();
-    }
-  }, [onLayout, loadThumbnail]);
+    // Load thumbnail whenever the item mounts.
+    loadThumbnail();
+  }, [loadThumbnail]);
 
   return (
     <TouchableOpacity

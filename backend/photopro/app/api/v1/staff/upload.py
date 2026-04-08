@@ -241,7 +241,7 @@ async def presign_upload(
         uploader_id=current_user.id,
         shoot_date=shoot_date,
         album_code=album_code,
-        process_status=MediaStatus.NEW,  # Changed from UPLOADING (enum not yet in DB)
+        process_status=MediaStatus.UPLOADING,
         expires_at=expires_at,
     )
     db.add(media)
@@ -277,6 +277,10 @@ async def confirm_upload(
 
     if media.uploader_id != current_user.id:
         raise HTTPException(403, detail={"code": "PERMISSION_DENIED", "message": "Not your upload"})
+
+    if media.process_status == MediaStatus.UPLOADING:
+        media.process_status = MediaStatus.NEW
+        await db.commit()
 
     # Queue derivatives processing (idempotent)
     from app.workers.media_worker import create_derivatives

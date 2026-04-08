@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- USB Still Image class (PTP/MTP cameras) -->
+    <usb-device class="6" subclass="1" protocol="1" />
+
+    <!-- Canon -->
+    <usb-device vendor-id="1193" />  <!-- 0x04A9 -->
+    <!-- Nikon -->
+    <usb-device vendor-id="1200" />  <!-- 0x04B0 -->
+    <!-- Sony -->
+    <usb-device vendor-id="1356" />  <!-- 0x054C -->
+    <!-- Fujifilm -->
+    <usb-device vendor-id="1227" />  <!-- 0x04CB -->
+    <!-- Olympus / OM System -->
+    <usb-device vendor-id="1266" />  <!-- 0x04F2 -->
+    <!-- Panasonic / Lumix -->
+    <usb-device vendor-id="1123" />  <!-- 0x0463 – Matsushita (Panasonic) -->
+    <usb-device vendor-id="2062" />  <!-- 0x080E – Panasonic alt -->
+    <!-- Leica -->
+    <usb-device vendor-id="4869" />  <!-- 0x1305 -->
+    <!-- GoPro -->
+    <usb-device vendor-id="10550" /> <!-- 0x2936 -->
+    <!-- Ricoh / Pentax -->
+    <usb-device vendor-id="1482" />  <!-- 0x05CA -->
+    <!-- Hasselblad -->
+    <usb-device vendor-id="6668" />  <!-- 0x1A0C -->
+    <!-- DJI -->
+    <usb-device vendor-id="11427" /> <!-- 0x2CA3 -->
+</resources>

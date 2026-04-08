@@ -25,6 +25,10 @@ from app.models.commission import (  # noqa: F401
     StaffCommission, PayrollCycle, PayrollItem, PayrollCycleStatus,
 )
 
+# Keep this in sync with the latest Alembic revision that the custom startup
+# migration below fully covers via create_all + manual schema adjustments.
+ALEMBIC_HEAD = "0013_ftp_password_widen"
+
 # ENUM types used with create_type=False in models.
 # Uses SELECT-based check + CREATE TYPE (no DO blocks — asyncpg compatibility).
 _ENUM_SPECS: list[tuple[str, list[str]]] = [
@@ -39,8 +43,23 @@ _ENUM_SPECS: list[tuple[str, list[str]]] = [
 ]
 
 
+def _sql_quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+async def _get_enum_labels(conn, name: str) -> list[str]:
+    rows = (await conn.execute(text("""
+        SELECT e.enumlabel
+        FROM pg_type t
+        JOIN pg_enum e ON e.enumtypid = t.oid
+        WHERE t.typname = :n
+        ORDER BY e.enumsortorder
+    """), {"n": name})).fetchall()
+    return [row.enumlabel for row in rows]
+
+
 async def ensure_enums(engine) -> None:
-    """Transaction 1: create ENUM types that are missing."""
+    """Transaction 1: create missing ENUM types and add missing values."""
     async with engine.begin() as conn:
         for name, values in _ENUM_SPECS:
             row = (await conn.execute(
@@ -48,11 +67,20 @@ async def ensure_enums(engine) -> None:
                 {"n": name},
             )).fetchone()
             if row is None:
-                vals = ", ".join(f"'{v}'" for v in values)
+                vals = ", ".join(_sql_quote(v) for v in values)
                 await conn.execute(text(f"CREATE TYPE {name} AS ENUM ({vals})"))
                 print(f"  Created ENUM type: {name}", flush=True)
             else:
-                print(f"  ENUM type already exists: {name}", flush=True)
+                existing = await _get_enum_labels(conn, name)
+                missing = [value for value in values if value not in existing]
+                if missing:
+                    for value in missing:
+                        await conn.execute(text(
+                            f"ALTER TYPE {name} ADD VALUE IF NOT EXISTS {_sql_quote(value)}"
+                        ))
+                        print(f"  Added ENUM value {name}.{value}", flush=True)
+                else:
+                    print(f"  ENUM type already up to date: {name}", flush=True)
     print("ensure_enums done.", flush=True)
 
 
@@ -65,7 +93,7 @@ async def ensure_tables(engine) -> None:
 
 async def stamp_alembic(engine) -> None:
     """Transaction 3: ensure alembic_version is at head."""
-    head = "0011_staff_ftp_credentials"
+    head = ALEMBIC_HEAD
     async with engine.begin() as conn:
         await conn.execute(text(
             "CREATE TABLE IF NOT EXISTS alembic_version "
@@ -96,7 +124,7 @@ async def apply_pending_columns(engine) -> None:
         ("bundle_pricing", "is_popular", "BOOLEAN DEFAULT false"),
         ("staff", "commission_rate",  "NUMERIC(5,2) NOT NULL DEFAULT 100.00"),
         ("tags", "cover_url",         "VARCHAR(2048)"),
-        ("staff", "ftp_password",     "VARCHAR(50)"),
+        ("staff", "ftp_password",     "VARCHAR(100)"),
         ("staff", "ftp_folder",       "VARCHAR(200)"),
     ]
     async with engine.begin() as conn:
@@ -112,6 +140,17 @@ async def apply_pending_columns(engine) -> None:
                 print(f"  Added column {table}.{column}", flush=True)
             else:
                 print(f"  Column {table}.{column} already exists", flush=True)
+
+        ftp_password_len = (await conn.execute(text(
+            "SELECT character_maximum_length "
+            "FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'staff' AND column_name = 'ftp_password'"
+        ))).scalar_one_or_none()
+        if ftp_password_len is not None and ftp_password_len < 100:
+            await conn.execute(text(
+                "ALTER TABLE staff ALTER COLUMN ftp_password TYPE VARCHAR(100)"
+            ))
+            print("  Widened column staff.ftp_password to VARCHAR(100)", flush=True)
 
 
 async def seed_settings(engine) -> None:

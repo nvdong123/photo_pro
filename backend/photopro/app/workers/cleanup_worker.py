@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import and_, select
+from sqlalchemy import String, and_, cast, select
 
 from app.models.delivery import DigitalDelivery
 from app.models.media import Media
@@ -161,7 +161,7 @@ async def _async_cleanup_uploading():
         result = await db.execute(
             select(Media).where(
                 and_(
-                    Media.process_status == MediaStatus.UPLOADING,
+                    cast(Media.process_status, String) == MediaStatus.UPLOADING.value,
                     Media.created_at < cutoff,
                     Media.deleted_at.is_(None),
                 )

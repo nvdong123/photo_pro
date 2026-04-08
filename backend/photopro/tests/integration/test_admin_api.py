@@ -1,7 +1,8 @@
 """Integration tests for admin API."""
 import pytest
 
-from tests.conftest import create_test_admin, get_admin_token
+from app.models.media import MediaStatus
+from tests.conftest import create_test_admin, create_test_media, get_admin_token
 
 
 @pytest.mark.asyncio
@@ -71,6 +72,27 @@ async def test_revenue_period_month(client, seeded_db):
     assert "summary" in data
     assert "by_date" in data
     assert "by_photographer" in data
+
+
+@pytest.mark.asyncio
+async def test_media_stats_include_zero_counts_for_missing_statuses(client, seeded_db):
+    token = await get_admin_token(client, seeded_db, role="MANAGER")
+    await create_test_media(seeded_db, status=MediaStatus.INDEXED)
+    await create_test_media(seeded_db, status=MediaStatus.FAILED, has_face=False)
+
+    r = await client.get(
+        "/api/v1/admin/media/stats",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert r.status_code == 200
+    data = r.json()["data"]
+    assert data["total"] == 2
+    assert data["by_status"]["INDEXED"] == 1
+    assert data["by_status"]["FAILED"] == 1
+    assert data["by_status"]["UPLOADING"] == 0
+    assert data["by_status"]["NEW"] == 0
+    assert data["by_status"]["DERIVATIVES_READY"] == 0
 
 
 @pytest.mark.asyncio

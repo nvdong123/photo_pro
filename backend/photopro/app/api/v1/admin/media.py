@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -33,7 +33,7 @@ async def list_media(
     if shoot_date:
         q = q.where(Media.shoot_date == shoot_date)
     if status:
-        q = q.where(Media.process_status == status)
+        q = q.where(cast(Media.process_status, String) == status.value)
     if has_face is not None:
         q = q.where(Media.has_face == has_face)
 
@@ -66,12 +66,15 @@ async def media_stats(
         )
     )).scalar_one()
 
-    by_status = {}
-    for st in MediaStatus:
-        cnt = (await db.execute(
-            select(func.count(Media.id)).where(Media.deleted_at.is_(None), Media.process_status == st)
-        )).scalar_one()
-        by_status[st.value] = cnt
+    status_col = cast(Media.process_status, String)
+    status_rows = (await db.execute(
+        select(status_col.label("status"), func.count(Media.id).label("cnt"))
+        .where(Media.deleted_at.is_(None))
+        .group_by(status_col)
+    )).all()
+    by_status = {st.value: 0 for st in MediaStatus}
+    for row in status_rows:
+        by_status[row.status] = row.cnt
 
     ph_rows = (await db.execute(
         select(Media.photographer_code, func.count(Media.id).label("cnt"))

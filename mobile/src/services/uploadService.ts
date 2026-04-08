@@ -81,6 +81,7 @@ async function presign(
   filename: string,
   contentType: string,
   metadata: UploadMetadata,
+  size?: number,
 ): Promise<PresignResponse> {
   const base = await getApiBase();
   const token = await getToken();
@@ -96,7 +97,7 @@ async function presign(
     camera_slot: metadata.camera_slot,
   };
 
-  console.log(`[UPLOAD] Presigning ${filename} (${contentType})`, body);
+  console.log(`[UPLOAD] Presigning ${filename} size=${size ?? 'unknown'} contentType=${contentType}`, body);
 
   const res = await fetch(`${base}/api/v1/staff/upload/presign`, {
     method: 'POST',
@@ -125,14 +126,16 @@ async function putToS3(
   contentType: string,
   mediaId: string,
   onProgress?: (uploaded: number, total: number) => void,
+  contentLength?: number,
 ): Promise<void> {
-  console.log(`[UPLOAD] Starting S3 PUT for media_id=${mediaId}, contentType=${contentType}`);
+  console.log(`[UPLOAD] Starting S3 PUT for media_id=${mediaId}, contentType=${contentType}, contentLength=${contentLength ?? 'unknown'}`);
 
   const options: FileSystemUploadOptions = {
     httpMethod: 'PUT',
     uploadType: FileSystemUploadType.BINARY_CONTENT,
     headers: {
       'Content-Type': contentType,
+      ...(contentLength != null ? { 'Content-Length': String(contentLength) } : {}),
     },
   };
 
@@ -203,6 +206,8 @@ export async function uploadFile(
   metadata: UploadMetadata,
   onProgress?: (step: 'presigning' | 'uploading' | 'confirming', percent?: number) => void,
   cancelRef?: { current: boolean },
+  presignData?: PresignResponse,
+  fileSize?: number,
 ): Promise<UploadResult> {
   const correctedContentType = getCorrectContentType(filename, contentType);
   console.log(`[UPLOAD] Uploading ${filename} with contentType: ${contentType} -> ${correctedContentType}`);
@@ -210,29 +215,29 @@ export async function uploadFile(
   let mediaId = '';
   try {
     onProgress?.('presigning', 0);
-    const presignData = await presign(uri, filename, correctedContentType, metadata);
-    mediaId = presignData.media_id;
+    const presignResponse = presignData ?? await presign(uri, filename, correctedContentType, metadata, fileSize);
+    mediaId = presignResponse.media_id;
 
     if (cancelRef?.current) {
       return { media_id: '', filename, status: 'error', error: 'Cancelled before upload' };
     }
 
     onProgress?.('uploading', 0);
-    await putToS3(presignData.upload_url, uri, correctedContentType, mediaId, (sent, total) => {
+    await putToS3(presignResponse.upload_url, uri, correctedContentType, mediaId, (sent, total) => {
       if (cancelRef?.current) {
         cancelUpload(mediaId);
         return;
       }
       const percent = total > 0 ? Math.round((sent / total) * 100) : 0;
       onProgress?.('uploading', percent);
-    });
+    }, fileSize);
 
     if (cancelRef?.current) {
       return { media_id: '', filename, status: 'error', error: 'Cancelled during upload' };
     }
 
     onProgress?.('confirming', 100);
-    await confirmUpload(presignData.media_id);
+    await confirmUpload(presignResponse.media_id);
 
     return { media_id: presignData.media_id, filename, status: 'success' };
   } catch (err) {
@@ -256,6 +261,7 @@ export async function uploadFileWithRetry(
   retries = 3,
   onProgress?: (state: BatchUploadProgress) => void,
   cancelRef?: { current: boolean },
+  presignData?: PresignResponse,
 ): Promise<UploadResult> {
   let lastResult: UploadResult = { media_id: '', filename: item.name, status: 'error' };
 
@@ -299,7 +305,7 @@ export async function uploadFileWithRetry(
         status: step === 'uploading' ? 'UPLOADING' : step === 'confirming' ? 'UPLOADED' : 'UPLOADING',
         progress: percent ?? (step === 'confirming' ? 100 : 0),
       });
-    }, cancelRef);
+    }, cancelRef, presignData, resolvedUpload.size);
     lastResult = result;
 
     if (result.status === 'success') {
@@ -346,6 +352,20 @@ export async function batchUpload(
   cancelRef?: { current: boolean },
 ): Promise<UploadResult[]> {
   const results: UploadResult[] = [];
+  const presignMap = new Map<string, PresignResponse>();
+
+  for (const item of items) {
+    if (cancelRef?.current) break;
+    if (item.source?.type === 'android-usb-camera') {
+      try {
+        const correctedContentType = getCorrectContentType(item.name, item.mimeType);
+        const presignData = await presign(item.uploadUri ?? item.uri, item.name, correctedContentType, metadata, item.size);
+        presignMap.set(item.id, presignData);
+      } catch (err) {
+        console.warn(`[UPLOAD] Presign before camera read failed for ${item.name}:`, err);
+      }
+    }
+  }
 
   for (let i = 0; i < items.length; i += concurrent) {
     const chunk = items.slice(i, i + concurrent);
@@ -370,7 +390,7 @@ export async function batchUpload(
           id: item.id,
           filename: item.name,
         });
-      }, cancelRef);
+      }, cancelRef, presignMap.get(item.id));
 
       onProgress?.({
         index: i + idx,

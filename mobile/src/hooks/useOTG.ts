@@ -10,7 +10,7 @@ export interface UseOTGState {
   deviceName: string;
   permissionRequired: boolean;
   errorMessage: string;
-  newPhotoHandles: Set<number>; // For highlighting new photos
+  newPhotoHandles: Set<string>; // For highlighting new photos by cacheKey
   pickFiles: () => Promise<void>;
   clearFiles: () => void;
   startAutoScan: () => void;
@@ -24,7 +24,7 @@ export function useOTG(): UseOTGState {
   const [deviceName, setDeviceName] = useState('');
   const [permissionRequired, setPermissionRequired] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [newPhotoHandles, setNewPhotoHandles] = useState<Set<number>>(new Set());
+  const [newPhotoHandles, setNewPhotoHandles] = useState<Set<string>>(new Set());
   const previousFilesRef = useRef<CameraFile[]>([]);
   const autoScanTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanInFlightRef = useRef(false);
@@ -46,24 +46,15 @@ export function useOTG(): UseOTGState {
         setErrorMessage(nativeResult.error ?? '');
 
         if (nativeResult.files.length > 0) {
-          // Detect new photos
-          const previousHandles = new Set(previousFilesRef.current.map(f => (f.source as any)?.cacheKey));
-          const newHandles = nativeResult.files
-            .filter(f => f.source?.type === 'android-usb-camera' && !(f.source as any)?.cacheKey || !previousHandles.has((f.source as any)?.cacheKey))
-            .map(f => {
-              // Extract handle from cacheKey or filename
-              const cacheKey = (f.source as any)?.cacheKey;
-              if (cacheKey) {
-                const parts = cacheKey.split('_');
-                return parseInt(parts[parts.length - 2]); // objectHandle is second to last
-              }
-              return 0;
-            })
-            .filter(h => h > 0);
+          // Detect new photos by comparing cacheKey values.
+          const previousKeys = new Set(previousFilesRef.current.map((f) => f.source?.cacheKey ?? f.uri));
+          const newKeys = nativeResult.files
+            .filter((f) => f.source?.type === 'android-usb-camera' && f.source?.cacheKey && !previousKeys.has(f.source.cacheKey))
+            .map((f) => f.source!.cacheKey);
 
-          if (newHandles.length > 0) {
-            setNewPhotoHandles(prev => new Set([...prev, ...newHandles]));
-            console.log(`[OTG] Detected ${newHandles.length} new photos:`, newHandles);
+          if (newKeys.length > 0) {
+            setNewPhotoHandles((prev) => new Set([...prev, ...newKeys]));
+            console.log(`[OTG] Detected ${newKeys.length} new photos:`, newKeys);
           }
 
           previousFilesRef.current = nativeResult.files;
