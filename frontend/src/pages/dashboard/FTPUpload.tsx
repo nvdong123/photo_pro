@@ -66,7 +66,7 @@ export default function FTPUpload() {
         apiClient.get<LocationTag[]>('/api/v1/admin/locations'),
         apiClient.get<ActiveLocationResponse>('/api/v1/staff/active-location'),
         apiClient.get<FTPCredentials>('/api/v1/staff/ftp-credentials'),
-        apiClient.get<unknown[]>('/api/v1/staff/media/untagged?limit=1'),
+        apiClient.get<unknown[]>('/api/v1/staff/media/untagged?limit=200'),
       ]);
       setLocations(locs ?? []);
       setActiveLocation(active);
@@ -209,6 +209,7 @@ export default function FTPUpload() {
               />
               <Button
                 type="primary"
+                className="ftp-save-btn"
                 loading={saving}
                 disabled={!isDirty}
                 onClick={() => void handleSaveLocation()}

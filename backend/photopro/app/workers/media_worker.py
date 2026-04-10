@@ -365,6 +365,14 @@ async def _async_process_ftp_upload(file_path: str, employee_code: str):
         )
         staff = result.scalar_one_or_none()
 
+        # Refresh to ensure we have the latest active_tag_id (avoids stale state)
+        if staff:
+            await db.refresh(staff)
+        logger.info(
+            "FTP upload: employee_code=%s staff_found=%s active_tag_id=%s",
+            employee_code, staff is not None, getattr(staff, 'active_tag_id', None),
+        )
+
         ttl_days = await get_setting_int(db, "media_ttl_days", default=90)
         from datetime import timedelta, timezone as _tz
         expires_at = datetime.now(_tz.utc) + timedelta(days=ttl_days)
@@ -386,11 +394,25 @@ async def _async_process_ftp_upload(file_path: str, employee_code: str):
         # Prefer staff's active_tag_id; fall back to album_code name lookup.
         linked_tag = False
         if staff and staff.active_tag_id:
-            db.add(MediaTag(media_id=media_record.id, tag_id=staff.active_tag_id))
-            linked_tag = True
+            try:
+                db.add(MediaTag(media_id=media_record.id, tag_id=staff.active_tag_id))
+                await db.flush()
+                linked_tag = True
+                logger.info(
+                    "FTP upload: auto-tagged media %s → tag %s (staff active_tag_id)",
+                    media_record.id, staff.active_tag_id,
+                )
+            except Exception as tag_exc:
+                logger.error(
+                    "FTP upload: failed to create MediaTag for media %s tag %s: %s",
+                    media_record.id, staff.active_tag_id, tag_exc,
+                )
+                await db.rollback()
+                raise
+        else:
             logger.info(
-                "FTP upload: auto-tagged media %s from staff active_tag_id=%s",
-                media_record.id, staff.active_tag_id,
+                "FTP upload: no active_tag_id for employee_code=%s, trying album_code=%r fallback",
+                employee_code, album_code,
             )
 
         if not linked_tag and album_code:
@@ -400,6 +422,10 @@ async def _async_process_ftp_upload(file_path: str, employee_code: str):
             tag = tag_result.scalar_one_or_none()
             if tag:
                 db.add(MediaTag(media_id=media_record.id, tag_id=tag.id))
+                logger.info(
+                    "FTP upload: album_code fallback tagged media %s → tag %s (%r)",
+                    media_record.id, tag.id, album_code,
+                )
             else:
                 logger.warning(
                     "FTP upload: no Tag found for album_code=%r, photo will be untagged",
