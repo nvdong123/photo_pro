@@ -137,7 +137,7 @@ export default function UploadScreen({ navigation, route }: Props) {
       try {
         const [locData, locs] = await Promise.all([
           apiJson<ActiveLocation>('/api/v1/staff/active-location'),
-          apiJson<LocationTag[]>('/api/v1/admin/tags?tag_type=LOCATION&limit=200'),
+          apiJson<LocationTag[]>('/api/v1/admin/locations'),
         ]);
         if (!active) return;
         setActiveLocation(locData);

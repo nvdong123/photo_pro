@@ -22,6 +22,7 @@ interface LocationTag {
   id: string;
   name: string;
   shoot_date: string | null;
+  address?: string | null;
 }
 
 export default function UntaggedMedia() {
@@ -39,7 +40,7 @@ export default function UntaggedMedia() {
     try {
       const [untagged, locs] = await Promise.all([
         apiClient.get<UntaggedItem[]>('/api/v1/staff/media/untagged?limit=200'),
-        apiClient.get<LocationTag[]>('/api/v1/admin/tags?tag_type=LOCATION&limit=200'),
+        apiClient.get<LocationTag[]>('/api/v1/admin/locations'),
       ]);
       setItems(untagged ?? []);
       setLocations(locs ?? []);

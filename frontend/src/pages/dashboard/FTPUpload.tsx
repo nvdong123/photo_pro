@@ -19,6 +19,8 @@ interface LocationTag {
   name: string;
   address: string | null;
   shoot_date: string | null;
+  description?: string | null;
+  media_count?: number;
 }
 
 interface ActiveLocationResponse {
@@ -61,7 +63,7 @@ export default function FTPUpload() {
     setLoading(true);
     try {
       const [locs, active, creds, untagged] = await Promise.all([
-        apiClient.get<LocationTag[]>('/api/v1/admin/tags?tag_type=LOCATION&limit=200'),
+        apiClient.get<LocationTag[]>('/api/v1/admin/locations'),
         apiClient.get<ActiveLocationResponse>('/api/v1/staff/active-location'),
         apiClient.get<FTPCredentials>('/api/v1/staff/ftp-credentials'),
         apiClient.get<unknown[]>('/api/v1/staff/media/untagged?limit=1'),

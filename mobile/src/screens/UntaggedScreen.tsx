@@ -53,7 +53,7 @@ export default function UntaggedScreen({ navigation }: Props) {
     try {
       const [untagged, locs] = await Promise.all([
         apiJson<UntaggedItem[]>('/api/v1/staff/media/untagged?limit=200'),
-        apiJson<LocationTag[]>('/api/v1/admin/tags?tag_type=LOCATION&limit=200'),
+        apiJson<LocationTag[]>('/api/v1/admin/locations'),
       ]);
       setItems(Array.isArray(untagged) ? untagged : []);
       setLocations(Array.isArray(locs) ? locs : []);
