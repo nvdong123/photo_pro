@@ -14,7 +14,7 @@ services:
     volumes:
       - ./assets:/app/assets:ro
       - photopro_upload:/photopro_upload
-    command: supervisord -c supervisord.conf
+    command: sh -c "supervisord -c /app/supervisord.conf"
     restart: unless-stopped
 
   worker:
