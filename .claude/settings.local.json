@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebSearch",
+      "Bash(git commit -m 'fix: raise mobile hero buttons to avoid covering Meta logo:*)",
+      "Bash(git commit -m 'fix: move desktop hero buttons to right side to avoid overlapping banner text:*)"
     ]
   }
 }
