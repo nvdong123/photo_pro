@@ -14,6 +14,7 @@ import logging
 import os
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 
 import redis
@@ -141,6 +142,18 @@ class DBAuthorizer(DummyAuthorizer):
 
         logger.info("Loaded %d FTP user(s) from DB", len(rows))
 
+    def _auto_reload_loop(self, interval: int = 300) -> None:
+        """Reload FTP users from DB every ``interval`` seconds (daemon thread).
+
+        New staff accounts will be picked up without an FTP server restart.
+        """
+        while True:
+            time.sleep(interval)
+            try:
+                self.load_from_db()
+            except Exception as exc:
+                logger.error("DBAuthorizer auto-reload error: %s", exc)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FTP Handler
@@ -149,19 +162,38 @@ class DBAuthorizer(DummyAuthorizer):
 class PhotoProHandler(FTPHandler):
     """Custom handler: push received image files into Redis queue."""
 
+    def on_login(self, username: str) -> None:
+        try:
+            get_redis().setex(f"ftp:active:{username}", 300, self.remote_ip)
+        except Exception as exc:
+            logger.error("Redis on_login error: %s", exc)
+
+    def on_logout(self, username: str) -> None:
+        try:
+            get_redis().delete(f"ftp:active:{username}")
+        except Exception as exc:
+            logger.error("Redis on_logout error: %s", exc)
+
     def on_file_received(self, file_path: str) -> None:
         suffix = Path(file_path).suffix.lower()
         if suffix not in ALLOWED_EXTENSIONS:
             logger.debug("Skipping non-image file: %s", file_path)
             return
 
+        filename = Path(file_path).name
         payload = json.dumps({
             "file_path": file_path,
             "employee_code": self.username,
         })
 
         try:
-            get_redis().lpush(FTP_QUEUE_KEY, payload)
+            r = get_redis()
+            r.lpush(FTP_QUEUE_KEY, payload)
+            r.setex(
+                f"ftp:last:{self.username}",
+                3600,
+                json.dumps({"file": filename, "at": datetime.utcnow().isoformat()}),
+            )
             logger.info("FTP received: %s from %s", file_path, self.username)
         except Exception as exc:
             logger.error("Failed to push to Redis: %s", exc)
@@ -237,6 +269,15 @@ def main() -> None:
         handler.masquerade_address = FTP_PUBLIC_IP
         logger.info("PASV masquerade address: %s", FTP_PUBLIC_IP)
     handler.banner = "PhotoPro FTP Server ready."
+
+    # Auto-reload FTP users from DB every 5 minutes (picks up new staff accounts)
+    reload_thread = threading.Thread(
+        target=authorizer._auto_reload_loop,
+        args=(300,),
+        daemon=True,
+        name="db-auth-reload",
+    )
+    reload_thread.start()
 
     # Start Redis listener thread
     listener_thread = threading.Thread(target=_redis_listener, daemon=True, name="redis-listener")

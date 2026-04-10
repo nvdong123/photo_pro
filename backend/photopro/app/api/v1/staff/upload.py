@@ -23,6 +23,7 @@ POST /api/v1/staff/upload/batch-presign
 Router prefix: /api/v1/staff
 """
 import io
+import json
 import logging
 import os
 import re
@@ -194,6 +195,11 @@ class ResetFTPPasswordResponse(BaseModel):
     password: str
     message: str = "FTP password has been reset. Please update your FTP client."
 
+class FTPStatusResponse(BaseModel):
+    connected: bool
+    client_ip: str
+    last_file: str
+    last_upload_at: str
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helper: resolve location + staff assignment
@@ -308,7 +314,6 @@ async def confirm_upload(
 
     return APIResponse.ok({"media_id": str(media.id), "status": "processing"})
 
-    return APIResponse.ok({"media_id": str(media.id), "status": "processing"})
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -567,7 +572,7 @@ async def get_ftp_credentials(
         username=current_user.employee_code,
         password=plaintext_password,
         passive_mode=True,
-        upload_path=f"/{current_user.employee_code}",
+        upload_path="/",
     ))
 
 
@@ -605,3 +610,47 @@ async def reset_ftp_password(
         message="FTP password has been reset. Please update your FTP client.",
     ))
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /ftp/status
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.get("/ftp/status", response_model=APIResponse[FTPStatusResponse])
+async def get_ftp_status(
+    current_user: Staff = Depends(require_any),
+):
+    """Check FTP connection status for the current staff member via Redis."""
+    if not current_user.employee_code:
+        raise HTTPException(
+            403, detail={"code": "PERMISSION_DENIED", "message": "No employee_code set"}
+        )
+
+    import redis.asyncio as aioredis
+
+    r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    try:
+        active_ip = await r.get(f"ftp:active:{current_user.employee_code}")
+        last_raw = await r.get(f"ftp:last:{current_user.employee_code}")
+    finally:
+        await r.aclose()
+
+    connected = active_ip is not None
+    client_ip = active_ip or ""
+    last_file = ""
+    last_upload_at = ""
+
+    if last_raw:
+        try:
+            last_data = json.loads(last_raw)
+            last_file = last_data.get("file", "")
+            last_upload_at = last_data.get("at", "")
+        except Exception:
+            pass
+
+    return APIResponse.ok(FTPStatusResponse(
+        connected=connected,
+        client_ip=client_ip,
+        last_file=last_file,
+        last_upload_at=last_upload_at,
+    ))

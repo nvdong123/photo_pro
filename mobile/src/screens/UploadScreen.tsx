@@ -143,7 +143,7 @@ export default function UploadScreen({ navigation, route }: Props) {
     return () => {
       otg.stopAutoScan();
     };
-  }, [isWired, otg, sessionPaused]);
+  }, [isWired, otg.startAutoScan, otg.stopAutoScan, sessionPaused]);
 
   useEffect(() => {
     if (isWired || sessionPaused) {
@@ -616,7 +616,7 @@ export default function UploadScreen({ navigation, route }: Props) {
 
       {grouped.length === 0 ? (
         <View style={styles.emptyBoard}>
-          <MaterialCommunityIcons name={isWired ? 'camera-wireless-outline' : 'wifi'} size={28} color={sourceTone} />
+          <MaterialCommunityIcons name={isWired ? 'usb-port' : 'wifi'} size={28} color={sourceTone} />
           <Text style={styles.emptyTitle}>{isWired ? 'Waiting for camera photos' : 'Waiting for wireless transfer'}</Text>
           <Text style={styles.emptyText}>
             {isWired
