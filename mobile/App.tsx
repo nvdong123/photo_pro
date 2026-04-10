@@ -9,6 +9,7 @@ import UploadScreen from './src/screens/UploadScreen';
 import CameraConnectScreen from './src/screens/CameraConnectScreen';
 import LiveAlbumScreen from './src/screens/LiveAlbumScreen';
 import ImageDetailScreen from './src/screens/ImageDetailScreen';
+import UntaggedScreen from './src/screens/UntaggedScreen';
 
 export type ConnectionMode = 'wired' | 'wireless';
 
@@ -26,6 +27,7 @@ export type RootStackParamList = {
   Upload: SessionRouteParams;
   LiveAlbum: { locationId: string; locationName: string };
   ImageDetail: { uri: string; name: string; size?: number; status?: string; capturedAt?: number; addedAt?: string };
+  Untagged: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -53,6 +55,7 @@ export default function App() {
           <Stack.Screen name="Upload" component={UploadScreen} options={{ title: 'Session Monitor' }} />
           <Stack.Screen name="LiveAlbum" component={LiveAlbumScreen} options={{ title: 'Album Trực Tiếp' }} />
           <Stack.Screen name="ImageDetail" component={ImageDetailScreen} options={{ title: 'Chi tiết ảnh' }} />
+          <Stack.Screen name="Untagged" component={UntaggedScreen} options={{ title: 'Ảnh chưa có tag', headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>
     </PaperProvider>

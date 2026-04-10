@@ -29,6 +29,8 @@ import StaffStats from './pages/dashboard/StaffStats';
 import StaffUpload from './pages/dashboard/StaffUpload';
 import Payroll from './pages/dashboard/Payroll';
 import MyEarnings from './pages/dashboard/MyEarnings';
+import FTPUpload from './pages/dashboard/FTPUpload';
+import UntaggedMedia from './pages/dashboard/UntaggedMedia';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -80,6 +82,8 @@ function App() {
           <Route path="staff-upload" element={<StaffUpload />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="my-earnings" element={<MyEarnings />} />
+          <Route path="ftp-upload" element={<FTPUpload />} />
+          <Route path="untagged-media" element={<UntaggedMedia />} />
         </Route>
 
         {/* Error Pages */}

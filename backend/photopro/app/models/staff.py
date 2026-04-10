@@ -40,6 +40,12 @@ class Staff(Base):
     ftp_password: Mapped[str | None] = mapped_column(String(100), nullable=True)
     ftp_folder: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
+    # Active location tag for FTP uploads — photos uploaded via FTP are
+    # automatically linked to this tag when it is set.
+    active_tag_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tags.id"), nullable=True
+    )
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

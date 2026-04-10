@@ -14,6 +14,7 @@ import {
   DownOutlined,
   BarChartOutlined,
   CloudUploadOutlined,
+  CloudServerOutlined,
   DollarOutlined,
   MenuOutlined,
   CloseOutlined,
@@ -74,6 +75,12 @@ export default function DashboardLayout() {
           icon: <CloudUploadOutlined />,
           label: 'Upload Ảnh (USB)',
           onClick: () => navigate('/dashboard/staff-upload'),
+        },
+        {
+          key: '/dashboard/ftp-upload',
+          icon: <CloudServerOutlined />,
+          label: 'FTP Upload',
+          onClick: () => navigate('/dashboard/ftp-upload'),
         },
         {
           key: '/dashboard/staff-stats',

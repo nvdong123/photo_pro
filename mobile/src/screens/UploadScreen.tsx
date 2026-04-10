@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,18 @@ import { pickFilesFromDevice } from '../services/otgService';
 import { apiJson } from '../services/apiClient';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Upload'>;
+
+interface LocationTag {
+  id: string;
+  name: string;
+  shoot_date: string | null;
+}
+
+interface ActiveLocation {
+  tag_id: string | null;
+  tag_name: string | null;
+  shoot_date: string | null;
+}
 
 type FtpStatus = 'idle' | 'connecting' | 'connected' | 'error';
 type FilterTab = 'all' | 'queued' | 'uploading' | 'uploaded' | 'failed';
@@ -80,7 +93,7 @@ export default function UploadScreen({ navigation, route }: Props) {
   const { locationId, locationName, connectionMode } = route.params;
   const isWired = connectionMode === 'wired';
   const sourceTone = isWired ? WIRED : WIRELESS;
-  const sourceLabel = isWired ? 'Wired' : 'Wireless';
+  const sourceLabel = isWired ? 'OTG (Kết nối trực tiếp)' : 'Không dây (FTP)';
 
   const {
     files,
@@ -101,6 +114,10 @@ export default function UploadScreen({ navigation, route }: Props) {
 
   const [ftpStatus, setFtpStatus] = useState<FtpStatus>('idle');
   const [ftpInfo, setFtpInfo] = useState<FtpInfo | null>(null);
+  const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(null);
+  const [locationList, setLocationList] = useState<LocationTag[]>([]);
+  const [untaggedCount, setUntaggedCount] = useState(0);
+  const [locationPickerVisible, setLocationPickerVisible] = useState(false);
   const [sessionPaused, setSessionPaused] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -111,6 +128,59 @@ export default function UploadScreen({ navigation, route }: Props) {
   const [slot, setSlot] = useState<'SD' | 'CF' | 'XQD'>('SD');
   const shootDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const processedEventsRef = useRef(0);
+
+  // ── Load active FTP location and location list on mount ─────────────────
+  useEffect(() => {
+    if (isWired) return;
+    let active = true;
+    const load = async () => {
+      try {
+        const [locData, locs] = await Promise.all([
+          apiJson<ActiveLocation>('/api/v1/staff/active-location'),
+          apiJson<LocationTag[]>('/api/v1/admin/tags?tag_type=LOCATION&limit=200'),
+        ]);
+        if (!active) return;
+        setActiveLocation(locData);
+        setLocationList(Array.isArray(locs) ? locs : []);
+      } catch {
+        // ignore — not critical
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [isWired]);
+
+  // ── Poll untagged count every 30s ────────────────────────────────────────
+  useEffect(() => {
+    if (isWired) return undefined;
+    let active = true;
+    const fetchCount = async () => {
+      try {
+        const items = await apiJson<unknown[]>('/api/v1/staff/media/untagged?limit=1');
+        if (!active) return;
+        setUntaggedCount(Array.isArray(items) ? items.length : 0);
+      } catch {
+        // ignore
+      }
+    };
+    void fetchCount();
+    const timer = setInterval(fetchCount, 30_000);
+    return () => { active = false; clearInterval(timer); };
+  }, [isWired]);
+
+  const handleSetActiveLocation = useCallback(async (tagId: string | null) => {
+    try {
+      const result = await apiJson<ActiveLocation>('/api/v1/staff/active-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag_id: tagId }),
+      });
+      setActiveLocation(result);
+    } catch {
+      Alert.alert('Lỗi', 'Không lưu được địa điểm FTP. Thử lại sau.');
+    }
+    setLocationPickerVisible(false);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -328,15 +398,15 @@ export default function UploadScreen({ navigation, route }: Props) {
   const phaseCopy = useMemo(() => {
     switch (sessionPhase) {
       case 'paused':
-        return { label: 'Paused', tone: '#b45309' };
+        return { label: 'Tạm dừng', tone: '#b45309' };
       case 'failed':
-        return { label: 'Attention Needed', tone: '#dc2626' };
+        return { label: 'Cần kiểm tra', tone: '#dc2626' };
       case 'active':
-        return { label: 'Active Session', tone: sourceTone };
+        return { label: 'Đang hoạt động', tone: sourceTone };
       case 'ready':
-        return { label: 'Ready', tone: sourceTone };
+        return { label: 'Sẵn sàng', tone: sourceTone };
       default:
-        return { label: 'Preparing', tone: '#475569' };
+        return { label: 'Đang chuẩn bị', tone: '#475569' };
     }
   }, [sessionPhase, sourceTone]);
 
@@ -433,10 +503,10 @@ export default function UploadScreen({ navigation, route }: Props) {
   }, []);
 
   const counters = [
-    { key: 'received', label: 'Received', value: statusCounts.all, tone: '#1f2937', icon: 'image-multiple-outline' },
-    { key: 'queued', label: 'Queued', value: statusCounts.queued, tone: '#c2410c', icon: 'clock-outline' },
-    { key: 'uploaded', label: 'Uploaded', value: statusCounts.uploaded, tone: sourceTone, icon: 'cloud-check-outline' },
-    { key: 'failed', label: 'Failed', value: statusCounts.failed, tone: '#dc2626', icon: 'alert-circle-outline' },
+    { key: 'received', label: 'Nhận được', value: statusCounts.all, tone: '#1f2937', icon: 'image-multiple-outline' },
+    { key: 'queued', label: 'Chờ upload', value: statusCounts.queued, tone: '#c2410c', icon: 'clock-outline' },
+    { key: 'uploaded', label: 'Đã upload', value: statusCounts.uploaded, tone: sourceTone, icon: 'cloud-check-outline' },
+    { key: 'failed', label: 'Lỗi', value: statusCounts.failed, tone: '#dc2626', icon: 'alert-circle-outline' },
   ];
 
   return (
@@ -444,7 +514,7 @@ export default function UploadScreen({ navigation, route }: Props) {
       <View style={[styles.heroCard, { backgroundColor: isWired ? '#163d31' : '#18356d' }]}>
         <View style={styles.heroTopRow}>
           <View>
-            <Text style={styles.heroEyebrow}>SESSION MONITOR</Text>
+            <Text style={styles.heroEyebrow}>THEO DÕI PHIÊN</Text>
             <Text style={styles.heroTitle}>{locationName}</Text>
             <Text style={styles.heroSubtitle}>{sourceLabel} · {phaseCopy.label}</Text>
           </View>
@@ -455,11 +525,11 @@ export default function UploadScreen({ navigation, route }: Props) {
 
         <View style={styles.summaryGrid}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Location</Text>
+            <Text style={styles.summaryLabel}>Địa điểm</Text>
             <Text style={styles.summaryValue}>{locationName}</Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Connection</Text>
+            <Text style={styles.summaryLabel}>Kết nối</Text>
             <Text style={styles.summaryValue}>{sourceLabel}</Text>
           </View>
         </View>
@@ -476,15 +546,87 @@ export default function UploadScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.activityCard}>
-        <Text style={styles.activityTitle}>Recent Activity</Text>
+        <Text style={styles.activityTitle}>Hoạt động gần đây</Text>
         <Text style={styles.activityText}>{latestActivity}</Text>
         {uploading ? (
           <View style={styles.progressRow}>
             <ActivityIndicator color={sourceTone} size="small" />
-            <Text style={styles.progressText}>{completed}/{total} completed{currentFile ? ` · ${currentFile}` : ''}</Text>
+            <Text style={styles.progressText}>{completed}/{total} hoàn thành{currentFile ? ` · ${currentFile}` : ''}</Text>
           </View>
         ) : null}
       </View>
+
+      {/* ── FTP location selector (wireless only) ── */}
+      {!isWired && (
+        <TouchableOpacity
+          style={styles.ftpLocationCard}
+          onPress={() => setLocationPickerVisible(true)}
+          activeOpacity={0.85}
+        >
+          <View style={styles.ftpLocationRow}>
+            <MaterialCommunityIcons name="map-marker-outline" size={20} color="#1a6b4e" />
+            <View style={styles.ftpLocationCopy}>
+              <Text style={styles.ftpLocationLabel}>Địa điểm FTP</Text>
+              <Text style={styles.ftpLocationValue}>
+                {activeLocation?.tag_name ?? 'Chưa chọn — ảnh FTP sẽ không có tag'}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#9ca3af" />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* ── Untagged media banner (wireless only) ── */}
+      {!isWired && untaggedCount > 0 && (
+        <TouchableOpacity
+          style={styles.untaggedBanner}
+          onPress={() => navigation.navigate('Untagged')}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons name="tag-off-outline" size={18} color="#b45309" />
+          <Text style={styles.untaggedBannerText}>
+            {untaggedCount} ảnh chưa có tag địa điểm — Nhấn để gắn tag
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={16} color="#b45309" />
+        </TouchableOpacity>
+      )}
+
+      {/* ── Location picker modal ── */}
+      <Modal
+        visible={locationPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLocationPickerVisible(false)}
+      >
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Chọn địa điểm FTP</Text>
+            <Text style={styles.pickerSub}>Ảnh FTP sẽ được tự động gắn vào địa điểm này.</Text>
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[styles.pickerItem, !activeLocation?.tag_id && styles.pickerItemActive]}
+                onPress={() => void handleSetActiveLocation(null)}
+              >
+                <Text style={styles.pickerItemText}>Không chọn</Text>
+              </TouchableOpacity>
+              {locationList.map((loc) => (
+                <TouchableOpacity
+                  key={loc.id}
+                  style={[styles.pickerItem, activeLocation?.tag_id === loc.id && styles.pickerItemActive]}
+                  onPress={() => void handleSetActiveLocation(loc.id)}
+                >
+                  <Text style={styles.pickerItemText}>
+                    {loc.name}{loc.shoot_date ? ` (${loc.shoot_date})` : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.pickerCancel} onPress={() => setLocationPickerVisible(false)}>
+              <Text style={styles.pickerCancelText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.counterGrid}>
         {counters.map((counter) => (
@@ -498,29 +640,29 @@ export default function UploadScreen({ navigation, route }: Props) {
 
       <View style={styles.actionRow}>
         <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#fff' }]} onPress={togglePause}>
-          <Text style={styles.actionButtonText}>{sessionPaused ? 'Resume Session' : 'Pause Session'}</Text>
+          <Text style={styles.actionButtonText}>{sessionPaused ? 'Tiếp tục phiên' : 'Tạm dừng phiên'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#fff' }]} onPress={() => void retryFailed()}>
-          <Text style={styles.actionButtonText}>Retry Failed</Text>
+          <Text style={styles.actionButtonText}>Thử lại ảnh lỗi</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.actionRow}>
         <TouchableOpacity style={[styles.primaryButton, styles.actionStretch]} disabled={!statusCounts.queued || uploading} onPress={() => void onUploadQueued()}>
-          <Text style={styles.primaryButtonText}>{uploading ? 'Uploading...' : 'Upload Queued Photos'}</Text>
+          <Text style={styles.primaryButtonText}>{uploading ? 'Đang upload...' : 'Upload ảnh trong hàng chờ'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.dangerButton, styles.actionStretch]} onPress={handleEndSession}>
-          <Text style={styles.dangerButtonText}>End Session</Text>
+          <Text style={styles.dangerButtonText}>Kết thúc phiên</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.filterRow}>
         {[
-          ['all', 'All', statusCounts.all],
-          ['queued', 'Queued', statusCounts.queued],
-          ['uploading', 'Uploading', statusCounts.uploading],
-          ['uploaded', 'Uploaded', statusCounts.uploaded],
-          ['failed', 'Failed', statusCounts.failed],
+          ['all', 'Tất cả', statusCounts.all],
+          ['queued', 'Chờ', statusCounts.queued],
+          ['uploading', 'Đang', statusCounts.uploading],
+          ['uploaded', 'Xong', statusCounts.uploaded],
+          ['failed', 'Lỗi', statusCounts.failed],
         ].map(([key, label, count]) => (
           <TouchableOpacity
             key={key}
@@ -535,7 +677,7 @@ export default function UploadScreen({ navigation, route }: Props) {
 
       <View style={styles.selectionRow}>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => setSelectionMode((prev) => !prev)}>
-          <Text style={styles.secondaryButtonText}>{selectionMode ? 'Done Selecting' : 'Select Photos'}</Text>
+          <Text style={styles.secondaryButtonText}>{selectionMode ? 'Xong chọn' : 'Chọn ảnh'}</Text>
         </TouchableOpacity>
         {selectionMode ? (
           <>
@@ -551,7 +693,7 @@ export default function UploadScreen({ navigation, route }: Props) {
 
       {selectionMode && selectedCount > 0 ? (
         <TouchableOpacity style={styles.primaryButton} onPress={() => void onUploadSelected()}>
-          <Text style={styles.primaryButtonText}>Upload {selectedCount} selected photos</Text>
+          <Text style={styles.primaryButtonText}>Upload {selectedCount} ảnh đã chọn</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -561,7 +703,7 @@ export default function UploadScreen({ navigation, route }: Props) {
 
       {showAdvanced ? (
         <View style={styles.advancedCard}>
-          <Text style={styles.advancedTitle}>Advanced Session Controls</Text>
+          <Text style={styles.advancedTitle}>Tùy chọn nâng cao</Text>
           <View style={styles.pillsWrap}>
             {['JPG_HD', 'JPG', 'RAW_PNG', 'RAW_JPG'].map((value) => (
               <TouchableOpacity
@@ -602,13 +744,13 @@ export default function UploadScreen({ navigation, route }: Props) {
           </View>
           <View style={styles.advancedActions}>
             <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('LiveAlbum', { locationId, locationName })}>
-              <Text style={styles.secondaryButtonText}>Open Live Album</Text>
+              <Text style={styles.secondaryButtonText}>Xem album trực tiếp</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryButton} onPress={() => void importBackupFiles()}>
-              <Text style={styles.secondaryButtonText}>Import Backup Files</Text>
+              <Text style={styles.secondaryButtonText}>Nhập file backup</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.reset({ index: 1, routes: [{ name: 'LocationSelect' }, { name: 'ConnectionMode', params: { locationId, locationName } }] })}>
-              <Text style={styles.secondaryButtonText}>Switch Connection</Text>
+              <Text style={styles.secondaryButtonText}>Đổi kiểu kết nối</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -617,7 +759,7 @@ export default function UploadScreen({ navigation, route }: Props) {
       {grouped.length === 0 ? (
         <View style={styles.emptyBoard}>
           <MaterialCommunityIcons name={isWired ? 'usb-port' : 'wifi'} size={28} color={sourceTone} />
-          <Text style={styles.emptyTitle}>{isWired ? 'Waiting for camera photos' : 'Waiting for wireless transfer'}</Text>
+          <Text style={styles.emptyTitle}>{isWired ? 'Chờ ảnh từ camera' : 'Chờ ảnh không dây'}</Text>
           <Text style={styles.emptyText}>
             {isWired
               ? 'Khi ảnh đi vào từ OTG, queue sẽ hiện ngay tại đây để bạn theo dõi và upload.'
@@ -633,7 +775,7 @@ export default function UploadScreen({ navigation, route }: Props) {
                 <View style={styles.timelineRail}>
                   <Text style={styles.timelineDate}>{info.date}</Text>
                   <Text style={styles.timelineTime}>{info.time}</Text>
-                  <Text style={styles.timelineCount}>{group.items.length} items</Text>
+                  <Text style={styles.timelineCount}>{group.items.length} ảnh</Text>
                 </View>
                 <View style={styles.gridWrap}>
                   <PhotoGrid
@@ -820,4 +962,59 @@ const styles = StyleSheet.create({
   timelineCount: { fontSize: 12, color: BRAND, fontWeight: '700', marginTop: 2 },
   gridWrap: { flex: 1, backgroundColor: '#111827', borderRadius: 12, paddingHorizontal: 4, paddingVertical: 4 },
   errorText: { color: '#dc2626', fontSize: 13, marginTop: 10 },
+  ftpLocationCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#e4dbcb',
+    marginBottom: 10,
+  },
+  ftpLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  ftpLocationCopy: { flex: 1 },
+  ftpLocationLabel: { color: '#6b7280', fontSize: 12, fontWeight: '700' },
+  ftpLocationValue: { color: INK, fontSize: 14, fontWeight: '700', marginTop: 2 },
+  untaggedBanner: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  untaggedBannerText: { flex: 1, color: '#92400e', fontSize: 13, fontWeight: '700' },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 36,
+  },
+  pickerTitle: { color: INK, fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  pickerSub: { color: '#6b7280', fontSize: 13, marginBottom: 16 },
+  pickerItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: '#f4f1ea',
+  },
+  pickerItemActive: { backgroundColor: '#d1fae5', borderWidth: 1, borderColor: BRAND },
+  pickerItemText: { color: INK, fontSize: 15, fontWeight: '700' },
+  pickerCancel: {
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+  },
+  pickerCancelText: { color: '#374151', fontWeight: '800', fontSize: 15 },
 });

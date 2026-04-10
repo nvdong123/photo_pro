@@ -126,6 +126,7 @@ async def apply_pending_columns(engine) -> None:
         ("tags", "cover_url",         "VARCHAR(2048)"),
         ("staff", "ftp_password",     "VARCHAR(100)"),
         ("staff", "ftp_folder",       "VARCHAR(200)"),
+        ("staff", "active_tag_id",    "UUID REFERENCES tags(id)"),
     ]
     async with engine.begin() as conn:
         for table, column, col_type in column_checks:

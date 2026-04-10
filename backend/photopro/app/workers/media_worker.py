@@ -383,7 +383,17 @@ async def _async_process_ftp_upload(file_path: str, employee_code: str):
         media_id = str(media_record.id)
 
         # ── Link to location Tag so photo appears in albums and face search
-        if album_code:
+        # Prefer staff's active_tag_id; fall back to album_code name lookup.
+        linked_tag = False
+        if staff and staff.active_tag_id:
+            db.add(MediaTag(media_id=media_record.id, tag_id=staff.active_tag_id))
+            linked_tag = True
+            logger.info(
+                "FTP upload: auto-tagged media %s from staff active_tag_id=%s",
+                media_record.id, staff.active_tag_id,
+            )
+
+        if not linked_tag and album_code:
             tag_result = await db.execute(
                 select(Tag).where(Tag.name == album_code)
             )

@@ -53,6 +53,7 @@ async def test_apply_pending_columns_widens_ftp_password():
         Mock(fetchone=Mock(return_value=(1,))),
         Mock(fetchone=Mock(return_value=(1,))),
         Mock(fetchone=Mock(return_value=(1,))),
+        Mock(fetchone=Mock(return_value=(1,))),  # active_tag_id column check
         Mock(scalar_one_or_none=Mock(return_value=50)),
         Mock(),
     ])

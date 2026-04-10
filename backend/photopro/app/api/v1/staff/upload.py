@@ -201,6 +201,35 @@ class FTPStatusResponse(BaseModel):
     last_file: str
     last_upload_at: str
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Schemas for active-location endpoints
+# ──────────────────────────────────────────────────────────────────────────────
+
+class SetActiveLocationRequest(BaseModel):
+    tag_id: uuid.UUID | None = None  # None = clear active location
+
+
+class ActiveLocationResponse(BaseModel):
+    tag_id: str | None
+    tag_name: str | None
+    tag_type: str | None
+    address: str | None
+    shoot_date: str | None
+
+
+class UntaggedMediaItem(BaseModel):
+    media_id: str
+    thumb_url: str | None
+    shoot_date: str | None
+    album_code: str | None
+    created_at: str
+
+
+class AssignLocationRequest(BaseModel):
+    media_ids: list[uuid.UUID]
+    tag_id: uuid.UUID
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Helper: resolve location + staff assignment
 # ──────────────────────────────────────────────────────────────────────────────
@@ -654,3 +683,159 @@ async def get_ftp_status(
         last_file=last_file,
         last_upload_at=last_upload_at,
     ))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /active-location  — set or clear the staff's active FTP location tag
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/active-location", response_model=APIResponse[ActiveLocationResponse])
+async def set_active_location(
+    body: SetActiveLocationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Set (or clear) the active location tag for FTP uploads.
+
+    Photos uploaded via FTP are auto-tagged to this location.
+    Pass ``tag_id=null`` to clear the active location.
+    """
+    if body.tag_id is not None:
+        tag = await db.get(Tag, body.tag_id)
+        if not tag or tag.tag_type != TagType.LOCATION:
+            raise HTTPException(404, detail={"code": "ALBUM_NOT_FOUND", "message": "Location tag not found"})
+        current_user.active_tag_id = body.tag_id
+    else:
+        current_user.active_tag_id = None
+        tag = None
+
+    await db.commit()
+
+    return APIResponse.ok(ActiveLocationResponse(
+        tag_id=str(current_user.active_tag_id) if current_user.active_tag_id else None,
+        tag_name=tag.name if tag else None,
+        tag_type=tag.tag_type.value if tag else None,
+        address=tag.address if tag else None,
+        shoot_date=tag.shoot_date if tag else None,
+    ))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /active-location  — get current active FTP location tag
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/active-location", response_model=APIResponse[ActiveLocationResponse])
+async def get_active_location(
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Return the currently active FTP location tag for the authenticated staff."""
+    tag = None
+    if current_user.active_tag_id:
+        tag = await db.get(Tag, current_user.active_tag_id)
+
+    return APIResponse.ok(ActiveLocationResponse(
+        tag_id=str(current_user.active_tag_id) if current_user.active_tag_id else None,
+        tag_name=tag.name if tag else None,
+        tag_type=tag.tag_type.value if tag else None,
+        address=tag.address if tag else None,
+        shoot_date=tag.shoot_date if tag else None,
+    ))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /media/untagged  — media uploaded by this staff via FTP with no location tag
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/media/untagged", response_model=APIResponse[list[UntaggedMediaItem]])
+async def get_untagged_media(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Return media uploaded by this staff that have no location tag assigned.
+
+    Useful for retrospective tagging after FTP uploads without an active location.
+    """
+    from sqlalchemy import not_, exists
+
+    subq = exists().where(MediaTag.media_id == Media.id)
+    result = await db.execute(
+        select(Media)
+        .where(
+            Media.uploader_id == current_user.id,
+            Media.deleted_at.is_(None),
+            not_(subq),
+        )
+        .order_by(Media.created_at.desc())
+        .limit(max(1, min(limit, 200)))
+    )
+    items = result.scalars().all()
+
+    def _thumb(m: Media) -> str | None:
+        if not m.thumb_s3_key:
+            return None
+        try:
+            from app.services.storage_service import storage_service as _ss
+            return _ss.get_presigned_url(m.thumb_s3_key, ttl_seconds=900)
+        except Exception:
+            return None
+
+    return APIResponse.ok([
+        UntaggedMediaItem(
+            media_id=str(m.id),
+            thumb_url=_thumb(m),
+            shoot_date=m.shoot_date,
+            album_code=m.album_code,
+            created_at=m.created_at.isoformat(),
+        )
+        for m in items
+    ])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /media/assign-location  — bulk-assign a location tag to untagged media
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/media/assign-location", response_model=APIResponse[dict])
+async def assign_location_to_media(
+    body: AssignLocationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Staff = Depends(require_any),
+):
+    """Assign a location tag to one or more media items uploaded by this staff.
+
+    Idempotent — silently skips media that already have this tag.
+    """
+    tag = await db.get(Tag, body.tag_id)
+    if not tag or tag.tag_type != TagType.LOCATION:
+        raise HTTPException(404, detail={"code": "ALBUM_NOT_FOUND", "message": "Location tag not found"})
+
+    assigned = 0
+    skipped = 0
+    for media_id in body.media_ids:
+        media = await db.get(Media, media_id)
+        if not media or media.deleted_at or media.uploader_id != current_user.id:
+            skipped += 1
+            continue
+
+        # Check if already tagged with this location
+        existing = (await db.execute(
+            select(MediaTag).where(
+                MediaTag.media_id == media_id,
+                MediaTag.tag_id == body.tag_id,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            skipped += 1
+            continue
+
+        db.add(MediaTag(media_id=media_id, tag_id=body.tag_id))
+        assigned += 1
+
+    await db.commit()
+    logger.info(
+        "Staff %s bulk-assigned tag %s to %s media (%s skipped)",
+        current_user.id, body.tag_id, assigned, skipped,
+    )
+    return APIResponse.ok({"assigned": assigned, "skipped": skipped})
