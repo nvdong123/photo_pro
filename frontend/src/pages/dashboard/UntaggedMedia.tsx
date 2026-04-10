@@ -127,6 +127,7 @@ export default function UntaggedMedia() {
           />
           <Button
             type="primary"
+            className="untagged-assign-btn"
             icon={<EnvironmentOutlined />}
             loading={assigning}
             disabled={!selected.size || !targetTagId}

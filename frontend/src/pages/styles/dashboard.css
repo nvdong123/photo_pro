@@ -1,12 +1,15 @@
 /* ==================== FTP UPLOAD PAGE ==================== */
-.ftp-save-btn.ant-btn-primary {
+.ftp-save-btn.ant-btn-primary,
+.untagged-assign-btn.ant-btn-primary {
   color: #ffffff !important;
 }
-.ftp-save-btn.ant-btn-primary:not(:disabled):hover {
+.ftp-save-btn.ant-btn-primary:not(:disabled):hover,
+.untagged-assign-btn.ant-btn-primary:not(:disabled):hover {
   background-color: #2d6a4f !important;
   color: #ffffff !important;
 }
-.ftp-save-btn.ant-btn-primary:not(:disabled):focus {
+.ftp-save-btn.ant-btn-primary:not(:disabled):focus,
+.untagged-assign-btn.ant-btn-primary:not(:disabled):focus {
   color: #ffffff !important;
 }
 
@@ -118,13 +121,19 @@
 }
 
 .ant-btn-primary {
-  background-color: #1a6b4e;
-  border-color: #1a6b4e;
+  background-color: #1a6b4e !important;
+  border-color: #1a6b4e !important;
+  color: #ffffff !important;
 }
 
 .ant-btn-primary:hover {
-  background-color: #0f4030;
-  border-color: #0f4030;
+  background-color: #0f4030 !important;
+  border-color: #0f4030 !important;
+  color: #ffffff !important;
+}
+
+.ant-btn-primary:focus {
+  color: #ffffff !important;
 }
 
 .ant-menu-dark .ant-menu-item-selected {
