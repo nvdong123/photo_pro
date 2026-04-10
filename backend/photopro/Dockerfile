@@ -26,4 +26,4 @@ COPY . .
 # Create assets directory for watermark
 RUN mkdir -p /app/assets
 
-CMD ["sh", "-c", "python migrate.py && uvicorn app.main:app --host 0.0.0.0 --port 8000","supervisord", "-c", "/app/supervisord.conf"]
+CMD ["supervisord", "-c", "/app/supervisord.conf"]
