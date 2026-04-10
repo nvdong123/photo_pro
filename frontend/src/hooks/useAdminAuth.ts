@@ -12,6 +12,14 @@ const ROLE_MAP: Record<string, string> = {
 
 export function useAdminAuth() {
   const login = async (email: string, password: string) => {
+    // ── Security: wipe ALL stale data from any previous session BEFORE
+    // storing new credentials.  This prevents leaking employee_code or
+    // cached API responses from the previous account to the new one.
+    invalidateApiCache();
+    ["admin_token", "admin_role", "admin_name", "admin_employee_code", "photopro_user"].forEach(
+      (k) => localStorage.removeItem(k),
+    );
+
     const data = await apiClient.post<{
       access_token: string;
       role: AdminRole;
@@ -24,6 +32,7 @@ export function useAdminAuth() {
     localStorage.setItem("admin_name",  data.full_name);
     if (data.employee_code)
       localStorage.setItem("admin_employee_code", data.employee_code);
+    // If employee_code is absent, it was already removed above — no stale value.
 
     // Store in photopro_user format so existing DashboardLayout / useAuth hooks still work
     const frontendRole = ROLE_MAP[data.role] ?? "manager";
@@ -46,6 +55,9 @@ export function useAdminAuth() {
     ["admin_token", "admin_role", "admin_name", "admin_employee_code", "photopro_user"].forEach(
       (k) => localStorage.removeItem(k),
     );
+    // Fire-and-forget: ask the backend to delete the HttpOnly SSE cookie.
+    // We do not await so the redirect happens immediately.
+    fetch("/api/v1/admin/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     window.location.href = "/login";
   };
 

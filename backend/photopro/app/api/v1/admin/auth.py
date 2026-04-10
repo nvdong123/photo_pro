@@ -81,6 +81,16 @@ async def admin_login(
     ))
 
 
+@router.post("/logout", response_model=APIResponse[dict])
+async def admin_logout(response: Response):
+    """Clear the HttpOnly SSE cookie so a subsequent login gets a fresh cookie."""
+    response.delete_cookie(
+        key="access_token",
+        path="/api/v1/realtime",
+    )
+    return APIResponse.ok({})
+
+
 @router.get("/me", response_model=APIResponse[AdminUserOut])
 async def me(admin: Staff = Depends(get_current_admin)):
     return APIResponse.ok(AdminUserOut.model_validate(admin))
