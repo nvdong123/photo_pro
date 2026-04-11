@@ -98,5 +98,30 @@ class StorageService:
         key = prefix if prefix.endswith("/") else prefix + "/"
         self._s3.put_object(Bucket=self._bucket, Key=key, Body=b"")
 
+    def set_bucket_cors(self, allowed_origins: list[str]) -> None:
+        """Configure CORS on the S3/R2 bucket for direct browser→S3 uploads.
+
+        Must be called at least once after the bucket is created (or when the
+        allowed origins change).  Idempotent — safe to call on every deploy.
+        R2 / S3 require a CORS rule so the browser's OPTIONS preflight for a
+        presigned PUT request succeeds.
+        """
+        origins = allowed_origins if allowed_origins else ["*"]
+        cors_config = {
+            "CORSRules": [
+                {
+                    "AllowedHeaders": ["*"],
+                    "AllowedMethods": ["PUT", "GET", "HEAD"],
+                    "AllowedOrigins": origins,
+                    "ExposeHeaders": ["ETag"],
+                    "MaxAgeSeconds": 3600,
+                }
+            ]
+        }
+        self._s3.put_bucket_cors(
+            Bucket=self._bucket,
+            CORSConfiguration=cors_config,
+        )
+
 
 storage_service = StorageService()

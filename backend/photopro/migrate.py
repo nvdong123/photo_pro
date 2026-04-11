@@ -311,6 +311,25 @@ async def backfill_order_item_prices(engine) -> None:
         print(f"  backfill_order_item_prices: updated {updated} items across {len(rows)} orders.", flush=True)
 
 
+async def ensure_bucket_cors() -> None:
+    """Configure CORS on the S3/R2 bucket so browsers can PUT directly.
+
+    Called on every deploy — idempotent.  Builds the origin list from
+    CORS_ORIGINS env var plus FRONTEND_URL so the presigned-PUT preflight
+    (OPTIONS) is accepted by R2/S3 without a 403.
+    """
+    from app.services.storage_service import storage_service  # local import avoids circular
+    origins: list[str] = list(settings.cors_origin_list)  # already split & stripped
+    fe_url = settings.effective_frontend_url
+    if fe_url and fe_url not in origins:
+        origins.append(fe_url)
+    try:
+        await asyncio.to_thread(storage_service.set_bucket_cors, origins)
+        print(f"  Bucket CORS configured for origins: {origins}", flush=True)
+    except Exception as exc:  # non-fatal — R2 may not support the API in all configurations
+        print(f"  WARNING: could not set bucket CORS: {exc}", flush=True)
+
+
 async def run() -> None:
     print("=== migrate.py starting ===", flush=True)
 
@@ -324,6 +343,7 @@ async def run() -> None:
         await stamp_alembic(engine)
         await seed_admin(engine)
         await seed_settings(engine)
+        await ensure_bucket_cors()
         print("=== Verifying tables ===", flush=True)
         await verify_tables(engine)
     except Exception:
