@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     FTP_PORT: int = 21
     FTP_PUBLIC_IP: str = ""  # public IP or domain for PASV mode behind NAT/Docker
 
+    # Cloudflare R2 CORS — required for direct browser→R2 presigned PUT uploads.
+    # Create an API Token with R2:Edit permission at dash.cloudflare.com/profile/api-tokens.
+    CLOUDFLARE_ACCOUNT_ID: str = ""
+    CLOUDFLARE_API_TOKEN: str = ""
+
     # Feature flags
     VENO_SYNC_ENABLED: bool = False          # kept for backward-compat; Veno FM removed
     SCAN_LOCAL_FOLDER_ENABLED: bool = True   # set False when using S3 direct-upload only

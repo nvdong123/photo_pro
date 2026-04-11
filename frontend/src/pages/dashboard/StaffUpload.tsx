@@ -35,7 +35,7 @@ function statusLabel(fi: FileItem): string {
     case 'retrying':   return `Thử lại ${fi.retryAttempt ?? '?'}/${fi.maxRetries}...`;
     case 'done':       return 'Đã upload';
     case 'processing': return 'Đang xử lý...';
-    case 'indexed':    return '✅ Hoàn thành';
+    case 'indexed':    return 'Hoàn thành';
     case 'cancelled':  return 'Đã huỷ';
     case 'error':      return fi.error ?? 'Upload thất bại';
   }
@@ -110,8 +110,12 @@ export default function StaffUpload() {
       message.success(`Upload thành công ${succeeded} ảnh!`);
       invalidateApiCache('/my-locations');
       invalidateApiCache('/staff/statistics');
+      // Invalidate photo gallery cache so fresh data is fetched
+      if (selectedLocation) {
+        invalidateApiCache(`/api/v1/admin/locations/${selectedLocation.id}/photos`);
+        fetchLocationPhotos(selectedLocation.id);
+      }
       refetch?.();
-      if (selectedLocation) fetchLocationPhotos(selectedLocation.id);
     }
     if (failed > 0) message.error(`${failed} ảnh upload thất bại`);
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -312,22 +312,62 @@ async def backfill_order_item_prices(engine) -> None:
 
 
 async def ensure_bucket_cors() -> None:
-    """Configure CORS on the S3/R2 bucket so browsers can PUT directly.
+    """Configure CORS on the R2 bucket via the Cloudflare REST API.
 
-    Called on every deploy — idempotent.  Builds the origin list from
-    CORS_ORIGINS env var plus FRONTEND_URL so the presigned-PUT preflight
-    (OPTIONS) is accepted by R2/S3 without a 403.
+    Uses PUT https://api.cloudflare.com/client/v4/accounts/{id}/r2/buckets/{name}/cors
+    Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN env vars.
+    Non-fatal: if credentials are missing or the call fails, a WARNING is
+    printed and startup continues (so local / non-R2 deployments still work).
     """
-    from app.services.storage_service import storage_service  # local import avoids circular
-    origins: list[str] = list(settings.cors_origin_list)  # already split & stripped
+    account_id = settings.CLOUDFLARE_ACCOUNT_ID
+    api_token  = settings.CLOUDFLARE_API_TOKEN
+    bucket     = settings.S3_BUCKET
+
+    if not account_id or not api_token:
+        print("  SKIP bucket CORS: CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN not set", flush=True)
+        return
+
+    origins: list[str] = list(settings.cors_origin_list)
     fe_url = settings.effective_frontend_url
     if fe_url and fe_url not in origins:
         origins.append(fe_url)
+    if not origins:
+        origins = ["*"]
+
+    cors_body = {
+        "rules": [
+            {
+                "allowed": {
+                    "origins": origins,
+                    "methods": ["GET", "PUT", "HEAD"],
+                    "headers": ["*"],
+                },
+                "exposeHeaders": ["ETag"],
+                "maxAgeSeconds": 3600,
+            }
+        ]
+    }
+    url = (
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
+        f"/r2/buckets/{bucket}/cors"
+    )
     try:
-        await asyncio.to_thread(storage_service.set_bucket_cors, origins)
-        print(f"  Bucket CORS configured for origins: {origins}", flush=True)
-    except Exception as exc:  # non-fatal — R2 may not support the API in all configurations
-        print(f"  WARNING: could not set bucket CORS: {exc}", flush=True)
+        import httpx
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.put(
+                url,
+                json=cors_body,
+                headers={
+                    "Authorization": f"Bearer {api_token}",
+                    "Content-Type": "application/json",
+                },
+            )
+        if resp.status_code in (200, 204):
+            print(f"  R2 CORS configured for origins: {origins}", flush=True)
+        else:
+            print(f"  WARNING: R2 CORS API returned {resp.status_code}: {resp.text}", flush=True)
+    except Exception as exc:
+        print(f"  WARNING: could not set R2 CORS: {exc}", flush=True)
 
 
 async def run() -> None:
