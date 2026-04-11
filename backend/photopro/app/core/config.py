@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     CLOUDFLARE_ACCOUNT_ID: str = ""
     CLOUDFLARE_API_TOKEN: str = ""
 
+    # R2 Custom Domain for public CDN serving of derivatives (thumb, preview_wm).
+    # Enable via: R2 bucket → Settings → Custom Domains in Cloudflare Dashboard.
+    # Example: https://cdn.102photo.trip360.vn
+    # Leave empty to fall back to presigned URLs (slower, no CDN cache).
+    R2_PUBLIC_URL: str = ""
+
     # Feature flags
     VENO_SYNC_ENABLED: bool = False          # kept for backward-compat; Veno FM removed
     SCAN_LOCAL_FOLDER_ENABLED: bool = True   # set False when using S3 direct-upload only
