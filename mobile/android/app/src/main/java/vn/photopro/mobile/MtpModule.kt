@@ -124,7 +124,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
                     val jpegHandles = device.getObjectHandles(
                         storageId, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt()
                     )
-                    if (!jpegHandles.isNullOrEmpty()) {
+                    if (jpegHandles != null && jpegHandles.isNotEmpty()) {
                         for (handle in jpegHandles) {
                             buildPhotoMap(device, handle, storageId)?.let { photos.pushMap(it) }
                         }
@@ -164,7 +164,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
                 val rawHandles = mutableListOf<Pair<Int, Int>>() // (handle, storageId)
                 for (sid in storageIds) {
                     val fast = device.getObjectHandles(sid, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt())
-                    if (!fast.isNullOrEmpty()) {
+                    if (fast != null && fast.isNotEmpty()) {
                         fast.forEach { rawHandles.add(it to sid) }
                     } else {
                         collectHandlesOnly(device, sid, 0, rawHandles)
@@ -285,7 +285,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
     /** Collect all JPEG handles for watcher diff (fast path + fallback). */
     private fun collectJpegHandles(device: MtpDevice, storageId: Int): Set<Int> {
         val fast = device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt())
-        if (!fast.isNullOrEmpty()) return fast.toSet()
+        if (fast != null && fast.isNotEmpty()) return fast.toSet()
         // Fallback recursive
         val result = mutableSetOf<Int>()
         fun recurse(parentHandle: Int) {
