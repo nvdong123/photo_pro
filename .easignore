@@ -1,0 +1,60 @@
+# EAS Build — repo-root archive exclusions
+# EAS archives from the git root (photo_pro/), so this file must live here.
+# Target: exclude everything not needed to build the mobile app.
+
+# ─── Git internals ───────────────────────────────────────────────────────────
+.git
+.git/
+**/.git
+**/.git/
+
+# ─── Other workspaces (not needed for mobile build) ─────────────────────────
+backend/
+frontend/
+docs/
+scripts/
+.github/
+.kilo/
+.vscode/
+.claude/
+.pytest_cache/
+
+# ─── Mobile: JS dependencies (EAS installs fresh in the cloud) ───────────────
+mobile/node_modules/
+
+# ─── Mobile: Android build outputs (EAS rebuilds from source) ────────────────
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/.kotlin/
+mobile/android/.idea/
+mobile/android/app/build/
+mobile/android/app/.cxx/
+
+# ─── Mobile: Native module build outputs ─────────────────────────────────────
+mobile/modules/*/android/build/
+mobile/modules/*/android/.cxx/
+mobile/modules/*/android/.gradle/
+
+# ─── Mobile: Local dev caches ────────────────────────────────────────────────
+mobile/.expo/
+mobile/.idea/
+mobile/tsconfig.tsbuildinfo
+mobile/*.tsbuildinfo
+
+# ─── Common junk ─────────────────────────────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db
+
+# ─── Binary / media files at repo root (not needed for build) ────────────────
+*.apk
+*.aab
+*.ipa
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.zip
+*.tar.gz
+*.rar

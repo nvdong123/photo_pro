@@ -14,8 +14,15 @@ npm-debug.log*
 # Native build output — EAS rebuilds these from source
 android/build/
 android/.gradle/
+android/.kotlin/
+android/.idea/
 android/app/build/
 android/app/.cxx/
+
+# Native module build output
+modules/*/android/build/
+modules/*/android/.cxx/
+modules/*/android/.gradle/
 
 # JS dependencies — EAS installs these fresh in the cloud
 node_modules/
