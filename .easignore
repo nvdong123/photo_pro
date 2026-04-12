@@ -47,14 +47,13 @@ mobile/*.tsbuildinfo
 Thumbs.db
 
 # ─── Binary / media files at repo root (not needed for build) ────────────────
-*.apk
-*.aab
-*.ipa
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.mp4
-*.zip
-*.tar.gz
-*.rar
+# IMPORTANT: Do NOT use *.png/*.jpg globally — that strips Android drawables!
+# Only exclude specific large files at the repo root.
+/PhotoPro-v1-release.apk
+/banner.jpg
+/*.apk
+/*.aab
+/*.ipa
+/*.zip
+/*.tar.gz
+/*.rar
