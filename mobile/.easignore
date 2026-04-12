@@ -1,0 +1,33 @@
+# EAS Build — exclude files not needed for cloud build
+# This reduces upload size significantly (300 MB → ~5-10 MB)
+
+# Git history
+.git/
+.gitignore
+
+# Local dev caches
+.expo/
+.idea/
+*.log
+npm-debug.log*
+
+# Native build output — EAS rebuilds these from source
+android/build/
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+
+# JS dependencies — EAS installs these fresh in the cloud
+node_modules/
+
+# TypeScript build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Test / CI artifacts
+coverage/
+__tests__/
+
+# OS junk
+.DS_Store
+Thumbs.db
