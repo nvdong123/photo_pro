@@ -151,7 +151,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
             return
         }
         try {
-            val thumbnail = device.getThumb(handle)
+            val thumbnail = device.getThumbnail(handle)
             if (thumbnail == null) {
                 promise.resolve(null)
                 return
