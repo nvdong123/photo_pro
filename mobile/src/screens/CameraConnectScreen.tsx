@@ -555,7 +555,9 @@ export default function CameraConnectScreen({ navigation, route }: Props) {
       <TouchableOpacity
         style={[styles.primaryButton, !setupState.ready && styles.primaryButtonDisabled]}
         disabled={!setupState.ready}
-        onPress={() => navigation.replace('Upload', route.params)}
+        onPress={() => connectionMode === 'wired'
+          ? navigation.replace('SessionMonitor', route.params)
+          : navigation.replace('Upload', route.params)}
       >
         <Text style={styles.primaryButtonText}>Bắt đầu phiên chụp</Text>
       </TouchableOpacity>

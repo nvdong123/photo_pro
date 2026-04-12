@@ -10,6 +10,7 @@ import CameraConnectScreen from './src/screens/CameraConnectScreen';
 import LiveAlbumScreen from './src/screens/LiveAlbumScreen';
 import ImageDetailScreen from './src/screens/ImageDetailScreen';
 import UntaggedScreen from './src/screens/UntaggedScreen';
+import SessionMonitorScreen from './src/screens/SessionMonitorScreen';
 
 export type ConnectionMode = 'wired' | 'wireless';
 
@@ -25,6 +26,7 @@ export type RootStackParamList = {
   ConnectionMode: { locationId: string; locationName: string };
   CameraConnect: SessionRouteParams;
   Upload: SessionRouteParams;
+  SessionMonitor: SessionRouteParams;
   LiveAlbum: { locationId: string; locationName: string };
   ImageDetail: { uri: string; name: string; size?: number; status?: string; capturedAt?: number; addedAt?: string };
   Untagged: undefined;
@@ -53,6 +55,7 @@ export default function App() {
           <Stack.Screen name="ConnectionMode" component={ConnectionModeScreen} options={{ title: 'Choose Connection' }} />
           <Stack.Screen name="CameraConnect" component={CameraConnectScreen} options={{ title: 'Setup Session' }} />
           <Stack.Screen name="Upload" component={UploadScreen} options={{ title: 'Session Monitor' }} />
+          <Stack.Screen name="SessionMonitor" component={SessionMonitorScreen} options={{ title: 'Phien chup co day' }} />
           <Stack.Screen name="LiveAlbum" component={LiveAlbumScreen} options={{ title: 'Album Trực Tiếp' }} />
           <Stack.Screen name="ImageDetail" component={ImageDetailScreen} options={{ title: 'Chi tiết ảnh' }} />
           <Stack.Screen name="Untagged" component={UntaggedScreen} options={{ title: 'Ảnh chưa có tag', headerShown: false }} />
