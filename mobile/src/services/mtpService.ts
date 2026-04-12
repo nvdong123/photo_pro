@@ -94,9 +94,26 @@ class MtpService {
     return NativeMtpModule.getPhotoListStreaming();
   }
 
+  /**
+   * Subscribe to handle-stub batches emitted during getPhotoListStreaming Phase 1b.
+   * Each stub has only {handle, storageId} — no metadata, no USB round-trip.
+   * Fires BEFORE onPhotosBatch. Use to render placeholder grid cells immediately.
+   */
+  onHandlesBatch(callback: (stubs: Array<{ handle: number; storageId: number }>) => void): EmitterSubscription | null {
+    return this.emitter?.addListener('MtpHandlesBatch', callback) ?? null;
+  }
+
   /** Subscribe to batch photo events emitted during getPhotoListStreaming. */
   onPhotosBatch(callback: (photos: MtpPhoto[]) => void): EmitterSubscription | null {
     return this.emitter?.addListener('MtpPhotosBatch', callback) ?? null;
+  }
+
+  /**
+   * Subscribe to the total-count event emitted at the start of getPhotoListStreaming
+   * (Phase 1 complete — handles discovered, no metadata yet). Fires once per scan.
+   */
+  onScanTotal(callback: (total: number) => void): EmitterSubscription | null {
+    return this.emitter?.addListener('MtpScanTotal', callback) ?? null;
   }
 
   /** Get JPEG thumbnail as base64 data-URI. */

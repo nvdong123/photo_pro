@@ -38,11 +38,11 @@ function getTodayIso(): string {
 
 function stateLabel(s: MtpConnectionState): string {
   switch (s) {
-    case 'idle': return 'Chua ket noi';
-    case 'detecting': return 'Dang tim may anh...';
-    case 'connecting': return 'Dang ket noi...';
-    case 'connected': return 'Da ket noi';
-    case 'error': return 'Loi ket noi';
+    case 'idle': return 'Chưa kết nối';
+    case 'detecting': return 'Đang tìm máy ảnh...';
+    case 'connecting': return 'Đang kết nối...';
+    case 'connected': return 'Đã kết nối';
+    case 'error': return 'Lỗi kết nối';
   }
 }
 
@@ -67,11 +67,11 @@ function stateColor(s: MtpConnectionState): string {
 }
 
 const TABS: { key: FilterTab; label: string }[] = [
-  { key: 'all', label: 'Tat ca' },
-  { key: 'queued', label: 'Cho' },
-  { key: 'uploading', label: 'Dang' },
+  { key: 'all', label: 'Tất cả' },
+  { key: 'queued', label: 'Chờ' },
+  { key: 'uploading', label: 'Đang' },
   { key: 'done', label: 'Xong' },
-  { key: 'failed', label: 'Loi' },
+  { key: 'failed', label: 'Lỗi' },
 ];
 
 export default function SessionMonitorScreen({ navigation, route }: Props) {
@@ -270,14 +270,14 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
   // ─── End session ─────────────────────────────────────────────────────────
   const handleEndSession = useCallback(() => {
     Alert.alert(
-      'Ket thuc phien?',
+      'Kết thúc phiên?',
       stats.queued + stats.uploading > 0
-        ? `Con ${stats.queued + stats.uploading} anh chua xong. Tiep tuc?`
-        : 'Ban co chac muon ket thuc phien chup nay?',
+        ? `Còn ${stats.queued + stats.uploading} ảnh chưa xong. Tiếp tục?`
+        : 'Bạn có chắc muốn kết thúc phiên chụp này?',
       [
-        { text: 'O lai', style: 'cancel' },
+        { text: 'Ở lại', style: 'cancel' },
         {
-          text: 'Ket thuc',
+          text: 'Kết thúc',
           style: 'destructive',
           onPress: async () => {
             cancelRef.current = true;
@@ -306,7 +306,7 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerLocation} numberOfLines={1}>{locationName}</Text>
-          <Text style={styles.headerSub}>Phien chup co day (MTP/OTG)</Text>
+          <Text style={styles.headerSub}>Phiên chụp có dây (MTP/OTG)</Text>
         </View>
         <TouchableOpacity onPress={() => setShowQualitySheet(true)} style={styles.qualityBtn}>
           <MaterialCommunityIcons name="tune" size={18} color="#fff" />
@@ -336,7 +336,7 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
         </View>
         {(mtp.connectionState === 'idle' || mtp.connectionState === 'error') && (
           <TouchableOpacity onPress={() => void mtp.detectAndConnect()} style={styles.retryConnBtn}>
-            <Text style={styles.retryConnText}>Thu lai</Text>
+            <Text style={styles.retryConnText}>Thử lại</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -344,10 +344,10 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
       {/* ─── Stats grid ───────────────────────────────────────────────────── */}
       <View style={styles.statsRow}>
         {[
-          { label: 'Nhan duoc', value: stats.total, color: INK },
-          { label: 'Cho/Dang', value: stats.queued + stats.uploading, color: '#f59e0b' },
-          { label: 'Da upload', value: stats.done, color: BRAND },
-          { label: 'Loi', value: stats.failed, color: '#dc2626' },
+          { label: 'Nhận được', value: stats.total, color: INK },
+          { label: 'Chờ/Đang', value: stats.queued + stats.uploading, color: '#f59e0b' },
+          { label: 'Đã upload', value: stats.done, color: BRAND },
+          { label: 'Lỗi', value: stats.failed, color: '#dc2626' },
         ].map(({ label, value, color }) => (
           <View key={label} style={styles.statCell}>
             <Text style={[styles.statValue, { color }]}>{value}</Text>
@@ -364,14 +364,14 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
         >
           <MaterialCommunityIcons name={paused ? 'play' : 'pause'} size={16} color={paused ? '#fff' : INK} />
           <Text style={[styles.actionBtnText, paused && styles.actionBtnTextActive]}>
-            {paused ? 'Tiep tuc' : 'Tam dung'}
+            {paused ? 'Tiếp tục' : 'Tạm dừng'}
           </Text>
         </TouchableOpacity>
 
         {stats.failed > 0 && (
           <TouchableOpacity style={styles.actionBtn} onPress={retryFailed}>
             <MaterialCommunityIcons name="refresh" size={16} color={INK} />
-            <Text style={styles.actionBtnText}>Thu lai loi ({stats.failed})</Text>
+            <Text style={styles.actionBtnText}>Thử lại lỗi ({stats.failed})</Text>
           </TouchableOpacity>
         )}
 
@@ -389,7 +389,7 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
           onPress={handleEndSession}
         >
           <MaterialCommunityIcons name="stop-circle-outline" size={16} color="#dc2626" />
-          <Text style={[styles.actionBtnText, { color: '#dc2626' }]}>Ket thuc phien</Text>
+          <Text style={[styles.actionBtnText, { color: '#dc2626' }]}>Kết thúc phiên</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -432,9 +432,9 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
           ) : (
             <>
               <MaterialCommunityIcons name="usb-port" size={48} color="#94a3b8" />
-              <Text style={styles.noCameraText}>Cam may anh qua cap OTG de bat dau</Text>
+              <Text style={styles.noCameraText}>Cắm máy ảnh qua cáp OTG để bắt đầu</Text>
               <TouchableOpacity style={styles.connectBtn} onPress={() => void mtp.detectAndConnect()}>
-                <Text style={styles.connectBtnText}>Ket noi may anh</Text>
+                <Text style={styles.connectBtnText}>Kết nối máy ảnh</Text>
               </TouchableOpacity>
             </>
           )}
@@ -444,7 +444,7 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
       {/* ─── Upload action buttons (selected) ────────────────────────────── */}
       {multiSelectMode && selectedHandles.size > 0 && (
         <View style={styles.selectionFooter}>
-          <Text style={styles.selectionFooterText}>{selectedHandles.size} anh duoc chon</Text>
+          <Text style={styles.selectionFooterText}>{selectedHandles.size} ảnh được chọn</Text>
           <TouchableOpacity
             style={styles.uploadSelectedBtn}
             onPress={() => enqueueHandles([...selectedHandles])}

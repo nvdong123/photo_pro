@@ -35,7 +35,7 @@ interface Props {
   onClearSelection: () => void;
   multiSelectMode: boolean;
   onEnterMultiSelect: () => void;
-  scanProgress?: { loaded: number; scanning: boolean };
+  scanProgress?: { loaded: number; total: number; scanning: boolean };
   onUploadOne: (handle: number) => void;
   onBatchUpload: () => void;
 }
@@ -79,8 +79,9 @@ function getSectionKey(captureTime: number): string {
   return `${y}-${mo}-${da}__${hh}:${mm}`;
 }
 
-function getSectionTitle(key: string, count: number): string {
-  if (key === '0000-00-00__00:00') return `Không có ngày / ${count} ảnh`;
+function getSectionTitle(key: string, count: number, scanning: boolean): string {
+  if (key === '0000-00-00__00:00')
+    return scanning ? `Đang tải thông tin... ${count} ảnh` : `Không có ngày / ${count} ảnh`;
   const [datePart, timePart] = key.split('__');
   const parts = datePart.split('-');
   return `${parts[1]}-${parts[2]} / ${timePart} / ${count} ảnh`;
@@ -150,7 +151,7 @@ function ThumbCell({ item, selected, multiSelectMode, onPress, onLongPress, onUp
       )}
 
       {/* Status badge / upload button — bottom right */}
-      {item.status === 'pending' ? (
+      {item.status === 'pending' && item.filename !== '' ? (
         <TouchableOpacity
           onPress={(e) => { e.stopPropagation(); onUpload(); }}
           style={styles.uploadBtn}
@@ -158,7 +159,7 @@ function ThumbCell({ item, selected, multiSelectMode, onPress, onLongPress, onUp
         >
           <MaterialCommunityIcons name="upload" size={12} color="#fff" />
         </TouchableOpacity>
-      ) : (
+      ) : item.status !== 'pending' ? (
         <View style={[styles.badge, { backgroundColor: STATUS_COLOR[item.status] }]}>
           {item.status === 'uploading' && item.progress != null ? (
             <Text style={styles.badgeText}>{item.progress}%</Text>
@@ -166,7 +167,7 @@ function ThumbCell({ item, selected, multiSelectMode, onPress, onLongPress, onUp
             <MaterialCommunityIcons name={STATUS_ICON[item.status] as any} size={11} color="#fff" />
           )}
         </View>
-      )}
+      ) : null /* stub: pending + no filename yet */}
 
       {/* Multi-select overlay */}
       {multiSelectMode && (
@@ -204,6 +205,7 @@ export default function CameraPhotoGrid({
 
   // Build sections: group photos by date + 30-min bucket, newest first
   const sections = useMemo((): GridSection[] => {
+    const scanning = scanProgress?.scanning ?? false;
     const buckets = new Map<string, PhotoGridItem[]>();
     for (const item of photos) {
       const key = getSectionKey(item.captureTime);
@@ -213,10 +215,10 @@ export default function CameraPhotoGrid({
     return [...buckets.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, items]) => ({
-        title: getSectionTitle(key, items.length),
+        title: getSectionTitle(key, items.length, scanning),
         data: chunkIntoRows(items, COLUMN),
       }));
-  }, [photos]);
+  }, [photos, scanProgress?.scanning]);
 
   const keyExtractor = useCallback((row: PhotoGridItem[]) =>
     row.length > 0 ? String(row[0].handle) : 'empty', []);
@@ -273,7 +275,11 @@ export default function CameraPhotoGrid({
         <View style={styles.progressBar}>
           <ActivityIndicator size="small" color={BRAND} />
           <Text style={styles.progressText}>
-            Đang đọc ảnh... {scanProgress.loaded} ảnh
+            {scanProgress.total > 0 && scanProgress.loaded < scanProgress.total
+              ? `Đang tải thông tin ảnh... ${scanProgress.loaded} / ${scanProgress.total}`
+              : scanProgress.total > 0
+              ? `Đã tìm ${scanProgress.total} ảnh, đang tải...`
+              : 'Đang quét máy ảnh...'}
           </Text>
         </View>
       )}

@@ -14,7 +14,7 @@ export interface UseMtpCameraState {
   photos: MtpPhoto[];
   errorMessage: string;
   isSupported: boolean;
-  scanProgress: { loaded: number; scanning: boolean };
+  scanProgress: { loaded: number; total: number; scanning: boolean };
   detectAndConnect: () => Promise<void>;
   loadPhotos: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -28,14 +28,19 @@ export function useMtpCamera(): UseMtpCameraState {
   const [cameraInfo, setCameraInfo] = useState<CameraInfo | null>(null);
   const [photos, setPhotos] = useState<MtpPhoto[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
-  const [scanProgress, setScanProgress] = useState<{ loaded: number; scanning: boolean }>({
+  const [scanProgress, setScanProgress] = useState<{ loaded: number; total: number; scanning: boolean }>({
     loaded: 0,
+    total: 0,
     scanning: false,
   });
 
   const mountedRef = useRef(true);
   const watchSubRef = useRef<EmitterSubscription | null>(null);
   const photoBatchSubRef = useRef<EmitterSubscription | null>(null);
+  const handlesBatchSubRef = useRef<EmitterSubscription | null>(null);
+  const scanTotalSubRef = useRef<EmitterSubscription | null>(null);
+  // Map<handle, MtpPhoto> — enables O(1) merge of stubs and full metadata.
+  const photoMapRef = useRef<Map<number, MtpPhoto>>(new Map());
   const connectionStateRef = useRef<MtpConnectionState>('idle');
 
   // Keep ref in sync so callbacks capture current state without stale closure.
@@ -48,8 +53,12 @@ export function useMtpCamera(): UseMtpCameraState {
   const cleanup = useCallback(async () => {
     watchSubRef.current?.remove();
     watchSubRef.current = null;
+    handlesBatchSubRef.current?.remove();
+    handlesBatchSubRef.current = null;
     photoBatchSubRef.current?.remove();
     photoBatchSubRef.current = null;
+    scanTotalSubRef.current?.remove();
+    scanTotalSubRef.current = null;
     await mtpService.stopWatching().catch(() => undefined);
     await mtpService.disconnect().catch(() => undefined);
   }, []);
@@ -63,7 +72,7 @@ export function useMtpCamera(): UseMtpCameraState {
       const device = await mtpService.detectDevice();
       if (!device) {
         safeSet(setConnectionState, 'idle');
-        safeSet(setErrorMessage, 'Khong tim thay may anh. Cai cap OTG va thu lai.');
+        safeSet(setErrorMessage, 'Không tìm thấy máy ảnh. Cắm cáp OTG và thử lại.');
         return;
       }
 
@@ -77,35 +86,67 @@ export function useMtpCamera(): UseMtpCameraState {
       watchSubRef.current?.remove();
       watchSubRef.current = mtpService.onNewPhoto((photo) => {
         if (!mountedRef.current) return;
-        setPhotos((prev) => {
-          if (prev.some((p) => p.handle === photo.handle)) return prev;
-          return [photo, ...prev];
-        });
+        // Must update photoMapRef so subsequent onPhotosBatch/onHandlesBatch snapshots include it.
+        if (!photoMapRef.current.has(photo.handle)) {
+          photoMapRef.current.set(photo.handle, photo);
+          setPhotos(Array.from(photoMapRef.current.values()));
+        }
       });
 
       await mtpService.startWatching();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       safeSet(setConnectionState, 'error');
-      safeSet(setErrorMessage, msg || 'Loi ket noi may anh.');
+      safeSet(setErrorMessage, msg || 'Lỗi kết nối máy ảnh.');
     }
   }, [isSupported, safeSet]);
 
   const loadPhotos = useCallback(async () => {
     if (connectionStateRef.current !== 'connected') return;
-    // Reset state for a fresh scan
-    setPhotos([]);
-    setScanProgress({ loaded: 0, scanning: true });
 
-    // Subscribe to batch events before triggering the scan
+    // Reset
+    photoMapRef.current = new Map();
+    setPhotos([]);
+    setScanProgress({ loaded: 0, total: 0, scanning: true });
+
+    // ── Phase 1: total count ─────────────────────────────────────────────────
+    scanTotalSubRef.current?.remove();
+    scanTotalSubRef.current = mtpService.onScanTotal((total) => {
+      if (!mountedRef.current) return;
+      setScanProgress((prev) => ({ ...prev, total }));
+    });
+
+    // ── Phase 1b: handle stubs — render grid cells immediately, no metadata ──
+    // Stubs have captureTime=0 so they land in "Không có ngày" section first.
+    // As metadata arrives (Phase 2), they are upgraded in-place.
+    handlesBatchSubRef.current?.remove();
+    handlesBatchSubRef.current = mtpService.onHandlesBatch((stubs) => {
+      if (!mountedRef.current) return;
+      for (const s of stubs) {
+        if (!photoMapRef.current.has(s.handle)) {
+          photoMapRef.current.set(s.handle, {
+            handle: s.handle,
+            storageId: s.storageId,
+            filename: '',
+            fileSize: 0,
+            captureTime: 0,
+            imagePixWidth: 0,
+            imagePixHeight: 0,
+          });
+        }
+      }
+      // Snapshot map → state so grid renders all placeholder cells
+      setPhotos(Array.from(photoMapRef.current.values()));
+    });
+
+    // ── Phase 2: full metadata — upgrades stubs in-place ────────────────────
     photoBatchSubRef.current?.remove();
     photoBatchSubRef.current = mtpService.onPhotosBatch((batch) => {
       if (!mountedRef.current) return;
-      setPhotos((prev) => {
-        const existing = new Set(prev.map((p) => p.handle));
-        const fresh = (batch as MtpPhoto[]).filter((p) => !existing.has(p.handle));
-        return fresh.length > 0 ? [...prev, ...fresh] : prev;
-      });
+      for (const photo of batch as MtpPhoto[]) {
+        photoMapRef.current.set(photo.handle, photo);
+      }
+      setPhotos(Array.from(photoMapRef.current.values()));
       setScanProgress((prev) => ({ ...prev, loaded: prev.loaded + batch.length }));
     });
 
@@ -113,10 +154,14 @@ export function useMtpCamera(): UseMtpCameraState {
       await mtpService.getPhotoListStreaming();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      safeSet(setErrorMessage, msg || 'Loi doc danh sach anh.');
+      safeSet(setErrorMessage, msg || 'Lỗi đọc danh sách ảnh.');
     } finally {
+      handlesBatchSubRef.current?.remove();
+      handlesBatchSubRef.current = null;
       photoBatchSubRef.current?.remove();
       photoBatchSubRef.current = null;
+      scanTotalSubRef.current?.remove();
+      scanTotalSubRef.current = null;
       if (mountedRef.current) {
         setScanProgress((prev) => ({ ...prev, scanning: false }));
       }

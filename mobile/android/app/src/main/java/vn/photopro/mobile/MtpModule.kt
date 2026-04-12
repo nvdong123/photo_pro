@@ -6,6 +6,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.mtp.MtpConstants
 import android.mtp.MtpDevice
+import android.mtp.MtpObjectInfo
 import android.util.Base64
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -102,12 +103,12 @@ class MtpModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    // ── List all JPEG photos on camera (recursive, background thread) ──────────
+    // ── List all JPEG photos on camera (fast single-call + fallback) ──────────
 
     @ReactMethod
     fun getPhotoList(promise: Promise) {
         val device = mtpDevice ?: run {
-            promise.reject("NOT_CONNECTED", "Chua ket noi may anh")
+            promise.reject("NOT_CONNECTED", "Chưa kết nối máy ảnh")
             return
         }
         Thread {
@@ -119,7 +120,18 @@ class MtpModule(reactContext: ReactApplicationContext) :
                 }
                 val photos = Arguments.createArray()
                 for (storageId in storageIds) {
-                    scanFolder(device, storageId, 0xFFFFFFFF.toInt(), photos)
+                    // Fast path: ask camera for ALL JPEGs in one shot
+                    val jpegHandles = device.getObjectHandles(
+                        storageId, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt()
+                    )
+                    if (!jpegHandles.isNullOrEmpty()) {
+                        for (handle in jpegHandles) {
+                            buildPhotoMap(device, handle, storageId)?.let { photos.pushMap(it) }
+                        }
+                    } else {
+                        // Fallback: recursive scan from storage root (parentHandle=0)
+                        scanFolderFromRoot(device, storageId, 0, photos)
+                    }
                 }
                 promise.resolve(photos)
             } catch (e: Exception) {
@@ -128,12 +140,12 @@ class MtpModule(reactContext: ReactApplicationContext) :
         }.start()
     }
 
-    // ── Stream photos in batches of 50 — faster perceived load ────────────────
+    // ── Stream photos — 2-phase: discover handles → emit total → stream metadata ──────────────
 
     @ReactMethod
     fun getPhotoListStreaming(promise: Promise) {
         val device = mtpDevice ?: run {
-            promise.reject("NOT_CONNECTED", "Chua ket noi")
+            promise.reject("NOT_CONNECTED", "Chưa kết nối")
             return
         }
         Thread {
@@ -142,59 +154,113 @@ class MtpModule(reactContext: ReactApplicationContext) :
                     promise.resolve(0)
                     return@Thread
                 }
-                var totalCount = 0
-                val pendingBatch = mutableListOf<WritableMap>()
+                val emitter = reactApplicationContext
+                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
 
-                fun emitBatch() {
-                    if (pendingBatch.isEmpty()) return
-                    val arr = Arguments.createArray()
-                    pendingBatch.forEach { arr.pushMap(it) }
-                    pendingBatch.clear()
-                    reactApplicationContext
-                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                        .emit("MtpPhotosBatch", arr)
-                }
-
-                fun scanStreaming(storageId: Int, parentHandle: Int) {
-                    val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return
-                    for (handle in handles) {
-                        val info = device.getObjectInfo(handle) ?: continue
-                        when (info.format) {
-                            MtpConstants.FORMAT_EXIF_JPEG,
-                            MtpConstants.FORMAT_JFIF -> {
-                                pendingBatch.add(Arguments.createMap().apply {
-                                    putInt("handle", handle)
-                                    putString("filename", info.name ?: "")
-                                    putInt("fileSize", info.compressedSize)
-                                    putDouble("captureTime", info.dateCreated.toDouble() * 1000.0)
-                                    putInt("storageId", storageId)
-                                    putInt("imagePixWidth", info.imagePixWidth)
-                                    putInt("imagePixHeight", info.imagePixHeight)
-                                })
-                                totalCount++
-                                if (pendingBatch.size >= 50) emitBatch()
-                            }
-                            MtpConstants.FORMAT_ASSOCIATION -> {
-                                scanStreaming(storageId, handle)
-                            }
-                        }
+                // ── Phase 1: Collect ALL handles WITHOUT getObjectInfo ───────────────────
+                // Fast path: getObjectHandles(FORMAT_EXIF_JPEG, 0xFFFFFFFF) → 1 USB call for all JPEGs.
+                // Fallback:  collectHandlesOnly — format-filtered recursive scan, zero getObjectInfo.
+                // Either way: count is known in < 100 ms over OTG (only ~5–10 USB calls total).
+                val rawHandles = mutableListOf<Pair<Int, Int>>() // (handle, storageId)
+                for (sid in storageIds) {
+                    val fast = device.getObjectHandles(sid, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt())
+                    if (!fast.isNullOrEmpty()) {
+                        fast.forEach { rawHandles.add(it to sid) }
+                    } else {
+                        collectHandlesOnly(device, sid, 0, rawHandles)
                     }
                 }
 
-                for (storageId in storageIds) {
-                    scanStreaming(storageId, 0xFFFFFFFF.toInt())
+                // Emit total immediately
+                emitter.emit("MtpScanTotal", rawHandles.size)
+
+                // ── Phase 1b: Emit handle stubs in batches of 200 — ZERO getObjectInfo ──
+                // JS renders all N placeholder cells immediately (<100 ms).
+                // Thumbnails start loading on-demand for visible cells right away.
+                var stubStart = 0
+                while (stubStart < rawHandles.size) {
+                    val stubEnd = minOf(stubStart + 200, rawHandles.size)
+                    val stubArr = Arguments.createArray()
+                    for (i in stubStart until stubEnd) {
+                        val (h, sid) = rawHandles[i]
+                        stubArr.pushMap(Arguments.createMap().apply {
+                            putInt("handle", h)
+                            putInt("storageId", sid)
+                        })
+                    }
+                    emitter.emit("MtpHandlesBatch", stubArr)
+                    stubStart = stubEnd
                 }
-                emitBatch()
-                promise.resolve(totalCount)
+
+                // ── Phase 2: Stream full metadata in batches of 50 ──────────────────────
+                // Each getObjectInfo = 1 USB round-trip. Results upgrade stubs in JS.
+                var pending = mutableListOf<WritableMap>()
+
+                fun flush() {
+                    if (pending.isEmpty()) return
+                    val arr = Arguments.createArray()
+                    pending.forEach { arr.pushMap(it) }
+                    pending = mutableListOf()
+                    emitter.emit("MtpPhotosBatch", arr)
+                }
+
+                for ((handle, sid) in rawHandles) {
+                    buildPhotoMap(device, handle, sid)?.let { pending.add(it) }
+                    if (pending.size >= 50) flush()
+                }
+                flush()
+
+                promise.resolve(rawHandles.size)
             } catch (e: Exception) {
                 promise.reject("ERROR", e.message)
             }
         }.start()
     }
 
-    // ── Private: recursive JPEG scan, appends to results ──────────────────────
+    // ── Private helpers ────────────────────────────────────────────────────────
 
-    private fun scanFolder(
+    /**
+     * Collect JPEG handles recursively using format-filtered queries — ZERO getObjectInfo calls.
+     * parentHandle=0 = direct children of storage root.
+     * Canon structure: root(0) → DCIM(FORMAT_ASSOCIATION) → 100CANON, 101CANON → *.JPG(FORMAT_EXIF_JPEG)
+     */
+    private fun collectHandlesOnly(
+        device: MtpDevice,
+        storageId: Int,
+        parentHandle: Int,
+        result: MutableList<Pair<Int, Int>>
+    ) {
+        // JPEGs at this level (Canon, Nikon, most DSLRs)
+        device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, parentHandle)
+            ?.forEach { result.add(it to storageId) }
+        // JFIF at this level (Sony, some point-and-shoot cameras)
+        device.getObjectHandles(storageId, MtpConstants.FORMAT_JFIF, parentHandle)
+            ?.forEach { result.add(it to storageId) }
+        // Recurse into subfolders
+        device.getObjectHandles(storageId, MtpConstants.FORMAT_ASSOCIATION, parentHandle)
+            ?.forEach { folder -> collectHandlesOnly(device, storageId, folder, result) }
+    }
+
+    /** Build a WritableMap when MtpObjectInfo is already fetched (avoids second USB round-trip). */
+    private fun buildPhotoMapFromInfo(info: MtpObjectInfo, handle: Int, storageId: Int): WritableMap =
+        Arguments.createMap().apply {
+            putInt("handle", handle)
+            putString("filename", info.name ?: "")
+            putInt("fileSize", info.compressedSize)
+            putDouble("captureTime", info.dateCreated.toDouble() * 1000.0)
+            putInt("storageId", storageId)
+            putInt("imagePixWidth", info.imagePixWidth)
+            putInt("imagePixHeight", info.imagePixHeight)
+        }
+
+    /** Build a WritableMap for one photo handle (fetches info from camera). Returns null on failure. */
+    private fun buildPhotoMap(device: MtpDevice, handle: Int, storageId: Int): WritableMap? {
+        val info = device.getObjectInfo(handle) ?: return null
+        return buildPhotoMapFromInfo(info, handle, storageId)
+    }
+
+    /** Recursive folder scan starting from parentHandle (use 0 for storage root). */
+    private fun scanFolderFromRoot(
         device: MtpDevice,
         storageId: Int,
         parentHandle: Int,
@@ -203,44 +269,39 @@ class MtpModule(reactContext: ReactApplicationContext) :
         val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return
         for (handle in handles) {
             val info = device.getObjectInfo(handle) ?: continue
-            when (info.format) {
-                MtpConstants.FORMAT_EXIF_JPEG,
-                MtpConstants.FORMAT_JFIF -> {
-                    results.pushMap(Arguments.createMap().apply {
-                        putInt("handle", handle)
-                        putString("filename", info.name ?: "")
-                        putInt("fileSize", info.compressedSize)
-                        putDouble("captureTime", info.dateCreated.toDouble() * 1000.0)
-                        putInt("storageId", storageId)
-                        putInt("imagePixWidth", info.imagePixWidth)
-                        putInt("imagePixHeight", info.imagePixHeight)
-                    })
-                }
-                MtpConstants.FORMAT_ASSOCIATION -> {
-                    scanFolder(device, storageId, handle, results)
-                }
+            val name = info.name ?: ""
+            val isJpeg = info.format == MtpConstants.FORMAT_EXIF_JPEG ||
+                         info.format == MtpConstants.FORMAT_JFIF ||
+                         name.lowercase().endsWith(".jpg") ||
+                         name.lowercase().endsWith(".jpeg")
+            when {
+                isJpeg -> results.pushMap(buildPhotoMapFromInfo(info, handle, storageId))
+                info.format == MtpConstants.FORMAT_ASSOCIATION ->
+                    scanFolderFromRoot(device, storageId, handle, results)
             }
         }
     }
 
-    // ── Private: collect JPEG handles recursively (for watcher) ───────────────
-
-    private fun collectAllPhotoHandles(
-        device: MtpDevice,
-        storageId: Int,
-        parentHandle: Int
-    ): Set<Int> {
+    /** Collect all JPEG handles for watcher diff (fast path + fallback). */
+    private fun collectJpegHandles(device: MtpDevice, storageId: Int): Set<Int> {
+        val fast = device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt())
+        if (!fast.isNullOrEmpty()) return fast.toSet()
+        // Fallback recursive
         val result = mutableSetOf<Int>()
-        val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return result
-        for (handle in handles) {
-            val info = device.getObjectInfo(handle) ?: continue
-            when (info.format) {
-                MtpConstants.FORMAT_EXIF_JPEG,
-                MtpConstants.FORMAT_JFIF -> result.add(handle)
-                MtpConstants.FORMAT_ASSOCIATION ->
-                    result.addAll(collectAllPhotoHandles(device, storageId, handle))
+        fun recurse(parentHandle: Int) {
+            val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return
+            for (handle in handles) {
+                val info = device.getObjectInfo(handle) ?: continue
+                val name = info.name ?: ""
+                val isJpeg = info.format == MtpConstants.FORMAT_EXIF_JPEG ||
+                             info.format == MtpConstants.FORMAT_JFIF ||
+                             name.lowercase().endsWith(".jpg") ||
+                             name.lowercase().endsWith(".jpeg")
+                if (isJpeg) result.add(handle)
+                else if (info.format == MtpConstants.FORMAT_ASSOCIATION) recurse(handle)
             }
         }
+        recurse(0)
         return result
     }
 
@@ -281,18 +342,21 @@ class MtpModule(reactContext: ReactApplicationContext) :
             promise.reject("NOT_CONNECTED", "Chua ket noi")
             return
         }
-        try {
-            val cacheDir = reactApplicationContext.cacheDir
-            val file = File(cacheDir, filename)
-            val success = device.importFile(handle, file.absolutePath)
-            if (success) {
-                promise.resolve(file.absolutePath)
-            } else {
-                promise.reject("DOWNLOAD_FAILED", "Khong the tai anh tu may anh")
+        // importFile is a blocking USB transfer — must run off the main thread.
+        Thread {
+            try {
+                val cacheDir = reactApplicationContext.cacheDir
+                val file = File(cacheDir, filename)
+                val success = device.importFile(handle, file.absolutePath)
+                if (success) {
+                    promise.resolve(file.absolutePath)
+                } else {
+                    promise.reject("DOWNLOAD_FAILED", "Khong the tai anh tu may anh")
+                }
+            } catch (e: Exception) {
+                promise.reject("ERROR", e.message)
             }
-        } catch (e: Exception) {
-            promise.reject("ERROR", e.message)
-        }
+        }.start()
     }
 
     // ── Poll for new photos every 2s, emit RN events ──────────────────────────
@@ -315,7 +379,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
         Thread {
             var lastHandles: Set<Int> = try {
                 device.storageIds?.flatMap { sid ->
-                    collectAllPhotoHandles(device, sid, 0xFFFFFFFF.toInt()).toList()
+                    collectJpegHandles(device, sid).toList()
                 }?.toSet() ?: emptySet()
             } catch (_: Exception) { emptySet() }
 
@@ -323,7 +387,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
                 Thread.sleep(2000)
                 try {
                     val current: Set<Int> = device.storageIds?.flatMap { sid ->
-                        collectAllPhotoHandles(device, sid, 0xFFFFFFFF.toInt()).toList()
+                        collectJpegHandles(device, sid).toList()
                     }?.toSet() ?: emptySet()
 
                     val newHandles = current - lastHandles

@@ -31,9 +31,9 @@ export default function BatchUploadSheet({
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
         <View style={styles.handle} />
-        <Text style={styles.title}>Upload anh len server</Text>
+        <Text style={styles.title}>Upload ảnh lên server</Text>
         <Text style={styles.subtitle}>
-          {totalPending} anh chua duoc upload
+          {totalPending} ảnh chưa được upload
         </Text>
 
         <View style={styles.options}>
@@ -43,8 +43,8 @@ export default function BatchUploadSheet({
                 <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={22} color="#16a34a" />
               </View>
               <View style={styles.optionText}>
-                <Text style={styles.optionLabel}>Upload anh da chon</Text>
-                <Text style={styles.optionDesc}>{selectedCount} anh duoc chon</Text>
+                <Text style={styles.optionLabel}>Upload ảnh đã chọn</Text>
+                <Text style={styles.optionDesc}>{selectedCount} ảnh được chọn</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#94a3b8" />
             </TouchableOpacity>
@@ -55,15 +55,15 @@ export default function BatchUploadSheet({
               <MaterialCommunityIcons name="cloud-upload-outline" size={22} color="#2563eb" />
             </View>
             <View style={styles.optionText}>
-              <Text style={styles.optionLabel}>Upload tat ca anh cho</Text>
-              <Text style={styles.optionDesc}>{totalPending} anh chua send</Text>
+              <Text style={styles.optionLabel}>Upload tất cả ảnh chờ</Text>
+              <Text style={styles.optionDesc}>{totalPending} ảnh chưa gửi</Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={20} color="#94a3b8" />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-          <Text style={styles.cancelText}>Huy</Text>
+          <Text style={styles.cancelText}>Hủy</Text>
         </TouchableOpacity>
       </View>
     </Modal>
