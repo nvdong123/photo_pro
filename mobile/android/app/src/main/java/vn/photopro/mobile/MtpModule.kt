@@ -27,6 +27,9 @@ class MtpModule(reactContext: ReactApplicationContext) :
     private var usbDevice: UsbDevice? = null
     private val thumbnailCache = HashMap<Int, String>()
 
+    // Prevent watcher from touching MTP bus during active scan (MTP is sequential — not thread-safe)
+    @Volatile private var isScanning = false
+
     // ── USB helpers ────────────────────────────────────────────────────────────
 
     private fun getUsbManager(): UsbManager =
@@ -149,6 +152,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
             return
         }
         Thread {
+            isScanning = true
             try {
                 val storageIds = device.storageIds ?: run {
                     promise.resolve(0)
@@ -158,42 +162,56 @@ class MtpModule(reactContext: ReactApplicationContext) :
                     .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
 
                 // ── Phase 1: Collect ALL handles WITHOUT getObjectInfo ───────────────────
-                // Fast path: getObjectHandles(FORMAT_EXIF_JPEG, 0xFFFFFFFF) → 1 USB call for all JPEGs.
-                // Fallback:  collectHandlesOnly — format-filtered recursive scan, zero getObjectInfo.
-                // Either way: count is known in < 100 ms over OTG (only ~5–10 USB calls total).
+                // Strategy 1: FORMAT_EXIF_JPEG + parent=0xFFFFFFFF → works on Nikon/Fuji/Sony
+                // Strategy 2: format=0 + parent=0xFFFFFFFF → works on Canon EOS (no format filter)
+                // Strategy 3: recursive with format=0 per level + getObjectInfo classify → universal fallback
                 val rawHandles = mutableListOf<Pair<Int, Int>>() // (handle, storageId)
+                var fastPathWorked = false // true = all rawHandles guaranteed to be JPEGs (safe for stubs)
+
                 for (sid in storageIds) {
                     val fast = device.getObjectHandles(sid, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt())
                     if (fast != null && fast.isNotEmpty()) {
+                        // Strategy 1 worked — guaranteed JPEGs only
                         fast.forEach { rawHandles.add(it to sid) }
+                        fastPathWorked = true
                     } else {
-                        collectHandlesOnly(device, sid, 0, rawHandles)
+                        // Strategy 2: Canon EOS — get ALL objects in storage flat
+                        val all = device.getObjectHandles(sid, 0, 0xFFFFFFFF.toInt())
+                        if (all != null && all.isNotEmpty()) {
+                            all.forEach { rawHandles.add(it to sid) }
+                            // NOTE: includes folders — buildPhotoMap will filter them in Phase 2
+                        } else {
+                            // Strategy 3: full recursive fallback
+                            collectHandlesOnly(device, sid, 0, rawHandles)
+                        }
                     }
                 }
 
                 // Emit total immediately
                 emitter.emit("MtpScanTotal", rawHandles.size)
 
-                // ── Phase 1b: Emit handle stubs in batches of 200 — ZERO getObjectInfo ──
-                // JS renders all N placeholder cells immediately (<100 ms).
-                // Thumbnails start loading on-demand for visible cells right away.
-                var stubStart = 0
-                while (stubStart < rawHandles.size) {
-                    val stubEnd = minOf(stubStart + 200, rawHandles.size)
-                    val stubArr = Arguments.createArray()
-                    for (i in stubStart until stubEnd) {
-                        val (h, sid) = rawHandles[i]
-                        stubArr.pushMap(Arguments.createMap().apply {
-                            putInt("handle", h)
-                            putInt("storageId", sid)
-                        })
+                // ── Phase 1b: Emit handle stubs ONLY when handles are guaranteed JPEGs ──
+                // If Strategy 2/3 was used, rawHandles may contain folders → skip stubs to avoid
+                // placeholder cells that never get upgraded.
+                if (fastPathWorked) {
+                    var stubStart = 0
+                    while (stubStart < rawHandles.size) {
+                        val stubEnd = minOf(stubStart + 200, rawHandles.size)
+                        val stubArr = Arguments.createArray()
+                        for (i in stubStart until stubEnd) {
+                            val (h, sid) = rawHandles[i]
+                            stubArr.pushMap(Arguments.createMap().apply {
+                                putInt("handle", h)
+                                putInt("storageId", sid)
+                            })
+                        }
+                        emitter.emit("MtpHandlesBatch", stubArr)
+                        stubStart = stubEnd
                     }
-                    emitter.emit("MtpHandlesBatch", stubArr)
-                    stubStart = stubEnd
                 }
 
                 // ── Phase 2: Stream full metadata in batches of 50 ──────────────────────
-                // Each getObjectInfo = 1 USB round-trip. Results upgrade stubs in JS.
+                // buildPhotoMap filters non-JPEG objects (folders, RAW, etc.)
                 var pending = mutableListOf<WritableMap>()
 
                 fun flush() {
@@ -213,6 +231,8 @@ class MtpModule(reactContext: ReactApplicationContext) :
                 promise.resolve(rawHandles.size)
             } catch (e: Exception) {
                 promise.reject("ERROR", e.message)
+            } finally {
+                isScanning = false
             }
         }.start()
     }
@@ -220,9 +240,9 @@ class MtpModule(reactContext: ReactApplicationContext) :
     // ── Private helpers ────────────────────────────────────────────────────────
 
     /**
-     * Collect JPEG handles recursively using format-filtered queries — ZERO getObjectInfo calls.
-     * parentHandle=0 = direct children of storage root.
-     * Canon structure: root(0) → DCIM(FORMAT_ASSOCIATION) → 100CANON, 101CANON → *.JPG(FORMAT_EXIF_JPEG)
+     * Collect JPEG handles recursively.
+     * Primary: format-filtered queries (fast, zero getObjectInfo).
+     * Fallback: format=0 + getObjectInfo classification (for Canon when format filter is unsupported).
      */
     private fun collectHandlesOnly(
         device: MtpDevice,
@@ -230,15 +250,34 @@ class MtpModule(reactContext: ReactApplicationContext) :
         parentHandle: Int,
         result: MutableList<Pair<Int, Int>>
     ) {
-        // JPEGs at this level (Canon, Nikon, most DSLRs)
-        device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, parentHandle)
-            ?.forEach { result.add(it to storageId) }
-        // JFIF at this level (Sony, some point-and-shoot cameras)
+        // JPEGs at this level
+        val jpegs = device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, parentHandle)
+        jpegs?.forEach { result.add(it to storageId) }
+        // JFIF at this level (Sony, some point-and-shoot)
         device.getObjectHandles(storageId, MtpConstants.FORMAT_JFIF, parentHandle)
             ?.forEach { result.add(it to storageId) }
         // Recurse into subfolders
-        device.getObjectHandles(storageId, MtpConstants.FORMAT_ASSOCIATION, parentHandle)
-            ?.forEach { folder -> collectHandlesOnly(device, storageId, folder, result) }
+        val folders = device.getObjectHandles(storageId, MtpConstants.FORMAT_ASSOCIATION, parentHandle)
+        if (folders != null) {
+            folders.forEach { folder -> collectHandlesOnly(device, storageId, folder, result) }
+        } else if (jpegs == null) {
+            // Canon EOS: format filter not supported at this level.
+            // Fall back to format=0 (all objects) and classify via getObjectInfo.
+            val all = device.getObjectHandles(storageId, 0, parentHandle) ?: return
+            for (handle in all) {
+                val info = device.getObjectInfo(handle) ?: continue
+                val name = info.name?.lowercase() ?: ""
+                when {
+                    info.format == MtpConstants.FORMAT_ASSOCIATION ->
+                        collectHandlesOnly(device, storageId, handle, result)
+                    info.format == MtpConstants.FORMAT_EXIF_JPEG ||
+                    info.format == MtpConstants.FORMAT_JFIF ->
+                        result.add(handle to storageId)
+                    name.endsWith(".jpg") || name.endsWith(".jpeg") ->
+                        result.add(handle to storageId)
+                }
+            }
+        }
     }
 
     /** Build a WritableMap when MtpObjectInfo is already fetched (avoids second USB round-trip). */
@@ -253,9 +292,16 @@ class MtpModule(reactContext: ReactApplicationContext) :
             putInt("imagePixHeight", info.imagePixHeight)
         }
 
-    /** Build a WritableMap for one photo handle (fetches info from camera). Returns null on failure. */
+    /** Build a WritableMap for one photo handle (fetches info from camera). Returns null on failure or non-JPEG. */
     private fun buildPhotoMap(device: MtpDevice, handle: Int, storageId: Int): WritableMap? {
         val info = device.getObjectInfo(handle) ?: return null
+        // Filter folders and non-JPEG files (critical when using all-formats fallback for Canon)
+        val name = info.name?.lowercase() ?: ""
+        val isJpeg = info.format == MtpConstants.FORMAT_EXIF_JPEG ||
+                     info.format == MtpConstants.FORMAT_JFIF ||
+                     (info.format != MtpConstants.FORMAT_ASSOCIATION &&
+                      (name.endsWith(".jpg") || name.endsWith(".jpeg")))
+        if (!isJpeg) return null
         return buildPhotoMapFromInfo(info, handle, storageId)
     }
 
@@ -385,6 +431,9 @@ class MtpModule(reactContext: ReactApplicationContext) :
 
             while (watchingActive && mtpDevice != null) {
                 Thread.sleep(2000)
+                // Skip this poll cycle if initial scan is still running
+                // MTP is a sequential protocol — concurrent USB calls cause timeouts
+                if (isScanning) continue
                 try {
                     val current: Set<Int> = device.storageIds?.flatMap { sid ->
                         collectJpegHandles(device, sid).toList()
