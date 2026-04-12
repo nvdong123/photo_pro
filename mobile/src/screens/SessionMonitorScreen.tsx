@@ -231,6 +231,10 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
     setShowBatchSheet(false);
   }, []);
 
+  const uploadOne = useCallback((handle: number) => {
+    enqueueHandles([handle]);
+  }, [enqueueHandles]);
+
   const enqueueAll = useCallback(() => {
     setGridItems((prev) =>
       prev.map((p) => (p.status === 'pending' ? { ...p, status: 'queued' } : p)),
@@ -414,6 +418,9 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
           onClearSelection={clearSelection}
           multiSelectMode={multiSelectMode}
           onEnterMultiSelect={() => setMultiSelectMode(true)}
+          scanProgress={mtp.scanProgress}
+          onUploadOne={uploadOne}
+          onBatchUpload={() => setShowBatchSheet(true)}
         />
       ) : (
         <View style={styles.noCamera}>

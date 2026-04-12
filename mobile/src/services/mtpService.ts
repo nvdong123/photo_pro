@@ -38,6 +38,7 @@ interface NativeMtpModuleInterface {
   detectDevice(): Promise<CameraDevice | null>;
   connect(): Promise<CameraInfo>;
   getPhotoList(): Promise<MtpPhoto[]>;
+  getPhotoListStreaming(): Promise<number>;
   getThumbnail(handle: number): Promise<string>;
   downloadPhoto(handle: number, filename: string): Promise<string>;
   startWatching(): Promise<void>;
@@ -77,10 +78,25 @@ class MtpService {
     return NativeMtpModule.connect();
   }
 
-  /** Get list of photos on the connected camera. */
+  /** Get list of photos on the connected camera (non-streaming, blocking). */
   getPhotoList(): Promise<MtpPhoto[]> {
     if (!NativeMtpModule) return Promise.resolve([]);
     return NativeMtpModule.getPhotoList();
+  }
+
+  /**
+   * Stream photos from camera in batches of 50.
+   * Subscribe to onPhotosBatch BEFORE calling this.
+   * Resolves with total count when scan completes.
+   */
+  getPhotoListStreaming(): Promise<number> {
+    if (!NativeMtpModule) return Promise.resolve(0);
+    return NativeMtpModule.getPhotoListStreaming();
+  }
+
+  /** Subscribe to batch photo events emitted during getPhotoListStreaming. */
+  onPhotosBatch(callback: (photos: MtpPhoto[]) => void): EmitterSubscription | null {
+    return this.emitter?.addListener('MtpPhotosBatch', callback) ?? null;
   }
 
   /** Get JPEG thumbnail as base64 data-URI. */

@@ -12,6 +12,8 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.WritableArray
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.io.File
 
@@ -22,6 +24,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
 
     private var mtpDevice: MtpDevice? = null
     private var usbDevice: UsbDevice? = null
+    private val thumbnailCache = HashMap<Int, String>()
 
     // ── USB helpers ────────────────────────────────────────────────────────────
 
@@ -99,7 +102,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    // ── List all JPEG photos on camera ─────────────────────────────────────────
+    // ── List all JPEG photos on camera (recursive, background thread) ──────────
 
     @ReactMethod
     fun getPhotoList(promise: Promise) {
@@ -107,60 +110,167 @@ class MtpModule(reactContext: ReactApplicationContext) :
             promise.reject("NOT_CONNECTED", "Chua ket noi may anh")
             return
         }
-        try {
-            val storageIds = device.storageIds
-            if (storageIds == null || storageIds.isEmpty()) {
-                promise.resolve(Arguments.createArray())
-                return
-            }
-
-            val photos = Arguments.createArray()
-            for (storageId in storageIds) {
-                val handles = device.getObjectHandles(
-                    storageId,
-                    MtpConstants.FORMAT_EXIF_JPEG,
-                    0
-                ) ?: continue
-
-                for (handle in handles) {
-                    val info = device.getObjectInfo(handle) ?: continue
-                    val photoInfo = Arguments.createMap().apply {
-                        putInt("handle", handle)
-                        putString("filename", info.name)
-                        putInt("fileSize", info.compressedSize)
-                        putString("captureTime", info.dateCreated?.toString() ?: "")
-                        putInt("storageId", storageId)
-                        putInt("imagePixWidth", info.imagePixWidth)
-                        putInt("imagePixHeight", info.imagePixHeight)
-                    }
-                    photos.pushMap(photoInfo)
+        Thread {
+            try {
+                val storageIds = device.storageIds
+                if (storageIds == null || storageIds.isEmpty()) {
+                    promise.resolve(Arguments.createArray())
+                    return@Thread
                 }
+                val photos = Arguments.createArray()
+                for (storageId in storageIds) {
+                    scanFolder(device, storageId, 0xFFFFFFFF.toInt(), photos)
+                }
+                promise.resolve(photos)
+            } catch (e: Exception) {
+                promise.reject("ERROR", e.message)
             }
-            promise.resolve(photos)
-        } catch (e: Exception) {
-            promise.reject("ERROR", e.message)
-        }
+        }.start()
     }
 
-    // ── Get JPEG thumbnail (base64) ────────────────────────────────────────────
+    // ── Stream photos in batches of 50 — faster perceived load ────────────────
 
     @ReactMethod
-    fun getThumbnail(handle: Int, promise: Promise) {
+    fun getPhotoListStreaming(promise: Promise) {
         val device = mtpDevice ?: run {
             promise.reject("NOT_CONNECTED", "Chua ket noi")
             return
         }
-        try {
-            val thumbnail = device.getThumbnail(handle)
-            if (thumbnail == null) {
-                promise.resolve(null)
-                return
+        Thread {
+            try {
+                val storageIds = device.storageIds ?: run {
+                    promise.resolve(0)
+                    return@Thread
+                }
+                var totalCount = 0
+                val pendingBatch = mutableListOf<WritableMap>()
+
+                fun emitBatch() {
+                    if (pendingBatch.isEmpty()) return
+                    val arr = Arguments.createArray()
+                    pendingBatch.forEach { arr.pushMap(it) }
+                    pendingBatch.clear()
+                    reactApplicationContext
+                        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                        .emit("MtpPhotosBatch", arr)
+                }
+
+                fun scanStreaming(storageId: Int, parentHandle: Int) {
+                    val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return
+                    for (handle in handles) {
+                        val info = device.getObjectInfo(handle) ?: continue
+                        when (info.format) {
+                            MtpConstants.FORMAT_EXIF_JPEG,
+                            MtpConstants.FORMAT_JFIF -> {
+                                pendingBatch.add(Arguments.createMap().apply {
+                                    putInt("handle", handle)
+                                    putString("filename", info.name ?: "")
+                                    putInt("fileSize", info.compressedSize)
+                                    putDouble("captureTime", info.dateCreated.toDouble() * 1000.0)
+                                    putInt("storageId", storageId)
+                                    putInt("imagePixWidth", info.imagePixWidth)
+                                    putInt("imagePixHeight", info.imagePixHeight)
+                                })
+                                totalCount++
+                                if (pendingBatch.size >= 50) emitBatch()
+                            }
+                            MtpConstants.FORMAT_ASSOCIATION -> {
+                                scanStreaming(storageId, handle)
+                            }
+                        }
+                    }
+                }
+
+                for (storageId in storageIds) {
+                    scanStreaming(storageId, 0xFFFFFFFF.toInt())
+                }
+                emitBatch()
+                promise.resolve(totalCount)
+            } catch (e: Exception) {
+                promise.reject("ERROR", e.message)
             }
-            val b64 = Base64.encodeToString(thumbnail, Base64.NO_WRAP)
-            promise.resolve("data:image/jpeg;base64,$b64")
-        } catch (e: Exception) {
-            promise.reject("ERROR", e.message)
+        }.start()
+    }
+
+    // ── Private: recursive JPEG scan, appends to results ──────────────────────
+
+    private fun scanFolder(
+        device: MtpDevice,
+        storageId: Int,
+        parentHandle: Int,
+        results: WritableArray
+    ) {
+        val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return
+        for (handle in handles) {
+            val info = device.getObjectInfo(handle) ?: continue
+            when (info.format) {
+                MtpConstants.FORMAT_EXIF_JPEG,
+                MtpConstants.FORMAT_JFIF -> {
+                    results.pushMap(Arguments.createMap().apply {
+                        putInt("handle", handle)
+                        putString("filename", info.name ?: "")
+                        putInt("fileSize", info.compressedSize)
+                        putDouble("captureTime", info.dateCreated.toDouble() * 1000.0)
+                        putInt("storageId", storageId)
+                        putInt("imagePixWidth", info.imagePixWidth)
+                        putInt("imagePixHeight", info.imagePixHeight)
+                    })
+                }
+                MtpConstants.FORMAT_ASSOCIATION -> {
+                    scanFolder(device, storageId, handle, results)
+                }
+            }
         }
+    }
+
+    // ── Private: collect JPEG handles recursively (for watcher) ───────────────
+
+    private fun collectAllPhotoHandles(
+        device: MtpDevice,
+        storageId: Int,
+        parentHandle: Int
+    ): Set<Int> {
+        val result = mutableSetOf<Int>()
+        val handles = device.getObjectHandles(storageId, 0, parentHandle) ?: return result
+        for (handle in handles) {
+            val info = device.getObjectInfo(handle) ?: continue
+            when (info.format) {
+                MtpConstants.FORMAT_EXIF_JPEG,
+                MtpConstants.FORMAT_JFIF -> result.add(handle)
+                MtpConstants.FORMAT_ASSOCIATION ->
+                    result.addAll(collectAllPhotoHandles(device, storageId, handle))
+            }
+        }
+        return result
+    }
+
+    // ── Get JPEG thumbnail (base64) — cached, background thread ───────────────
+
+    @ReactMethod
+    fun getThumbnail(handle: Int, promise: Promise) {
+        thumbnailCache[handle]?.let {
+            promise.resolve(it)
+            return
+        }
+        val device = mtpDevice ?: run {
+            promise.reject("NOT_CONNECTED", "Chua ket noi")
+            return
+        }
+        Thread {
+            try {
+                val thumbnail = device.getThumbnail(handle)
+                if (thumbnail == null) {
+                    promise.resolve(null)
+                    return@Thread
+                }
+                val b64 = Base64.encodeToString(thumbnail, Base64.NO_WRAP)
+                val dataUrl = "data:image/jpeg;base64,$b64"
+                thumbnailCache[handle] = dataUrl
+                promise.resolve(dataUrl)
+            } catch (e: Exception) {
+                promise.reject("ERROR", e.message)
+            }
+        }.start()
     }
 
     // ── Download a photo to app cache dir ─────────────────────────────────────
@@ -205,8 +315,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
         Thread {
             var lastHandles: Set<Int> = try {
                 device.storageIds?.flatMap { sid ->
-                    device.getObjectHandles(sid, MtpConstants.FORMAT_EXIF_JPEG, 0)?.toList()
-                        ?: emptyList()
+                    collectAllPhotoHandles(device, sid, 0xFFFFFFFF.toInt()).toList()
                 }?.toSet() ?: emptySet()
             } catch (_: Exception) { emptySet() }
 
@@ -214,8 +323,7 @@ class MtpModule(reactContext: ReactApplicationContext) :
                 Thread.sleep(2000)
                 try {
                     val current: Set<Int> = device.storageIds?.flatMap { sid ->
-                        device.getObjectHandles(sid, MtpConstants.FORMAT_EXIF_JPEG, 0)?.toList()
-                            ?: emptyList()
+                        collectAllPhotoHandles(device, sid, 0xFFFFFFFF.toInt()).toList()
                     }?.toSet() ?: emptySet()
 
                     val newHandles = current - lastHandles
@@ -225,7 +333,10 @@ class MtpModule(reactContext: ReactApplicationContext) :
                             putInt("handle", handle)
                             putString("filename", info?.name ?: "")
                             putInt("fileSize", info?.compressedSize ?: 0)
-                            putString("captureTime", info?.dateCreated?.toString() ?: "")
+                            putDouble("captureTime", (info?.dateCreated ?: 0L).toDouble() * 1000.0)
+                            putInt("storageId", 0)
+                            putInt("imagePixWidth", info?.imagePixWidth ?: 0)
+                            putInt("imagePixHeight", info?.imagePixHeight ?: 0)
                         }
                         reactApplicationContext
                             .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
