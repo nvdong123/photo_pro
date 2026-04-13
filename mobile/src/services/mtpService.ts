@@ -44,6 +44,7 @@ interface NativeMtpModuleInterface {
   startWatching(): Promise<void>;
   stopWatching(): Promise<void>;
   disconnect(): Promise<void>;
+  diagnose(): Promise<Record<string, unknown>>;
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 }
@@ -150,6 +151,12 @@ class MtpService {
   /** Subscribe to new-photo events emitted by the polling watcher. */
   onNewPhoto(callback: (photo: MtpPhoto) => void): EmitterSubscription | null {
     return this.emitter?.addListener('MtpNewPhoto', callback) ?? null;
+  }
+
+  /** Run diagnostic checks on MTP device — returns structured debug info. */
+  diagnose(): Promise<Record<string, unknown>> {
+    if (!NativeMtpModule) return Promise.reject(new Error('MtpModule unavailable'));
+    return NativeMtpModule.diagnose();
   }
 }
 

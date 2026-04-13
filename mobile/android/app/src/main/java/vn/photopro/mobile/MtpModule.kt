@@ -483,6 +483,146 @@ class MtpModule(reactContext: ReactApplicationContext) :
         promise.resolve(null)
     }
 
+    // ── Diagnose — log Canon MTP behaviour for debugging ────────────────────
+
+    @ReactMethod
+    fun diagnose(promise: Promise) {
+        val device = mtpDevice ?: run {
+            promise.reject("NOT_CONNECTED", "Chưa kết nối")
+            return
+        }
+
+        Thread {
+            try {
+                val result = Arguments.createMap()
+
+                // 1. Device info
+                val devInfo = device.deviceInfo
+                result.putString("manufacturer", devInfo?.manufacturer ?: "null")
+                result.putString("model", devInfo?.model ?: "null")
+                result.putString("version", devInfo?.version ?: "null")
+
+                // 2. Storage list
+                val storageIds = device.storageIds
+                result.putInt("storageCount", storageIds?.size ?: 0)
+
+                if (storageIds != null && storageIds.isNotEmpty()) {
+                    val storageId = storageIds[0]
+                    result.putInt("firstStorageId", storageId)
+
+                    // 3. Try different getObjectHandles strategies
+                    val strategies = Arguments.createMap()
+
+                    // Strategy A: FORMAT_EXIF_JPEG + parent=0xFFFFFFFF  (works on Nikon/Sony/Fuji)
+                    val exifAll = try {
+                        device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, 0xFFFFFFFF.toInt())
+                    } catch (e: Exception) { null }
+                    strategies.putString("A_EXIF_JPEG_allParent",
+                        if (exifAll == null) "null" else "${exifAll.size} handles")
+
+                    // Strategy B: FORMAT_JFIF + parent=0xFFFFFFFF
+                    val jfifAll = try {
+                        device.getObjectHandles(storageId, MtpConstants.FORMAT_JFIF, 0xFFFFFFFF.toInt())
+                    } catch (e: Exception) { null }
+                    strategies.putString("B_JFIF_allParent",
+                        if (jfifAll == null) "null" else "${jfifAll.size} handles")
+
+                    // Strategy C: format=0 (all formats) + parent=0xFFFFFFFF
+                    val allAll = try {
+                        device.getObjectHandles(storageId, 0, 0xFFFFFFFF.toInt())
+                    } catch (e: Exception) { null }
+                    strategies.putString("C_format0_allParent",
+                        if (allAll == null) "null" else "${allAll.size} handles")
+
+                    // Strategy D: format=0 + parent=0 (root children only)
+                    val root0 = try {
+                        device.getObjectHandles(storageId, 0, 0)
+                    } catch (e: Exception) { null }
+                    strategies.putString("D_format0_parent0",
+                        if (root0 == null) "null" else "${root0.size} handles")
+
+                    // Strategy E: FORMAT_ASSOCIATION + parent=0 (find DCIM folder)
+                    val folders0 = try {
+                        device.getObjectHandles(storageId, MtpConstants.FORMAT_ASSOCIATION, 0)
+                    } catch (e: Exception) { null }
+                    strategies.putString("E_ASSOCIATION_parent0",
+                        if (folders0 == null) "null" else "${folders0.size} handles")
+
+                    // Strategy F: FORMAT_EXIF_JPEG + parent=0 (JPEGs in root)
+                    val jpegRoot = try {
+                        device.getObjectHandles(storageId, MtpConstants.FORMAT_EXIF_JPEG, 0)
+                    } catch (e: Exception) { null }
+                    strategies.putString("F_EXIF_JPEG_parent0",
+                        if (jpegRoot == null) "null" else "${jpegRoot.size} handles")
+
+                    result.putMap("strategies", strategies)
+
+                    // 4. Show first 10 items from root (format=0, parent=0)
+                    if (root0 != null && root0.isNotEmpty()) {
+                        val rootItems = Arguments.createArray()
+                        for (h in root0.take(10)) {
+                            val info = device.getObjectInfo(h)
+                            rootItems.pushMap(Arguments.createMap().apply {
+                                putInt("handle", h)
+                                putString("name", info?.name ?: "null")
+                                putString("format", String.format("0x%04X", info?.format ?: 0))
+                                putInt("size", info?.compressedSize ?: -1)
+                            })
+                        }
+                        result.putArray("rootItems", rootItems)
+                    }
+
+                    // 5. If we found folders at root, recurse one level into first folder
+                    if (root0 != null) {
+                        for (h in root0) {
+                            val info = device.getObjectInfo(h) ?: continue
+                            if (info.format == MtpConstants.FORMAT_ASSOCIATION) {
+                                val folderName = info.name ?: "?"
+                                // Get children of this folder
+                                val children = device.getObjectHandles(storageId, 0, h)
+                                val childArr = Arguments.createArray()
+                                if (children != null) {
+                                    for (ch in children.take(10)) {
+                                        val ci = device.getObjectInfo(ch)
+                                        childArr.pushMap(Arguments.createMap().apply {
+                                            putInt("handle", ch)
+                                            putString("name", ci?.name ?: "null")
+                                            putString("format", String.format("0x%04X", ci?.format ?: 0))
+                                            putInt("size", ci?.compressedSize ?: -1)
+                                        })
+                                    }
+                                }
+                                result.putString("firstFolderName", folderName)
+                                result.putInt("firstFolderChildCount", children?.size ?: -1)
+                                result.putArray("firstFolderItems", childArr)
+                                break // only first folder
+                            }
+                        }
+                    }
+
+                    // 6. If Strategy C worked, show first 5 object infos from flat list
+                    if (allAll != null && allAll.isNotEmpty()) {
+                        val sample = Arguments.createArray()
+                        for (h in allAll.take(5)) {
+                            val info = device.getObjectInfo(h)
+                            sample.pushMap(Arguments.createMap().apply {
+                                putInt("handle", h)
+                                putString("name", info?.name ?: "null")
+                                putString("format", String.format("0x%04X", info?.format ?: 0))
+                                putInt("size", info?.compressedSize ?: -1)
+                            })
+                        }
+                        result.putArray("flatSample", sample)
+                    }
+                }
+
+                promise.resolve(result)
+            } catch (e: Exception) {
+                promise.reject("ERROR", "${e.javaClass.simpleName}: ${e.message}")
+            }
+        }.start()
+    }
+
     // Required for NativeEventEmitter on RN side
     @ReactMethod
     fun addListener(eventName: String) {}

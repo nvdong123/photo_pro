@@ -339,6 +339,49 @@ export default function SessionMonitorScreen({ navigation, route }: Props) {
             <Text style={styles.retryConnText}>Thử lại</Text>
           </TouchableOpacity>
         )}
+        {mtp.connectionState === 'connected' && (
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const diag = await mtpService.diagnose();
+                const lines: string[] = [];
+                lines.push(`Model: ${diag.manufacturer ?? '?'} ${diag.model ?? '?'}`);
+                lines.push(`Version: ${diag.version ?? '?'}`);
+                lines.push(`Storage: ${diag.storageCount ?? 0} (id=${diag.firstStorageId ?? '?'})`);
+                lines.push('');
+                const s = diag.strategies as Record<string, string> | undefined;
+                if (s) {
+                  lines.push('--- GetObjectHandles strategies ---');
+                  Object.entries(s).forEach(([k, v]) => lines.push(`${k}: ${v}`));
+                }
+                const rootItems = diag.rootItems as Array<Record<string, unknown>> | undefined;
+                if (rootItems) {
+                  lines.push('');
+                  lines.push('--- Root items ---');
+                  rootItems.forEach((item) => lines.push(`  ${item.name} [${item.format}] ${item.size}B`));
+                }
+                if (diag.firstFolderName) {
+                  lines.push('');
+                  lines.push(`--- /${diag.firstFolderName}/ (${diag.firstFolderChildCount} children) ---`);
+                  const folderItems = diag.firstFolderItems as Array<Record<string, unknown>> | undefined;
+                  folderItems?.forEach((item) => lines.push(`  ${item.name} [${item.format}] ${item.size}B`));
+                }
+                const flat = diag.flatSample as Array<Record<string, unknown>> | undefined;
+                if (flat) {
+                  lines.push('');
+                  lines.push('--- Flat sample (format=0, parent=0xFFFF) ---');
+                  flat.forEach((item) => lines.push(`  ${item.name} [${item.format}] ${item.size}B`));
+                }
+                Alert.alert('Chẩn đoán MTP', lines.join('\n'));
+              } catch (err: unknown) {
+                Alert.alert('Lỗi chẩn đoán', String(err));
+              }
+            }}
+            style={styles.retryConnBtn}
+          >
+            <Text style={styles.retryConnText}>Chẩn đoán</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ─── Stats grid ───────────────────────────────────────────────────── */}
