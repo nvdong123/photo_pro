@@ -52,6 +52,11 @@ export default function FaceSearch() {
   const [facesDetected, setFacesDetected] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
+  // Clear old results when user lands on this page (prevents stale/expired data on back-navigation)
+  useEffect(() => {
+    sessionStorage.removeItem('photopro_search_results');
+  }, []);
+
   const runFaceSearchPipeline = async (imageBlob?: Blob) => {
     const imageToSearch = imageBlob ?? uploadedFile;
     if (!imageToSearch) return;

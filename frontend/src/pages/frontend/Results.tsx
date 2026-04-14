@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Select, Checkbox, Modal, message } from 'antd';
-import { StarOutlined, ReloadOutlined, SearchOutlined, ArrowLeftOutlined, AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { StarOutlined, ReloadOutlined, SearchOutlined, ArrowLeftOutlined, AppstoreOutlined, UnorderedListOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { AlertTriangle, CheckCircle2, Lightbulb, Image as ImageIcon } from 'lucide-react';
 import { usePublicBundles } from '../../hooks/useBundles';
 import '../styles/frontend.css';
@@ -40,6 +40,7 @@ export default function Results() {
   const [selectAll, setSelectAll] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -53,8 +54,12 @@ export default function Results() {
     try {
       // Read face search results from sessionStorage (set by FaceSearch.tsx)
       const raw = sessionStorage.getItem('photopro_search_results');
-      if (raw) {
-        const apiResults: Array<{
+      if (!raw) {
+        // No data — user reloaded or navigated directly; send back to search
+        navigate('/face-search', { replace: true });
+        return;
+      }
+      const apiResults: Array<{
           media_id: string;
           similarity: number;
           thumb_url: string;
@@ -91,7 +96,6 @@ export default function Results() {
           } as Photo & { media_id: string };
         });
         setAllPhotos(photos);
-      }
     } catch (error) {
       console.error('Error loading results:', error);
     }
@@ -162,9 +166,36 @@ export default function Results() {
     navigate('/cart');
   };
 
+  // Flat list of all currently visible photos for gallery navigation
+  const galleryPhotos = useMemo(() => {
+    return Object.values(photosByAlbum).flatMap((group) => group.photos);
+  }, [photosByAlbum]);
+
   const openPhotoPreview = (photo: Photo) => {
+    const idx = galleryPhotos.findIndex((p) => p.id === photo.id);
+    setGalleryIndex(idx >= 0 ? idx : 0);
     setPreviewPhoto(photo);
   };
+
+  const navigateGallery = useCallback((direction: 'prev' | 'next') => {
+    if (galleryPhotos.length === 0) return;
+    const newIndex = direction === 'next'
+      ? (galleryIndex + 1) % galleryPhotos.length
+      : (galleryIndex - 1 + galleryPhotos.length) % galleryPhotos.length;
+    setGalleryIndex(newIndex);
+    setPreviewPhoto(galleryPhotos[newIndex]);
+  }, [galleryIndex, galleryPhotos]);
+
+  // Keyboard navigation for gallery
+  useEffect(() => {
+    if (!previewPhoto) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') navigateGallery('prev');
+      if (e.key === 'ArrowRight') navigateGallery('next');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewPhoto, navigateGallery]);
 
   const { bundles } = usePublicBundles();
 
@@ -261,6 +292,33 @@ export default function Results() {
                   Xóa lọc
                 </Button>
               )}
+
+              <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden', marginLeft: '4px' }}>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 32, height: 28, border: 'none', cursor: 'pointer',
+                    background: viewMode === 'grid' ? 'var(--primary)' : 'var(--surface)',
+                    color: viewMode === 'grid' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <AppstoreOutlined />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 32, height: 28, border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
+                    background: viewMode === 'list' ? 'var(--primary)' : 'var(--surface)',
+                    color: viewMode === 'list' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <UnorderedListOutlined />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -499,37 +557,32 @@ export default function Results() {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span>Xem ảnh</span>
-            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden', marginLeft: 'auto' }}>
-              <button
-                onClick={() => setViewMode('grid')}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 36, height: 32, border: 'none', cursor: 'pointer',
-                  background: viewMode === 'grid' ? 'var(--primary)' : 'var(--surface)',
-                  color: viewMode === 'grid' ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <AppstoreOutlined />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 36, height: 32, border: 'none', borderLeft: '1px solid var(--border)', cursor: 'pointer',
-                  background: viewMode === 'list' ? 'var(--primary)' : 'var(--surface)',
-                  color: viewMode === 'list' ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.2s',
-                }}
-              >
-                <UnorderedListOutlined />
-              </button>
-            </div>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 400 }}>
+              {galleryPhotos.length > 0 ? `${galleryIndex + 1} / ${galleryPhotos.length}` : ''}
+            </span>
           </div>
         }
       >
         {previewPhoto && (
           <div style={{ position: 'relative', lineHeight: 0 }}>
+            {/* Previous button */}
+            {galleryPhotos.length > 1 && (
+              <button
+                onClick={() => navigateGallery('prev')}
+                style={{
+                  position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                  zIndex: 10, width: 40, height: 40, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.5)', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 18, transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.75)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.5)')}
+              >
+                <LeftOutlined />
+              </button>
+            )}
+
             <img
               src={previewPhoto.url}
               alt={`Preview ${previewPhoto.id}`}
@@ -537,6 +590,26 @@ export default function Results() {
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: '100%', display: 'block', borderRadius: 8, userSelect: 'none' }}
             />
+
+            {/* Next button */}
+            {galleryPhotos.length > 1 && (
+              <button
+                onClick={() => navigateGallery('next')}
+                style={{
+                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                  zIndex: 10, width: 40, height: 40, borderRadius: '50%',
+                  background: 'rgba(0,0,0,0.5)', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 18, transition: 'background 0.2s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.75)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.5)')}
+              >
+                <RightOutlined />
+              </button>
+            )}
+
+            {/* Watermark */}
             <div
               style={{
                 position: 'absolute',
@@ -565,6 +638,22 @@ export default function Results() {
               >
                 @Vũng Tàu
               </span>
+            </div>
+
+            {/* Photo info bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 0 0', marginTop: 8,
+            }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Độ khớp: <strong style={{ color: previewPhoto.similarity >= 90 ? '#16a34a' : '#d97706' }}>{previewPhoto.similarity}%</strong>
+              </span>
+              <Checkbox
+                checked={selectedPhotos.includes(previewPhoto.id)}
+                onChange={() => handleTogglePhoto(previewPhoto.id)}
+              >
+                Chọn ảnh này
+              </Checkbox>
             </div>
           </div>
         )}
