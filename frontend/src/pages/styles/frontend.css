@@ -1282,9 +1282,9 @@ h3 {
 .hero-text-overlay {
   position: absolute;
   bottom: 80px;
-  right: 80px;
+  left: 80px;
   z-index: 2;
-  text-align: center;
+  text-align: left;
 }
 
 .hero-main-title {
@@ -1333,7 +1333,7 @@ h3 {
 .hero-actions {
   display: flex;
   gap: 12px;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .hero-btn-primary.ant-btn {
