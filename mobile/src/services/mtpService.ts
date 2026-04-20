@@ -9,6 +9,7 @@ import {
   Platform,
   type EmitterSubscription,
 } from 'react-native';
+import { getApiBase, getToken } from './apiClient';
 
 export interface CameraDevice {
   deviceName: string;
@@ -35,6 +36,12 @@ export interface MtpPhoto {
 }
 
 interface NativeMtpModuleInterface {
+  configureOTGSession(apiUrl: string, authToken: string): Promise<void>;
+  startOTGSession(
+    locationId: string,
+    locationName: string,
+    shootDate: string,
+  ): Promise<{ uploadedCount: number; failedCount: number }>;
   detectDevice(): Promise<CameraDevice | null>;
   connect(): Promise<CameraInfo>;
   getPhotoList(): Promise<MtpPhoto[]>;
@@ -71,6 +78,24 @@ class MtpService {
   detectDevice(): Promise<CameraDevice | null> {
     if (!NativeMtpModule) return Promise.resolve(null);
     return NativeMtpModule.detectDevice();
+  }
+
+  async startOTGSession(
+    locationId: string,
+    locationName: string,
+    shootDate: string,
+  ): Promise<{ uploadedCount: number; failedCount: number }> {
+    if (!NativeMtpModule) {
+      return Promise.reject(new Error('MtpModule unavailable'));
+    }
+
+    const [apiBase, token] = await Promise.all([getApiBase(), getToken()]);
+    if (!token) {
+      throw new Error('Không tìm thấy token đăng nhập');
+    }
+
+    await NativeMtpModule.configureOTGSession(apiBase, token);
+    return NativeMtpModule.startOTGSession(locationId, locationName, shootDate);
   }
 
   /** Open an MTP session. Must call detectDevice first. */

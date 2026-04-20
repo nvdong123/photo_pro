@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    USB device filter for camera brands:
+    Canon:   vendor-id="1193"  (0x04a9)
+    Sony:    vendor-id="1356"  (0x054c)
+    Nikon:   vendor-id="1200"  (0x04b0)
+    Fuji:    vendor-id="1160"  (0x04cb)
+-->
+<resources>
+    <usb-device vendor-id="1193" />
+    <usb-device vendor-id="1356" />
+    <usb-device vendor-id="1200" />
+    <usb-device vendor-id="1160" />
+</resources>

@@ -75,9 +75,49 @@ const TABS: { key: FilterTab; label: string }[] = [
 ];
 
 export default function SessionMonitorScreen({ navigation, route }: Props) {
-  const { locationId, locationName } = route.params;
-
+  const { locationId, locationName, connectionMode } = route.params;
   const mtp = useMtpCamera();
+  const [launchingNative, setLaunchingNative] = useState(Platform.OS === 'android' && connectionMode === 'wired');
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || connectionMode !== 'wired' || !mtpService.isSupported()) {
+      setLaunchingNative(false);
+      return;
+    }
+
+    let active = true;
+    const run = async () => {
+      try {
+        const result = await mtpService.startOTGSession(locationId, locationName, getTodayIso());
+        if (!active) return;
+        Alert.alert(
+          'Phiên OTG hoàn tất',
+          `Đã upload: ${result.uploadedCount}\nLỗi: ${result.failedCount}`,
+          [{ text: 'Đóng', onPress: () => navigation.goBack() }],
+        );
+      } catch (err) {
+        if (!active) return;
+        const msg = err instanceof Error ? err.message : 'Không thể mở OTG Session';
+        Alert.alert('Lỗi OTG', msg);
+        setLaunchingNative(false);
+      }
+    };
+
+    void run();
+
+    return () => {
+      active = false;
+    };
+  }, [connectionMode, locationId, locationName, navigation]);
+
+  if (launchingNative) {
+    return (
+      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={BRAND} />
+        <Text style={{ marginTop: 12, color: '#334155' }}>Đang mở phiên OTG native...</Text>
+      </View>
+    );
+  }
 
   // Grid items (extends MtpPhoto with upload status).
   const [gridItems, setGridItems] = useState<PhotoGridItem[]>([]);

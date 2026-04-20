@@ -1,6 +1,8 @@
 package vn.photopro.mobile
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
@@ -8,7 +10,9 @@ import android.mtp.MtpConstants
 import android.mtp.MtpDevice
 import android.mtp.MtpObjectInfo
 import android.util.Base64
+import com.facebook.react.bridge.ActivityEventListener
 import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.BaseActivityEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -17,15 +21,47 @@ import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import java.io.File
+import vn.photopro.mobile.otg.OTGSessionActivity
 
 class MtpModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
     override fun getName() = "MtpModule"
 
+    private val prefs by lazy {
+        reactApplicationContext.getSharedPreferences("photopro_otg", Context.MODE_PRIVATE)
+    }
+    private var pendingOTGPromise: Promise? = null
+
     private var mtpDevice: MtpDevice? = null
     private var usbDevice: UsbDevice? = null
     private val thumbnailCache = HashMap<Int, String>()
+    private val activityEventListener: ActivityEventListener = object : BaseActivityEventListener() {
+        override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
+            if (requestCode != OTG_REQUEST_CODE) return
+
+            val promise = pendingOTGPromise
+            pendingOTGPromise = null
+
+            if (promise == null) return
+            if (resultCode != Activity.RESULT_OK) {
+                promise.reject("OTG_CANCELLED", "Nguoi dung da dong phien OTG")
+                return
+            }
+
+            val uploaded = data?.getIntExtra("uploadedCount", 0) ?: 0
+            val failed = data?.getIntExtra("failedCount", 0) ?: 0
+            val result = Arguments.createMap().apply {
+                putInt("uploadedCount", uploaded)
+                putInt("failedCount", failed)
+            }
+            promise.resolve(result)
+        }
+    }
+
+    init {
+        reactApplicationContext.addActivityEventListener(activityEventListener)
+    }
 
     // Prevent watcher from touching MTP bus during active scan (MTP is sequential — not thread-safe)
     @Volatile private var isScanning = false
@@ -34,6 +70,12 @@ class MtpModule(reactContext: ReactApplicationContext) :
 
     private fun getUsbManager(): UsbManager =
         reactApplicationContext.getSystemService(Context.USB_SERVICE) as UsbManager
+
+    private fun getStoredToken(): String =
+        prefs.getString(OTG_AUTH_TOKEN_KEY, "") ?: ""
+
+    private fun getStoredApiUrl(): String =
+        prefs.getString(OTG_API_URL_KEY, BuildConfig.API_URL) ?: BuildConfig.API_URL
 
     private fun findCamera(usbManager: UsbManager): UsbDevice? =
         usbManager.deviceList.values.firstOrNull { device ->
@@ -63,6 +105,52 @@ class MtpModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             promise.reject("ERROR", e.message)
         }
+    }
+
+    @ReactMethod
+    fun configureOTGSession(apiUrl: String, authToken: String, promise: Promise) {
+        prefs.edit()
+            .putString(OTG_API_URL_KEY, apiUrl.trimEnd('/'))
+            .putString(OTG_AUTH_TOKEN_KEY, authToken)
+            .apply()
+        promise.resolve(null)
+    }
+
+    @ReactMethod
+    fun startOTGSession(
+        locationId: String,
+        locationName: String,
+        shootDate: String,
+        promise: Promise
+    ) {
+        val activity = reactApplicationContext.currentActivity
+        if (activity == null) {
+            promise.reject("NO_ACTIVITY", "Khong co activity")
+            return
+        }
+
+        if (pendingOTGPromise != null) {
+            promise.reject("OTG_BUSY", "Phien OTG khac dang chay")
+            return
+        }
+
+        val authToken = getStoredToken()
+        if (authToken.isBlank()) {
+            promise.reject("NO_AUTH_TOKEN", "Chua co auth token")
+            return
+        }
+
+        val intent = Intent(activity, OTGSessionActivity::class.java).apply {
+            putExtra("locationId", locationId)
+            putExtra("locationName", locationName)
+            putExtra("apiUrl", getStoredApiUrl())
+            putExtra("authToken", authToken)
+            putExtra("shootDate", shootDate)
+            // Do NOT add FLAG_ACTIVITY_NEW_TASK — breaks startActivityForResult
+        }
+
+        pendingOTGPromise = promise
+        activity.startActivityForResult(intent, OTG_REQUEST_CODE)
     }
 
     // ── Connect + open MTP session ─────────────────────────────────────────────
@@ -629,4 +717,10 @@ class MtpModule(reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun removeListeners(count: Int) {}
+
+    companion object {
+        private const val OTG_REQUEST_CODE = 5417
+        private const val OTG_AUTH_TOKEN_KEY = "auth_token"
+        private const val OTG_API_URL_KEY = "api_url"
+    }
 }

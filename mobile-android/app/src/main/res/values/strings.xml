@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PhotoPro</string>
+    <string name="login_title">Dang nhap</string>
+    <string name="login_email">Email</string>
+    <string name="login_password">Mat khau</string>
+    <string name="login_button">Dang nhap</string>
+    <string name="nav_upload">Tai len</string>
+    <string name="nav_session">Phien chup</string>
+    <string name="nav_livefeed">Live Feed</string>
+    <string name="nav_settings">Cai dat</string>
+    <string name="ftp_title">Cai dat FTP</string>
+    <string name="otg_title">Phien chup co day (MTP/OTG)</string>
+    <string name="untagged_title">Anh chua gan dia diem</string>
+</resources>
