@@ -1365,24 +1365,28 @@ h3 {
     background-position: center center !important;
     background-size: cover !important;
   }
+  /* Đặt nút dưới title text trong ảnh banner (khoảng 22% từ trên) */
   .hero-text-overlay {
-    bottom: 85px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 22%;
+    left: 20px;
     right: auto;
-    width: calc(100% - 32px);
-    text-align: center;
+    bottom: auto;
+    transform: none;
+    width: auto;
+    text-align: left;
   }
+  /* 2 nút xếp hàng ngang, góc trên trái */
   .hero-actions {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
+    gap: 10px;
   }
   .hero-btn-primary.ant-btn,
   .hero-btn-outline.ant-btn {
-    height: 46px !important;
-    padding-inline: 20px !important;
-    font-size: 0.9rem !important;
-    width: 100% !important;
+    height: 40px !important;
+    padding-inline: 16px !important;
+    font-size: 0.82rem !important;
+    width: auto !important;
     max-width: none !important;
   }
 }
