@@ -1366,7 +1366,7 @@ h3 {
     background-size: cover !important;
   }
   .hero-text-overlay {
-    bottom: 85px;
+    bottom: 28%;
     left: 50%;
     transform: translateX(-50%);
     right: auto;
