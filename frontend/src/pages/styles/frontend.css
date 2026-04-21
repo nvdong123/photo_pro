@@ -1375,19 +1375,9 @@ h3 {
     width: auto;
     text-align: left;
   }
-  /* 2 nút xếp hàng ngang, góc trên trái */
+  /* Ẩn 2 nút trên mobile — ảnh banner đã đủ thông tin */
   .hero-actions {
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-  }
-  .hero-btn-primary.ant-btn,
-  .hero-btn-outline.ant-btn {
-    height: 40px !important;
-    padding-inline: 16px !important;
-    font-size: 0.82rem !important;
-    width: auto !important;
-    max-width: none !important;
+    display: none !important;
   }
 }
 
